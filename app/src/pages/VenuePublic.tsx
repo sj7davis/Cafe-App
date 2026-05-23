@@ -401,44 +401,57 @@ function MenuCard({
 }) {
   return (
     <div style={{
-      border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8, padding: 16,
-      background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-      gap: 12,
+      border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8,
+      background: 'white', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 600, fontSize: 14, color: '#181818', marginBottom: 4 }}>{item.name}</div>
-        {item.description && (
-          <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 8, lineHeight: 1.4 }}>{item.description}</div>
-        )}
-        <div style={{ fontWeight: 700, fontSize: 15, color: accentColor }}>
-          ${Number(item.price).toFixed(2)}
+      {item.image && (
+        <img
+          src={item.image}
+          alt={item.name}
+          style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }}
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+      )}
+      <div style={{
+        padding: 16, display: 'flex', justifyContent: 'space-between',
+        alignItems: 'flex-start', gap: 12,
+      }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: '#181818', marginBottom: 4 }}>{item.name}</div>
+          {item.description && (
+            <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 8, lineHeight: 1.4 }}>{item.description}</div>
+          )}
+          <div style={{ fontWeight: 700, fontSize: 15, color: accentColor }}>
+            ${Number(item.price).toFixed(2)}
+          </div>
         </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {cartQty > 0 && (
-          <>
-            <button
-              onClick={onRemove}
-              style={{
-                width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
-                background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Minus size={14} />
-            </button>
-            <span style={{ fontWeight: 600, fontSize: 14, minWidth: 16, textAlign: 'center' }}>{cartQty}</span>
-          </>
-        )}
-        <button
-          onClick={onAdd}
-          style={{
-            width: 28, height: 28, borderRadius: 6, border: 'none',
-            background: '#181818', color: '#F3F2EE', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Plus size={14} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {cartQty > 0 && (
+            <>
+              <button
+                onClick={onRemove}
+                style={{
+                  width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
+                  background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Minus size={14} />
+              </button>
+              <span style={{ fontWeight: 600, fontSize: 14, minWidth: 16, textAlign: 'center' }}>{cartQty}</span>
+            </>
+          )}
+          <button
+            onClick={onAdd}
+            style={{
+              width: 28, height: 28, borderRadius: 6, border: 'none',
+              background: '#181818', color: '#F3F2EE', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );
