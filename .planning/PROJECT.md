@@ -28,10 +28,13 @@ Every cafe gets a branded online ordering site, real-time Square POS sync, staff
 
 **Goal:** Build all customer, staff, loyalty, and notification features to make B1 Platform a complete, production-ready cafe SaaS.
 
+**Phase Progress:** Phase 1 complete (2026-05-23) — Phase 2 up next
+
 **Target features:**
-- Owner login page (returning owners)
+- ✅ Owner login page (returning owners) — Phase 1
+- ✅ Menu item image support — Phase 1
+- ✅ Menu CRUD (create/edit/delete) — Phase 1
 - Customer order status tracking page
-- Menu item image upload
 - Real-time order notifications (staff dashboard auto-poll)
 - Customer preferences (milk/sugar saved by phone)
 - Gift card purchase & redemption
@@ -66,4 +69,14 @@ Every cafe gets a branded online ordering site, real-time Square POS sync, staff
 - Mobile push notifications
 
 ---
-*Last updated: 2026-05-23 after initialization*
+### Validated in Phase 1: Owner Access & Menu Management (2026-05-23)
+
+- AUTH-01: Owner `/login` page with email/password form
+- AUTH-02: Successful login redirects to `/dashboard`
+- AUTH-03: `/login` page links to `/onboarding` for new registrations
+- MENU-01: Owner can create, edit, and delete menu items from dashboard
+- MENU-02: Owner can set image URL; renders on public venue page; hidden cleanly when absent
+- MENU-03: `updateMenuItem` + `deleteMenuItem` mutations with JWT auth and FK conflict guard
+
+---
+*Last updated: 2026-05-23 — Phase 1 complete*
