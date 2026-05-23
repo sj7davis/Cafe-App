@@ -48,7 +48,7 @@ Plans:
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Owner Access & Menu Management** - Owner login page and full menu CRUD with image support
+- [x] **Phase 1: Owner Access & Menu Management** - Owner login page and full menu CRUD with image support (completed 2026-05-23)
 - [ ] **Phase 2: Order Tracking & Staff Dashboard** - Customer order status page and live-refreshing staff view
 - [ ] **Phase 3: Customer Engagement** - Saved preferences at checkout and post-order review/rating flow
 - [ ] **Phase 4: Monetisation** - Gift card purchase/redemption and subscription coffee pass
@@ -67,7 +67,7 @@ Plans:
   3. Owner can create, edit, and delete menu items from the dashboard without errors
   4. Owner can set an image URL on a menu item and it renders on the public venue page
   5. Venue public menu hides the image slot cleanly when no URL is set
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 01-01-PLAN.md — Add updateMenuItem + deleteMenuItem mutations to venueRouter (backend foundation for MENU-03)
 - [ ] 01-02-PLAN.md — Build /login page, register route, fix OwnerDashboard redirect (AUTH-01/02/03)
@@ -142,7 +142,7 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Owner Access & Menu Management | 2/3 | In Progress|  | - |
+| 1. Owner Access & Menu Management | 3/3 | Complete   | 2026-05-23 | - |
 | 2. Order Tracking & Staff Dashboard | v1.1 | 0/? | Not started | - |
 | 3. Customer Engagement | v1.1 | 0/? | Not started | - |
 | 4. Monetisation | v1.1 | 0/? | Not started | - |
