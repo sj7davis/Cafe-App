@@ -6,10 +6,9 @@ import { staffAccounts, venues } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
+import { env } from "./lib/env";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.STAFF_JWT_SECRET || "b1-platform-jwt-secret-key-2024"
-);
+const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const staffAuthRouter = createRouter({
   // Staff login with venue context

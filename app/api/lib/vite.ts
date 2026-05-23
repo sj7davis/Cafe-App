@@ -1,16 +1,12 @@
 import type { Hono } from "hono";
 import type { HttpBindings } from "@hono/node-server";
 
-export function serveStaticFiles(app: Hono<{ Bindings: HttpBindings }>) {
-  // In production, static files are served by the reverse proxy
-  // This is a compatibility no-op
-  void app;
-}
+export async function serveStaticFiles(app: Hono<{ Bindings: HttpBindings }>) {
+  const { serveStatic } = await import("@hono/node-server/serve-static");
 
-export function getEnv(key: string): string | undefined {
-  try {
-    return (import.meta as unknown as { env: Record<string, string> }).env?.[key];
-  } catch {
-    return undefined;
-  }
+  // Serve built frontend assets
+  app.use("/*", serveStatic({ root: "./dist" }));
+
+  // SPA fallback — serve index.html for all non-API routes
+  app.use("/*", serveStatic({ path: "./dist/index.html" }));
 }

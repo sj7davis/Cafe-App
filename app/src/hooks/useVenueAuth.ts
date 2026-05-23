@@ -3,9 +3,9 @@ import { trpc } from '@/providers/trpc';
 
 interface VenueOwner {
   id: number;
-  name: string;
+  name: string | null;
   email: string;
-  role: string;
+  role: string | null;
 }
 
 interface Venue {
@@ -13,10 +13,10 @@ interface Venue {
   slug: string;
   name: string;
   subdomain: string | null;
-  subscriptionTier: string;
-  subscriptionStatus: string;
-  trialEndsAt: Date | null;
-  squareEnabled: boolean;
+  subscriptionTier: string | null;
+  subscriptionStatus: string | null;
+  trialEndsAt: string | null;
+  squareEnabled: boolean | null;
 }
 
 export function useVenueAuth() {

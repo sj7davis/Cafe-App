@@ -5,9 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server:dev": "tsx --tsconfig tsconfig.server.json api/boot.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server:dev\"",
     "build": "vite build",
+    "build:frontend": "vite build",
+    "start": "NODE_ENV=production tsx --tsconfig tsconfig.server.json api/boot.ts",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "seed": "tsx --tsconfig tsconfig.server.json db/seed-staff.ts",
+    "seed:platform": "tsx --tsconfig tsconfig.server.json db/seed-platform.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.3",
@@ -38,6 +48,7 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@tanstack/react-query": "^5.80.5",
     "@trpc/client": "^11.17.0",
     "@trpc/react-query": "^11.17.0",
     "@trpc/server": "^11.17.0",
@@ -80,9 +91,12 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
+    "concurrently": "^9.1.2",
+    "drizzle-kit": "^0.31.1",
     "eslint": "^9.39.1",
     "postcss": "^8.5.5",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   }

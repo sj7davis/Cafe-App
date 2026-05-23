@@ -4,9 +4,10 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues } from "@db/schema";
 import { eq } from "drizzle-orm";
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify } from "jose";
+import { env } from "./lib/env";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.STAFF_JWT_SECRET || "b1-platform-jwt-secret-key-2024");
+const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 const TIERS = {
   starter: { name: "Starter", monthlyPrice: 49, features: ["Basic menu", "Online orders", "2 staff members", "Email support"] },

@@ -49,7 +49,7 @@ export function useStaffAuth() {
     setToken('');
     setVenueId(0);
     utils.staffAuth.me.invalidate();
-    window.location.href = '/#/staff-login';
+    window.location.href = '/staff-login';
   }, [utils]);
 
   const login = useCallback((newToken: string, newVenueId: number) => {

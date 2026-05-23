@@ -3,11 +3,12 @@ import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions } from "@db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
+import { env } from "./lib/env";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.STAFF_JWT_SECRET || "b1-platform-jwt-secret-key-2024");
+const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const venueRouter = createRouter({
   // Public: Get venue by slug (for customer-facing site)
@@ -383,8 +384,8 @@ export const venueRouter = createRouter({
     });
     await db.update(loyaltyAccounts)
       .set({
-        pointsBalance: db.$executeRaw`points_balance + ${input.points}` as any,
-        totalLifetimePoints: db.$executeRaw`total_lifetime_points + ${input.points}` as any,
+        pointsBalance: sql`points_balance + ${input.points}`,
+        totalLifetimePoints: sql`total_lifetime_points + ${input.points}`,
       })
       .where(eq(loyaltyAccounts.id, input.accountId));
     return { success: true };

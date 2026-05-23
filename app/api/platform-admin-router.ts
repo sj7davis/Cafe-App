@@ -2,12 +2,13 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, platformAdmins, staffAccounts, orders, menuItems } from "@db/schema";
+import { venues, platformAdmins, orders, menuItems } from "@db/schema";
 import { eq, count, desc } from "drizzle-orm";
-import { hash, compare } from "bcrypt-ts";
+import { compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
+import { env } from "./lib/env";
 
-const JWT_SECRET = new TextEncoder().encode(process.env.PLATFORM_ADMIN_SECRET || "b1-platform-admin-secret-2024");
+const JWT_SECRET = new TextEncoder().encode(env.platformAdminSecret);
 
 export const platformAdminRouter = createRouter({
   login: publicQuery.input(z.object({

@@ -139,11 +139,12 @@ async function seed() {
 
   console.log("\n=== Seed Complete ===");
   console.log(`Venue ID: ${venueId}`);
-  console.log("Staff Login: https://fxtkhzc7abdm4.kimi.page/#/staff-login");
+  console.log("Staff Login: http://localhost:3000/staff-login");
   console.log("Login with:");
   console.log("  Venue ID: " + venueId);
   console.log("  Username: admin (or manager, staff)");
   console.log("  Password: b12345");
+  console.log("\nPublic menu: http://localhost:3000/v/b1-backhaus");
 }
 
 seed().catch(console.error);

@@ -67,7 +67,8 @@ export default function VenuePublic() {
   const pastryItems = menuItems?.filter(i => i.category === 'pastries') || [];
   const breadItems = menuItems?.filter(i => i.category === 'bread') || [];
 
-  const addToCart = (item: typeof menuItems extends readonly (infer T)[] ? T : never) => {
+  type MenuItem = NonNullable<typeof menuItems>[number];
+  const addToCart = (item: MenuItem) => {
     setCart(prev => {
       const existing = prev.find(c => c.menuItemId === item.id);
       if (existing) {
