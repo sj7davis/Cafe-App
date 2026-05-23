@@ -23,7 +23,7 @@
 
 - [ ] **MENU-01**: Venue owner can add an image URL to a menu item from the owner dashboard
 - [ ] **MENU-02**: Public venue menu displays item images when available
-- [ ] **MENU-03**: Owner can create, edit, and delete menu items from the dashboard
+- [x] **MENU-03**: Owner can create, edit, and delete menu items from the dashboard
 
 ---
 
@@ -133,7 +133,7 @@
 | AUTH-03 | Phase 1 | Pending |
 | MENU-01 | Phase 1 | Pending |
 | MENU-02 | Phase 1 | Pending |
-| MENU-03 | Phase 1 | Pending |
+| MENU-03 | Phase 1 | Complete |
 | ORD-01 | Phase 2 | Pending |
 | ORD-02 | Phase 2 | Pending |
 | ORD-03 | Phase 2 | Pending |
