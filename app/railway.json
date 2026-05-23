@@ -5,7 +5,7 @@
     "buildCommand": "npm install && npm run build:frontend"
   },
   "deploy": {
-    "startCommand": "NODE_ENV=production tsx --tsconfig tsconfig.server.json api/boot.ts",
+    "startCommand": "tsx --tsconfig tsconfig.server.json api/boot.ts",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
