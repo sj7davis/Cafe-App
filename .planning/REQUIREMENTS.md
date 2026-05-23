@@ -126,17 +126,47 @@
 
 ## Traceability
 
-| REQ | Phase | Status |
-|-----|-------|--------|
-| AUTH-01–03 | TBD | planned |
-| ORD-01–04 | TBD | planned |
-| MENU-01–03 | TBD | planned |
-| STAFF-01–03 | TBD | planned |
-| PREF-01–03 | TBD | planned |
-| GIFT-01–04 | TBD | planned |
-| PASS-01–04 | TBD | planned |
-| REV-01–04 | TBD | planned |
-| LOC-01–04 | TBD | planned |
-| CAT-01–03 | TBD | planned |
-| QR-01–03 | TBD | planned |
-| EMAIL-01–04 | TBD | planned |
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| MENU-01 | Phase 1 | Pending |
+| MENU-02 | Phase 1 | Pending |
+| MENU-03 | Phase 1 | Pending |
+| ORD-01 | Phase 2 | Pending |
+| ORD-02 | Phase 2 | Pending |
+| ORD-03 | Phase 2 | Pending |
+| ORD-04 | Phase 2 | Pending |
+| STAFF-01 | Phase 2 | Pending |
+| STAFF-02 | Phase 2 | Pending |
+| STAFF-03 | Phase 2 | Pending |
+| PREF-01 | Phase 3 | Pending |
+| PREF-02 | Phase 3 | Pending |
+| PREF-03 | Phase 3 | Pending |
+| REV-01 | Phase 3 | Pending |
+| REV-02 | Phase 3 | Pending |
+| REV-03 | Phase 3 | Pending |
+| REV-04 | Phase 3 | Pending |
+| GIFT-01 | Phase 4 | Pending |
+| GIFT-02 | Phase 4 | Pending |
+| GIFT-03 | Phase 4 | Pending |
+| GIFT-04 | Phase 4 | Pending |
+| PASS-01 | Phase 4 | Pending |
+| PASS-02 | Phase 4 | Pending |
+| PASS-03 | Phase 4 | Pending |
+| PASS-04 | Phase 4 | Pending |
+| LOC-01 | Phase 5 | Pending |
+| LOC-02 | Phase 5 | Pending |
+| LOC-03 | Phase 5 | Pending |
+| LOC-04 | Phase 5 | Pending |
+| CAT-01 | Phase 5 | Pending |
+| CAT-02 | Phase 5 | Pending |
+| CAT-03 | Phase 5 | Pending |
+| QR-01 | Phase 6 | Pending |
+| QR-02 | Phase 6 | Pending |
+| QR-03 | Phase 6 | Pending |
+| EMAIL-01 | Phase 6 | Pending |
+| EMAIL-02 | Phase 6 | Pending |
+| EMAIL-03 | Phase 6 | Pending |
+| EMAIL-04 | Phase 6 | Pending |
