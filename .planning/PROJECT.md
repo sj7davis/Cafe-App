@@ -24,6 +24,26 @@ Every cafe gets a branded online ordering site, real-time Square POS sync, staff
 | Railway deployment | Simple managed hosting with MySQL add-on | railway.json config |
 | Local MySQL for dev | Developer-friendly, no cloud dependency | .env.example updated |
 
+## Current Milestone: v1.1 — Full Feature Build
+
+**Goal:** Build all customer, staff, loyalty, and notification features to make B1 Platform a complete, production-ready cafe SaaS.
+
+**Target features:**
+- Owner login page (returning owners)
+- Customer order status tracking page
+- Menu item image upload
+- Real-time order notifications (staff dashboard auto-poll)
+- Customer preferences (milk/sugar saved by phone)
+- Gift card purchase & redemption
+- Subscription coffee pass (10 coffees for $X)
+- Review & rating after order completion
+- Multi-location support UI
+- Catering request form (public)
+- QR code generator per venue
+- Email notifications (order confirmation + new order alert)
+
+---
+
 ## Requirements
 
 ### Active (v1 — make existing code work)
