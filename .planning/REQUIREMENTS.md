@@ -4,9 +4,9 @@
 
 ### Auth & Owner Access
 
-- [ ] **AUTH-01**: Returning venue owner can log in at `/login` with email and password
-- [ ] **AUTH-02**: Logged-in owner is redirected to `/dashboard` after login
-- [ ] **AUTH-03**: Owner login page links to `/onboarding` for new registrations
+- [x] **AUTH-01**: Returning venue owner can log in at `/login` with email and password
+- [x] **AUTH-02**: Logged-in owner is redirected to `/dashboard` after login
+- [x] **AUTH-03**: Owner login page links to `/onboarding` for new registrations
 
 ---
 
@@ -128,9 +128,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
 | MENU-01 | Phase 1 | Pending |
 | MENU-02 | Phase 1 | Pending |
 | MENU-03 | Phase 1 | Complete |

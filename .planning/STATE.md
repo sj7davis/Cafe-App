@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
 status: unknown
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-05-23T11:54:22.341Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-05-23T11:55:54.123Z"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -47,6 +47,7 @@ Plan: 1 of 3
 
 *Updated after each plan completion*
 | Phase 01-owner-access-menu-management P01 | 8 | 2 tasks | 1 files |
+| Phase 01 P02 | 131 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Recent decisions affecting current work:
 - DB schema already has tables for all v1.1 features — no new migrations expected for schema shape, only logic
 - [Phase 01-owner-access-menu-management]: deleteMenuItem returns CONFLICT TRPCError instead of raw MySQL FK crash; FK guard queries orderItems before delete
 - [Phase 01-owner-access-menu-management]: Authed mutation pattern established: jwtVerify + venueId ownership check + business logic
+- [Phase 01]: Used react-router Link for /onboarding link in Login.tsx (not anchor) per react-router v7 pattern
+- [Phase 01]: OwnerDashboard Login Required CTA changed from navigate('/onboarding') to navigate('/login')
 
 ### Pending Todos
 
@@ -73,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-23T11:54:13.297Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-05-23T11:55:54.120Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
