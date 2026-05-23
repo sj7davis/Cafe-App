@@ -67,7 +67,11 @@ Plans:
   3. Owner can create, edit, and delete menu items from the dashboard without errors
   4. Owner can set an image URL on a menu item and it renders on the public venue page
   5. Venue public menu hides the image slot cleanly when no URL is set
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — Add updateMenuItem + deleteMenuItem mutations to venueRouter (backend foundation for MENU-03)
+- [ ] 01-02-PLAN.md — Build /login page, register route, fix OwnerDashboard redirect (AUTH-01/02/03)
+- [ ] 01-03-PLAN.md — Add MenuTab CRUD to OwnerDashboard + conditional image render in VenuePublic (MENU-01/02/03 UI)
 
 ### Phase 2: Order Tracking & Staff Dashboard
 **Goal**: Customers can track their order status without logging in, and staff see new orders automatically
@@ -138,7 +142,7 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Owner Access & Menu Management | v1.1 | 0/? | Not started | - |
+| 1. Owner Access & Menu Management | v1.1 | 0/3 | Not started | - |
 | 2. Order Tracking & Staff Dashboard | v1.1 | 0/? | Not started | - |
 | 3. Customer Engagement | v1.1 | 0/? | Not started | - |
 | 4. Monetisation | v1.1 | 0/? | Not started | - |
