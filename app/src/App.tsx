@@ -4,6 +4,7 @@ import Onboarding from './pages/Onboarding'
 import OwnerDashboard from './pages/OwnerDashboard'
 import SuperAdmin from './pages/SuperAdmin'
 import VenuePublic from './pages/VenuePublic'
+import Login from './pages/Login'
 import StaffLogin from './pages/StaffLogin'
 import StaffDashboard from './pages/StaffDashboard'
 import NotFound from './pages/NotFound'
@@ -13,6 +14,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<OwnerDashboard />} />
       <Route path="/admin" element={<SuperAdmin />} />
       <Route path="/v/:slug" element={<VenuePublic />} />
