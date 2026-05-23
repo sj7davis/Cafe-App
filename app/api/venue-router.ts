@@ -1,0 +1,400 @@
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { createRouter, publicQuery } from "./middleware";
+import { getDb } from "./queries/connection";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions } from "@db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { hash, compare } from "bcrypt-ts";
+import { SignJWT, jwtVerify } from "jose";
+
+const JWT_SECRET = new TextEncoder().encode(process.env.STAFF_JWT_SECRET || "b1-platform-jwt-secret-key-2024");
+
+export const venueRouter = createRouter({
+  // Public: Get venue by slug (for customer-facing site)
+  getBySlug: publicQuery.input(z.object({ slug: z.string() })).query(async ({ input }) => {
+    const db = getDb();
+    const results = await db.select().from(venues).where(eq(venues.slug, input.slug)).limit(1);
+    const venue = results[0];
+    if (!venue || !venue.isPublic) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    const { squareAccessToken, squareRefreshToken, stripeCustomerId, stripeSubscriptionId, ...safe } = venue;
+    return safe;
+  }),
+
+  // Public: List all public venues (for platform directory)
+  listPublic: publicQuery.query(async () => {
+    const db = getDb();
+    const all = await db.select().from(venues).where(eq(venues.isPublic, true));
+    return all.map(v => {
+      const { squareAccessToken, squareRefreshToken, stripeCustomerId, stripeSubscriptionId, ...safe } = v;
+      return safe;
+    });
+  }),
+
+  // ─── Owner Auth ───
+  register: publicQuery.input(z.object({
+    email: z.string().email(),
+    password: z.string().min(6),
+    name: z.string(),
+    venueName: z.string(),
+    venueSlug: z.string().regex(/^[a-z0-9-]+$/),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+
+    // Check slug availability
+    const existing = await db.select().from(venues).where(eq(venues.slug, input.venueSlug)).limit(1);
+    if (existing.length > 0) throw new TRPCError({ code: "CONFLICT", message: "Slug already taken" });
+
+    // Check email
+    const existingOwner = await db.select().from(venueOwners).where(eq(venueOwners.email, input.email)).limit(1);
+    if (existingOwner.length > 0) throw new TRPCError({ code: "CONFLICT", message: "Email already registered" });
+
+    // Create venue
+    const [venueResult] = await db.insert(venues).values({
+      slug: input.venueSlug,
+      name: input.venueName,
+      subdomain: input.venueSlug,
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    });
+
+    // Create owner
+    const passwordHash = await hash(input.password, 10);
+    await db.insert(venueOwners).values({
+      venueId: Number(venueResult.insertId),
+      email: input.email,
+      name: input.name,
+      passwordHash,
+    });
+
+    return { venueId: Number(venueResult.insertId), slug: input.venueSlug };
+  }),
+
+  login: publicQuery.input(z.object({
+    email: z.string().email(),
+    password: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const results = await db.select().from(venueOwners).where(eq(venueOwners.email, input.email)).limit(1);
+    const owner = results[0];
+    if (!owner || !owner.passwordHash) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
+
+    const valid = await compare(input.password, owner.passwordHash);
+    if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
+
+    const token = await new SignJWT({ ownerId: owner.id, venueId: owner.venueId, role: owner.role })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("7d")
+      .sign(JWT_SECRET);
+
+    await db.update(venueOwners).set({ lastLoginAt: new Date() }).where(eq(venueOwners.id, owner.id));
+
+    const venueResults = await db.select().from(venues).where(eq(venues.id, owner.venueId)).limit(1);
+    const venue = venueResults[0];
+
+    return { token, owner: { id: owner.id, name: owner.name, email: owner.email, role: owner.role }, venue };
+  }),
+
+  me: publicQuery.input(z.object({ token: z.string() }).optional()).query(async ({ input }) => {
+    if (!input?.token) return null;
+    try {
+      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+      const db = getDb();
+      const ownerResults = await db.select().from(venueOwners).where(eq(venueOwners.id, payload.payload.ownerId as number)).limit(1);
+      const owner = ownerResults[0];
+      if (!owner || !owner.isActive) return null;
+      const venueResults = await db.select().from(venues).where(eq(venues.id, owner.venueId)).limit(1);
+      const venue = venueResults[0];
+      return { owner: { id: owner.id, name: owner.name, email: owner.email, role: owner.role }, venue };
+    } catch { return null; }
+  }),
+
+  // ─── Venue Settings ───
+  update: publicQuery.input(z.object({
+    token: z.string(),
+    data: z.object({
+      name: z.string().optional(),
+      address: z.string().optional(),
+      phone: z.string().optional(),
+      hoursWeekday: z.string().optional(),
+      hoursSaturday: z.string().optional(),
+      hoursSunday: z.string().optional(),
+      description: z.string().optional(),
+      primaryColor: z.string().optional(),
+      accentColor: z.string().optional(),
+      settingsJson: z.any().optional(),
+    }),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    await db.update(venues).set({
+      ...input.data,
+      updatedAt: new Date(),
+    }).where(eq(venues.id, venueId));
+
+    return { success: true };
+  }),
+
+  // ─── Upload Logo ───
+  updateLogo: publicQuery.input(z.object({
+    token: z.string(),
+    logoUrl: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    await db.update(venues).set({ logoUrl: input.logoUrl }).where(eq(venues.id, payload.payload.venueId as number));
+    return { success: true };
+  }),
+
+  // ─── Orders ───
+  listOrders: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    status: z.string().optional(),
+    limit: z.number().int().min(1).max(100).default(50),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const conditions = [eq(orders.venueId, input.venueId)];
+    if (input.status) {
+      conditions.push(eq(orders.status, input.status as any));
+    }
+    const results = await db
+      .select()
+      .from(orders)
+      .where(and(...conditions))
+      .orderBy(desc(orders.createdAt))
+      .limit(input.limit);
+    return results;
+  }),
+
+  getOrderItems: publicQuery.input(z.object({
+    orderId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId));
+  }),
+
+  updateOrderStatus: publicQuery.input(z.object({
+    token: z.string(),
+    orderId: z.number().int().positive(),
+    status: z.enum(["pending", "confirmed", "ready", "completed", "cancelled"]),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(orders).set({ status: input.status as any }).where(eq(orders.id, input.orderId));
+    return { success: true };
+  }),
+
+  // ─── Create Order ───
+  createOrder: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    customerName: z.string().min(1),
+    customerPhone: z.string().min(1),
+    pickupTime: z.string(),
+    orderNote: z.string().optional(),
+    paymentMethod: z.enum(["online", "pickup"]).default("pickup"),
+    items: z.array(z.object({
+      menuItemId: z.number().int().positive(),
+      quantity: z.number().int().min(1),
+      note: z.string().optional(),
+    })),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+
+    // Verify all menu items belong to the venue and calculate total
+    let totalAmount = 0;
+    const itemDetails: { menuItemId: number; itemName: string; quantity: number; unitPrice: number; note?: string }[] = [];
+
+    for (const item of input.items) {
+      const mi = await db.select().from(menuItems).where(eq(menuItems.id, item.menuItemId)).limit(1);
+      if (!mi[0] || mi[0].venueId !== input.venueId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Menu item ${item.menuItemId} not found` });
+      }
+      const unitPrice = Number(mi[0].price);
+      totalAmount += unitPrice * item.quantity;
+      itemDetails.push({
+        menuItemId: item.menuItemId,
+        itemName: mi[0].name,
+        quantity: item.quantity,
+        unitPrice,
+        note: item.note,
+      });
+    }
+
+    // Generate order number
+    const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
+
+    // Create order
+    const [orderResult] = await db.insert(orders).values({
+      venueId: input.venueId,
+      orderNumber,
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      pickupTime: input.pickupTime,
+      orderNote: input.orderNote,
+      paymentMethod: input.paymentMethod as any,
+      totalAmount: totalAmount.toFixed(2),
+    });
+
+    const orderId = Number(orderResult.insertId);
+
+    // Create order items
+    for (const item of itemDetails) {
+      await db.insert(orderItems).values({
+        orderId,
+        menuItemId: item.menuItemId,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toFixed(2),
+        note: item.note,
+      });
+    }
+
+    return { orderId, orderNumber, totalAmount: totalAmount.toFixed(2) };
+  }),
+
+  // ─── Menu Management ───
+  listMenu: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    category: z.string().optional(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const conditions = [eq(menuItems.venueId, input.venueId)];
+    if (input.category) {
+      conditions.push(eq(menuItems.category, input.category as any));
+    }
+    return db.select().from(menuItems).where(and(...conditions));
+  }),
+
+  createMenuItem: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    slug: z.string(),
+    name: z.string().min(1),
+    description: z.string().optional(),
+    price: z.string().or(z.number()),
+    category: z.enum(["coffee", "pastries", "bread"]),
+    dietary: z.string().optional(),
+    image: z.string().optional(),
+    originRegion: z.string().optional(),
+    originFarm: z.string().optional(),
+    originAltitude: z.string().optional(),
+    originProcess: z.string().optional(),
+    originTastingNotes: z.string().optional(),
+    originStory: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { venueId: vid, ...data } = input;
+    const price = typeof data.price === 'number' ? data.price.toFixed(2) : data.price;
+    await db.insert(menuItems).values({
+      venueId: vid,
+      ...data,
+      price,
+    });
+    return { success: true };
+  }),
+
+  // ─── Inventory ───
+  getInventory: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const items = await db
+      .select()
+      .from(inventory)
+      .where(eq(inventory.venueId, input.venueId));
+    return items;
+  }),
+
+  toggleInventoryItem: publicQuery.input(z.object({
+    token: z.string(),
+    venueId: z.number().int().positive(),
+    menuItemId: z.number().int().positive(),
+    isAvailable: z.boolean(),
+    staffNote: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const existing = await db
+      .select()
+      .from(inventory)
+      .where(and(eq(inventory.venueId, input.venueId), eq(inventory.menuItemId, input.menuItemId)))
+      .limit(1);
+
+    if (existing[0]) {
+      await db.update(inventory)
+        .set({
+          isAvailable: input.isAvailable,
+          staffNote: input.staffNote,
+          soldOutAt: input.isAvailable ? null : new Date(),
+          restockedAt: input.isAvailable ? new Date() : null,
+        })
+        .where(eq(inventory.id, existing[0].id));
+    } else {
+      await db.insert(inventory).values({
+        venueId: input.venueId,
+        menuItemId: input.menuItemId,
+        isAvailable: input.isAvailable,
+        staffNote: input.staffNote,
+        soldOutAt: input.isAvailable ? null : new Date(),
+        restockedAt: input.isAvailable ? new Date() : null,
+      });
+    }
+    return { success: true };
+  }),
+
+  // ─── Loyalty ───
+  getLoyaltyAccount: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const results = await db
+      .select()
+      .from(loyaltyAccounts)
+      .where(and(eq(loyaltyAccounts.venueId, input.venueId), eq(loyaltyAccounts.phone, input.phone)))
+      .limit(1);
+    return results[0] || null;
+  }),
+
+  createLoyaltyAccount: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string(),
+    name: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.insert(loyaltyAccounts).values({
+      venueId: input.venueId,
+      phone: input.phone,
+      name: input.name,
+    });
+    return { success: true };
+  }),
+
+  addLoyaltyPoints: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    accountId: z.number().int().positive(),
+    points: z.number().int().positive(),
+    description: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.insert(loyaltyTransactions).values({
+      venueId: input.venueId,
+      accountId: input.accountId,
+      type: 'earn',
+      points: input.points,
+      description: input.description,
+    });
+    await db.update(loyaltyAccounts)
+      .set({
+        pointsBalance: db.$executeRaw`points_balance + ${input.points}` as any,
+        totalLifetimePoints: db.$executeRaw`total_lifetime_points + ${input.points}` as any,
+      })
+      .where(eq(loyaltyAccounts.id, input.accountId));
+    return { success: true };
+  }),
+
+  // ─── Locations ───
+  listLocations: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select().from(locations).where(eq(locations.venueId, input.venueId));
+  }),
+});
