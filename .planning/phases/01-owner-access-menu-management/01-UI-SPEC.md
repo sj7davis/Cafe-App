@@ -45,8 +45,8 @@ Declared values (must be multiples of 4):
 
 Exceptions:
 - Login card max-width: 420px (matches StaffLogin.tsx pattern)
-- Content container: max-width 1100px, horizontal padding 20px (`.content-container`)
-- Form input padding: 12px 14px (vertical × horizontal — matches StaffLogin.tsx inputs)
+- Content container: max-width 1100px, horizontal padding 24px (`.content-container`)
+- Form input padding: 16px vertical, 16px horizontal
 - Touch targets for icon-only buttons: 40px × 40px minimum (current `p-2` + 16px icon)
 
 Source: `app/src/index.css` (.content-container), `app/src/pages/StaffLogin.tsx` (input padding), `app/src/pages/OwnerDashboard.tsx` (card padding)
@@ -55,22 +55,33 @@ Source: `app/src/index.css` (.content-container), `app/src/pages/StaffLogin.tsx`
 
 ## Typography
 
+Exactly 4 sizes and 2 weights are declared. All other sizes must be remapped to one of these four.
+
 | Role | Size | Weight | Line Height | Font | Letter Spacing | Transform |
 |------|------|--------|-------------|------|----------------|-----------|
-| Body | 16px (1rem) | 400 | 1.6 | Inter | — | — |
-| Label / Data | 10px (0.625rem) | 400 | 1 | Geist Mono | 0.12em | uppercase |
-| UI Label (form) | 13px | 600 | 1 | Inter | — | — |
-| Button | 12px (0.75rem) | 500 | 1 | Inter | 0.04em | uppercase |
-| Heading / Section | 20px (1.25rem) | 400 | 1 | Inter | -0.02em | uppercase |
+| Label / Data / Button | 12px (0.75rem) | 400 | 1 | Geist Mono | 0.12em | uppercase |
+| Item name / Subheading / Form label | 14px (0.875rem) | 600 | 1.4 | Inter | — | — |
+| Body / Section heading | 16px (1rem) | 400 | 1.6 | Inter | -0.02em | — |
+| Login heading | 22px (1.375rem) | 600 | 1.2 | Inter | -0.5px | — |
 
-Source: `app/src/index.css` (.font-data, .font-button, .font-body), `app/src/pages/OwnerDashboard.tsx` (h1, tab labels), `app/src/pages/StaffLogin.tsx` (form labels 13px/600)
+**Weight remapping applied:**
+- Former weight 500 → 400 (secondary/body roles) or 600 (emphasis roles) per context
+- Former weight 700 → 600
+
+**Size remapping applied:**
+- 10px → 12px
+- 13px → 14px
+- 20px (uppercase section heading) → 16px (uppercase retained via `text-transform: uppercase`)
+
+Source: `app/src/index.css` (.font-data, .font-button, .font-body), `app/src/pages/OwnerDashboard.tsx` (h1, tab labels), `app/src/pages/StaffLogin.tsx` (form labels)
 
 **Phase 1 specifics:**
-- Login page heading ("Owner Login"): 22px / weight 700 / Inter / letter-spacing -0.5px — mirrors StaffLogin.tsx h1
+- Login page heading ("Owner Login"): 22px / weight 600 / Inter / letter-spacing -0.5px
 - Login page subheading: 14px / weight 400 / Inter / color #78716c
-- Menu tab section heading: 16px (1rem) / weight 400 / uppercase / color #181818 — matches SettingsTab h2 pattern
-- Menu item name in management list: 14px / weight 500 / Inter / color #181818
+- Menu tab section heading: 16px / weight 400 / uppercase / color #181818
+- Menu item name in management list: 14px / weight 600 / Inter / color #181818
 - Menu item price: 14px / weight 400 / Geist Mono / color #5E5E5E
+- Save success message / status badges / tab labels: 12px / weight 400 / Geist Mono / uppercase
 
 ---
 
@@ -118,12 +129,14 @@ Components to build in this phase:
 - Box shadow: `0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)`
 - Logo: 64×64px square, background #181818, border-radius 16px, Coffee icon (32px, #F3F2EE)
 - Page background: #F3F2EE (matches OwnerDashboard, not #f5f5f4 from StaffLogin — use owner palette)
+- **Focal point:** The 64×64 logo block above the card heading
 
 **Menu tab layout:**
 - Full-width section container with `border p-6` at `borderColor: 'rgba(24,24,24,0.08)'`
 - Item list: vertical stack, each item row with name, category badge, price, image indicator, edit + delete actions
 - Create/edit form: inline below list (not a modal) — collapses when not active
 - Image URL field: standard text input with placeholder "https://example.com/image.jpg"
+- **Focal point:** The "Add Item" CTA button in the section header row
 
 ---
 
@@ -144,12 +157,12 @@ Components to build in this phase:
 | State | Visual |
 |-------|--------|
 | Default list | Item rows on #E8E4DD card background, border rgba(24,24,24,0.08) |
-| Edit mode (row) | Form fields appear inline below the item; edit button label changes to "Cancel" |
+| Edit mode (row) | Form fields appear inline below the item; edit button label changes to "Discard Changes" |
 | Save loading | Save button: Loader2 spinner + "Saving..." text, opacity 0.7 |
-| Save success | "Saved!" in Geist Mono 10px #5E8B5E, auto-hides after 2s |
+| Save success | "Saved!" in Geist Mono 12px #5E8B5E, auto-hides after 2s |
 | Delete hover | Delete button background → #B85450, text → #F3F2EE (same as logout button hover) |
-| Delete confirm | Inline text below button: "Are you sure? This cannot be undone." with "Confirm Delete" (red) and "Cancel" buttons |
-| FK conflict error | Inline error message: "Cannot delete — this item has existing orders." in #B85450 / 13px |
+| Delete confirm | Inline text below button: "Are you sure? This cannot be undone." with "Confirm Delete" (red) and "Keep Item" buttons |
+| FK conflict error | Inline error message: "This item has existing orders and cannot be deleted. View your order history for details." in #B85450 / 14px |
 | Empty menu | Empty state (see Copywriting Contract) |
 
 ### Image Display (VenuePublic.tsx)
@@ -183,12 +196,12 @@ Components to build in this phase:
 | Menu tab — create form heading | "New Menu Item" |
 | Menu tab — edit form heading | "Edit Item" |
 | Menu tab — save button | "Save Changes" (with Check icon) |
-| Menu tab — cancel button | "Cancel" |
-| Menu tab — delete button | "Delete" (icon-only with Trash2 icon, tooltip "Delete item") |
+| Menu tab — cancel button | "Discard Changes" |
+| Menu tab — delete button | "Delete" (icon-only with Trash2 icon, tooltip "Delete Item", aria-label="Delete item") |
 | Delete confirmation inline | "Delete this item? Orders referencing it will be preserved." |
 | Delete confirm CTA | "Yes, Delete" |
 | Delete cancel | "Keep Item" |
-| FK conflict error | "This item has existing orders and cannot be deleted." |
+| FK conflict error | "This item has existing orders and cannot be deleted. View your order history for details." |
 | Empty state — heading | "No menu items yet" |
 | Empty state — body | "Add your first item to start building your menu." |
 | Empty state — CTA | "Add Item" |
