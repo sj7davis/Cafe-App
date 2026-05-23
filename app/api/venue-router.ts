@@ -292,6 +292,62 @@ export const venueRouter = createRouter({
     return { success: true };
   }),
 
+  updateMenuItem: publicQuery.input(z.object({
+    token: z.string(),
+    menuItemId: z.number().int().positive(),
+    data: z.object({
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      price: z.string().or(z.number()).optional(),
+      category: z.enum(["coffee", "pastries", "bread"]).optional(),
+      dietary: z.string().optional(),
+      image: z.string().optional(),
+    }),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    // Ensure the item belongs to the authenticated venue
+    const existing = await db.select().from(menuItems).where(eq(menuItems.id, input.menuItemId)).limit(1);
+    if (!existing[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Menu item not found" });
+    if (existing[0].venueId !== venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to edit this item" });
+
+    const updateData: Record<string, unknown> = { ...input.data };
+    if (updateData.price !== undefined) {
+      updateData.price = typeof updateData.price === 'number' ? updateData.price.toFixed(2) : updateData.price;
+    }
+
+    await db.update(menuItems).set(updateData).where(eq(menuItems.id, input.menuItemId));
+    return { success: true };
+  }),
+
+  deleteMenuItem: publicQuery.input(z.object({
+    token: z.string(),
+    menuItemId: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    // Ensure the item belongs to the authenticated venue
+    const existing = await db.select().from(menuItems).where(eq(menuItems.id, input.menuItemId)).limit(1);
+    if (!existing[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Menu item not found" });
+    if (existing[0].venueId !== venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to delete this item" });
+
+    // FK protection: refuse if any order_items reference this menu item
+    const referencingOrders = await db.select().from(orderItems).where(eq(orderItems.menuItemId, input.menuItemId)).limit(1);
+    if (referencingOrders.length > 0) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "This item has existing orders and cannot be deleted. View your order history for details.",
+      });
+    }
+
+    await db.delete(menuItems).where(eq(menuItems.id, input.menuItemId));
+    return { success: true };
+  }),
+
   // ─── Inventory ───
   getInventory: publicQuery.input(z.object({
     venueId: z.number().int().positive(),
