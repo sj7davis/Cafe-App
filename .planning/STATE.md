@@ -78,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 02-order-tracking-staff-dashboard]: updateOrderStatus now requires valid staff JWT before any db write (security fix from unverified state)
 - [Phase 02-order-tracking-staff-dashboard]: staffNote on updateOrderStatus is optional and only added to updateData when explicitly provided — avoids null overwrite
 - [Phase 02-02]: placedOrderNumber replaces orderSuccess boolean — persistent until user dismisses, no setTimeout; keeps drawer open post-checkout so confirmation panel is visible
+- [Phase 02-03]: knownIds tracked via useRef so baseline updates do not trigger re-renders; newOrderIds useState Set drives amber highlight re-renders
+- [Phase 02-03]: staffNote passed as undefined (not empty string) when textarea blank — preserves backend "only update when provided" contract
+- [Phase 02-03]: Confirm-gate pattern: select picks value, opens panel with textarea, Confirm fires mutation — prevents accidental status changes
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-24T12:45:00.000Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-05-24T12:35:00.000Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None

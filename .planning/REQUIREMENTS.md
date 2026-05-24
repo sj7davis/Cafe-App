@@ -29,8 +29,8 @@
 
 ### Staff Order Management
 
-- [ ] **STAFF-01**: Staff dashboard auto-refreshes orders every 20 seconds without manual page reload
-- [ ] **STAFF-02**: New incoming orders are visually highlighted when they appear
+- [x] **STAFF-01**: Staff dashboard auto-refreshes orders every 20 seconds without manual page reload
+- [x] **STAFF-02**: New incoming orders are visually highlighted when they appear
 - [x] **STAFF-03**: Staff can add an internal note to an order when updating its status
 
 ---
@@ -138,8 +138,8 @@
 | ORD-02 | Phase 2 | Pending |
 | ORD-03 | Phase 2 | Pending |
 | ORD-04 | Phase 2 | Complete |
-| STAFF-01 | Phase 2 | Pending |
-| STAFF-02 | Phase 2 | Pending |
+| STAFF-01 | Phase 2 | Complete |
+| STAFF-02 | Phase 2 | Complete |
 | STAFF-03 | Phase 2 | Complete |
 | PREF-01 | Phase 3 | Pending |
 | PREF-02 | Phase 3 | Pending |
