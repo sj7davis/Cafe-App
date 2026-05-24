@@ -231,6 +231,59 @@ export default function VenuePublic() {
                   ))}
                 </div>
 
+                {/* Checkout form — rendered only when not in confirmation mode */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, color: '#181818', margin: 0 }}>Your details</h3>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={checkoutName}
+                    onChange={e => setCheckoutName(e.target.value)}
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                  />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Phone number"
+                    value={checkoutPhone}
+                    onChange={e => setCheckoutPhone(e.target.value)}
+                    onBlur={handlePhoneBlur}
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Pickup time (e.g. ASAP, 10:30am)"
+                    value={checkoutPickupTime}
+                    onChange={e => setCheckoutPickupTime(e.target.value)}
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                  />
+                  <select
+                    value={checkoutMilk}
+                    onChange={e => setCheckoutMilk(e.target.value)}
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                  >
+                    <option value="">Milk preference (optional)</option>
+                    <option value="full cream">Full Cream</option>
+                    <option value="skim">Skim</option>
+                    <option value="oat">Oat</option>
+                    <option value="almond">Almond</option>
+                    <option value="soy">Soy</option>
+                    <option value="none">No milk</option>
+                  </select>
+                  <select
+                    value={checkoutSugar}
+                    onChange={e => setCheckoutSugar(e.target.value)}
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                  >
+                    <option value="">Sugar (optional)</option>
+                    <option value="0">No sugar</option>
+                    <option value="0.5">1/2 sugar</option>
+                    <option value="1">1 sugar</option>
+                    <option value="2">2 sugars</option>
+                    <option value="3">3 sugars</option>
+                  </select>
+                </div>
+
                 <div style={{
                   marginTop: 24, paddingTop: 24,
                   borderTop: '2px solid rgba(24,24,24,0.1)',
