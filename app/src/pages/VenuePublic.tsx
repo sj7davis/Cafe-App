@@ -20,6 +20,11 @@ export default function VenuePublic() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null);
+  const [checkoutName, setCheckoutName] = useState('');
+  const [checkoutPhone, setCheckoutPhone] = useState('');
+  const [checkoutPickupTime, setCheckoutPickupTime] = useState('ASAP');
+  const [checkoutMilk, setCheckoutMilk] = useState('');
+  const [checkoutSugar, setCheckoutSugar] = useState('');
 
   const { data: venue, isLoading, error } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
@@ -31,12 +36,27 @@ export default function VenuePublic() {
     { enabled: !!venue?.id }
   );
 
+  const prefQuery = trpc.venue.getCustomerPreferences.useQuery(
+    { venueId: venue?.id ?? 0, phone: checkoutPhone },
+    { enabled: false }
+  );
+
+  const upsertPreferences = trpc.venue.upsertCustomerPreferences.useMutation();
+
   const createOrder = trpc.venue.createOrder.useMutation({
     onSuccess: (data) => {
       setCart([]);
       setPlacedOrderNumber(data.orderNumber);
       setShowCart(true);  // keep drawer open so the confirmation panel is visible
       // NOTE: do NOT auto-clear placedOrderNumber on a timer — the customer needs the link to remain
+      if (checkoutPhone && venue?.id && (checkoutMilk || checkoutSugar)) {
+        upsertPreferences.mutate({
+          venueId: venue.id,
+          phone: checkoutPhone,
+          milk: checkoutMilk || undefined,
+          sugar: checkoutSugar || undefined,
+        });
+      }
     },
   });
 
@@ -91,13 +111,23 @@ export default function VenuePublic() {
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  const handlePhoneBlur = async () => {
+    if (checkoutPhone.length >= 8 && venue?.id) {
+      const result = await prefQuery.refetch();
+      if (result.data) {
+        if (result.data.milk) setCheckoutMilk(result.data.milk);
+        if (result.data.sugar) setCheckoutSugar(result.data.sugar);
+      }
+    }
+  };
+
   const handlePlaceOrder = () => {
-    if (cart.length === 0 || !venue.id) return;
+    if (cart.length === 0 || !venue?.id) return;
     createOrder.mutate({
       venueId: venue.id,
-      customerName: 'Guest Customer',
-      customerPhone: '0400000000',
-      pickupTime: 'ASAP',
+      customerName: checkoutName || 'Guest',
+      customerPhone: checkoutPhone || '0000000000',
+      pickupTime: checkoutPickupTime || 'ASAP',
       items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
     });
   };
@@ -141,7 +171,15 @@ export default function VenuePublic() {
                   Track Your Order
                 </Link>
                 <button
-                  onClick={() => { setPlacedOrderNumber(null); setShowCart(false); }}
+                  onClick={() => {
+                    setPlacedOrderNumber(null);
+                    setShowCart(false);
+                    setCheckoutName('');
+                    setCheckoutPhone('');
+                    setCheckoutMilk('');
+                    setCheckoutSugar('');
+                    setCheckoutPickupTime('ASAP');
+                  }}
                   style={{
                     display: 'block', margin: '16px auto 0', background: 'none',
                     border: 'none', color: '#5E5E5E', fontSize: 13, cursor: 'pointer',
