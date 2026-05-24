@@ -211,9 +211,21 @@ export const venueRouter = createRouter({
     token: z.string(),
     orderId: z.number().int().positive(),
     status: z.enum(["pending", "confirmed", "ready", "completed", "cancelled"]),
+    staffNote: z.string().optional(),
   })).mutation(async ({ input }) => {
+    // SECURITY FIX: previous version accepted any token without verifying. Verify staff JWT.
+    try {
+      await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    } catch {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid staff token" });
+    }
+
     const db = getDb();
-    await db.update(orders).set({ status: input.status as any }).where(eq(orders.id, input.orderId));
+    const updateData: Record<string, unknown> = { status: input.status };
+    if (input.staffNote !== undefined) {
+      updateData.staffNote = input.staffNote;
+    }
+    await db.update(orders).set(updateData).where(eq(orders.id, input.orderId));
     return { success: true };
   }),
 
