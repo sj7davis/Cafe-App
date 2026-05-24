@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews } from "@db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -499,4 +499,127 @@ export const venueRouter = createRouter({
     const db = getDb();
     return db.select().from(locations).where(eq(locations.venueId, input.venueId));
   }),
+
+  // ─── Customer Preferences ───
+  getCustomerPreferences: publicQuery
+    .input(z.object({
+      venueId: z.number().int().positive(),
+      phone: z.string().min(1),
+    }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const results = await db
+        .select()
+        .from(customerPreferences)
+        .where(and(
+          eq(customerPreferences.venueId, input.venueId),
+          eq(customerPreferences.phone, input.phone)
+        ))
+        .limit(1);
+      return results[0] ?? null;
+    }),
+
+  upsertCustomerPreferences: publicQuery
+    .input(z.object({
+      venueId: z.number().int().positive(),
+      phone: z.string().min(1),
+      milk: z.string().optional(),
+      sugar: z.string().optional(),
+      temperature: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const existing = await db
+        .select()
+        .from(customerPreferences)
+        .where(and(
+          eq(customerPreferences.venueId, input.venueId),
+          eq(customerPreferences.phone, input.phone)
+        ))
+        .limit(1);
+
+      if (existing[0]) {
+        const updates: Record<string, unknown> = {};
+        if (input.milk !== undefined) updates.milk = input.milk;
+        if (input.sugar !== undefined) updates.sugar = input.sugar;
+        if (input.temperature !== undefined) updates.temperature = input.temperature;
+        if (input.notes !== undefined) updates.notes = input.notes;
+        if (Object.keys(updates).length > 0) {
+          await db.update(customerPreferences).set(updates).where(eq(customerPreferences.id, existing[0].id));
+        }
+      } else {
+        await db.insert(customerPreferences).values({
+          venueId: input.venueId,
+          phone: input.phone,
+          milk: input.milk,
+          sugar: input.sugar,
+          temperature: input.temperature,
+          notes: input.notes,
+        });
+      }
+      return { success: true };
+    }),
+
+  // ─── Reviews ───
+  submitReview: publicQuery
+    .input(z.object({
+      orderId: z.number().int().positive(),
+      rating: z.number().int().min(1).max(5),
+      comment: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+
+      // Derive venueId and customerName from the order — never trust client
+      const orderResults = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+      if (!orderResults[0]) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+      }
+      const order = orderResults[0];
+
+      // Order must be completed before a review can be submitted
+      if (order.status !== 'completed') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Order is not yet completed' });
+      }
+
+      // One review per order — schema has no unique index, enforce here
+      const existingReview = await db
+        .select()
+        .from(reviews)
+        .where(eq(reviews.orderId, input.orderId))
+        .limit(1);
+      if (existingReview[0]) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'A review already exists for this order' });
+      }
+
+      await db.insert(reviews).values({
+        venueId: order.venueId,
+        orderId: input.orderId,
+        customerName: order.customerName,
+        rating: input.rating,
+        comment: input.comment,
+      });
+
+      return { success: true };
+    }),
+
+  listReviews: publicQuery
+    .input(z.object({
+      venueId: z.number().int().positive(),
+      limit: z.number().int().min(1).max(100).default(20),
+    }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      return db
+        .select()
+        .from(reviews)
+        .where(eq(reviews.venueId, input.venueId))
+        .orderBy(desc(reviews.createdAt))
+        .limit(input.limit);
+    }),
 });
