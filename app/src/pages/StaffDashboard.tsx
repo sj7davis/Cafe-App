@@ -1,6 +1,6 @@
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { trpc } from '@/providers/trpc';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Coffee,
   Users,
@@ -271,7 +271,8 @@ function OrdersTab({ venueId }: { venueId: number }) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const utils = trpc.useUtils();
   const { data: ordersList } = trpc.venue.listOrders.useQuery(
-    { venueId, status: statusFilter === 'all' ? undefined : statusFilter, limit: 50 }
+    { venueId, status: statusFilter === 'all' ? undefined : statusFilter, limit: 50 },
+    { refetchInterval: 20_000 }
   );
 
   const updateStatus = trpc.venue.updateOrderStatus.useMutation({
@@ -279,6 +280,34 @@ function OrdersTab({ venueId }: { venueId: number }) {
   });
 
   const token = localStorage.getItem('b1-staff-token') || '';
+
+  const knownIds = useRef<Set<number>>(new Set());
+  const [newOrderIds, setNewOrderIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!ordersList) return;
+    const incoming = new Set(ordersList.map(o => o.id));
+    const isFirstLoad = knownIds.current.size === 0;
+    if (!isFirstLoad) {
+      const fresh = new Set([...incoming].filter(id => !knownIds.current.has(id)));
+      if (fresh.size > 0) {
+        setNewOrderIds(prev => {
+          const merged = new Set(prev);
+          fresh.forEach(id => merged.add(id));
+          return merged;
+        });
+        // Auto-clear highlight after 8 seconds
+        setTimeout(() => {
+          setNewOrderIds(prev => {
+            const next = new Set(prev);
+            fresh.forEach(id => next.delete(id));
+            return next;
+          });
+        }, 8_000);
+      }
+    }
+    knownIds.current = incoming;
+  }, [ordersList]);
 
   return (
     <div>
@@ -330,7 +359,19 @@ function OrdersTab({ venueId }: { venueId: number }) {
           </thead>
           <tbody>
             {ordersList && ordersList.length > 0 ? ordersList.map((order) => (
-              <tr key={order.id} style={{ borderBottom: '1px solid #f5f5f4', transition: 'background 0.15s' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#fafaf9'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}>
+              <tr
+                key={order.id}
+                data-testid={`order-row-${order.id}`}
+                data-new-order={newOrderIds.has(order.id) ? 'true' : undefined}
+                style={{
+                  borderBottom: '1px solid #f5f5f4',
+                  transition: 'background 0.15s',
+                  background: newOrderIds.has(order.id) ? '#fffbeb' : '#fff',
+                  borderLeft: newOrderIds.has(order.id) ? '3px solid #d97706' : '3px solid transparent',
+                }}
+                onMouseEnter={(e) => { if (!newOrderIds.has(order.id)) e.currentTarget.style.background = '#fafaf9'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = newOrderIds.has(order.id) ? '#fffbeb' : '#fff'; }}
+              >
                 <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1c1917' }}>{order.orderNumber}</td>
                 <td style={{ padding: '14px 16px', color: '#44403c' }}>{order.customerName}</td>
                 <td style={{ padding: '14px 16px', color: '#78716c' }}>${Number(order.totalAmount).toFixed(2)}</td>
