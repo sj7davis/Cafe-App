@@ -7,6 +7,7 @@ import VenuePublic from './pages/VenuePublic'
 import Login from './pages/Login'
 import StaffLogin from './pages/StaffLogin'
 import StaffDashboard from './pages/StaffDashboard'
+import OrderStatus from './pages/OrderStatus'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/v/:slug" element={<VenuePublic />} />
       <Route path="/staff-login" element={<StaffLogin />} />
       <Route path="/staff" element={<StaffDashboard />} />
+      <Route path="/order/:orderNumber" element={<OrderStatus />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
