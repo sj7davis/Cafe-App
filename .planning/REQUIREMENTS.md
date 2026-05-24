@@ -13,8 +13,8 @@
 ### Customer Order Experience
 
 - [x] **ORD-01**: Customer can view their order status at `/order/:orderNumber` without logging in
-- [ ] **ORD-02**: Order status page shows current status (pending → confirmed → ready → completed) with visual progress indicator
-- [ ] **ORD-03**: Order confirmation after checkout includes a link/button to the order status page
+- [x] **ORD-02**: Order status page shows current status (pending → confirmed → ready → completed) with visual progress indicator
+- [x] **ORD-03**: Order confirmation after checkout includes a link/button to the order status page
 - [x] **ORD-04**: Customer can see estimated pickup time and order items on status page
 
 ---
@@ -37,9 +37,9 @@
 
 ### Customer Preferences
 
-- [ ] **PREF-01**: Customer can save milk and sugar preferences tied to their phone number at checkout
-- [ ] **PREF-02**: Returning customer's saved preferences are pre-filled at checkout when phone number matches
-- [ ] **PREF-03**: Customer can update their saved preferences
+- [x] **PREF-01**: Customer can save milk and sugar preferences tied to their phone number at checkout
+- [x] **PREF-02**: Returning customer's saved preferences are pre-filled at checkout when phone number matches
+- [x] **PREF-03**: Customer can update their saved preferences
 
 ---
 
@@ -64,9 +64,9 @@
 ### Reviews & Ratings
 
 - [ ] **REV-01**: Customer receives a review link after their order is marked `completed`
-- [ ] **REV-02**: Customer can submit a star rating (1–5) and optional comment at `/review/:orderId`
-- [ ] **REV-03**: Venue public page displays average star rating and recent reviews
-- [ ] **REV-04**: Owner dashboard shows all reviews with ratings
+- [x] **REV-02**: Customer can submit a star rating (1–5) and optional comment at `/review/:orderId`
+- [x] **REV-03**: Venue public page displays average star rating and recent reviews
+- [x] **REV-04**: Owner dashboard shows all reviews with ratings
 
 ---
 
@@ -135,19 +135,19 @@
 | MENU-02 | Phase 1 | Complete |
 | MENU-03 | Phase 1 | Complete |
 | ORD-01 | Phase 2 | Complete |
-| ORD-02 | Phase 2 | Pending |
-| ORD-03 | Phase 2 | Pending |
+| ORD-02 | Phase 2 | Complete |
+| ORD-03 | Phase 2 | Complete |
 | ORD-04 | Phase 2 | Complete |
 | STAFF-01 | Phase 2 | Complete |
 | STAFF-02 | Phase 2 | Complete |
 | STAFF-03 | Phase 2 | Complete |
-| PREF-01 | Phase 3 | Pending |
-| PREF-02 | Phase 3 | Pending |
-| PREF-03 | Phase 3 | Pending |
+| PREF-01 | Phase 3 | Complete |
+| PREF-02 | Phase 3 | Complete |
+| PREF-03 | Phase 3 | Complete |
 | REV-01 | Phase 3 | Pending |
-| REV-02 | Phase 3 | Pending |
-| REV-03 | Phase 3 | Pending |
-| REV-04 | Phase 3 | Pending |
+| REV-02 | Phase 3 | Complete |
+| REV-03 | Phase 3 | Complete |
+| REV-04 | Phase 3 | Complete |
 | GIFT-01 | Phase 4 | Pending |
 | GIFT-02 | Phase 4 | Pending |
 | GIFT-03 | Phase 4 | Pending |
