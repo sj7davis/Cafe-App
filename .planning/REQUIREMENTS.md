@@ -12,10 +12,10 @@
 
 ### Customer Order Experience
 
-- [ ] **ORD-01**: Customer can view their order status at `/order/:orderNumber` without logging in
+- [x] **ORD-01**: Customer can view their order status at `/order/:orderNumber` without logging in
 - [ ] **ORD-02**: Order status page shows current status (pending → confirmed → ready → completed) with visual progress indicator
 - [ ] **ORD-03**: Order confirmation after checkout includes a link/button to the order status page
-- [ ] **ORD-04**: Customer can see estimated pickup time and order items on status page
+- [x] **ORD-04**: Customer can see estimated pickup time and order items on status page
 
 ---
 
@@ -31,7 +31,7 @@
 
 - [ ] **STAFF-01**: Staff dashboard auto-refreshes orders every 20 seconds without manual page reload
 - [ ] **STAFF-02**: New incoming orders are visually highlighted when they appear
-- [ ] **STAFF-03**: Staff can add an internal note to an order when updating its status
+- [x] **STAFF-03**: Staff can add an internal note to an order when updating its status
 
 ---
 
@@ -134,13 +134,13 @@
 | MENU-01 | Phase 1 | Complete |
 | MENU-02 | Phase 1 | Complete |
 | MENU-03 | Phase 1 | Complete |
-| ORD-01 | Phase 2 | Pending |
+| ORD-01 | Phase 2 | Complete |
 | ORD-02 | Phase 2 | Pending |
 | ORD-03 | Phase 2 | Pending |
-| ORD-04 | Phase 2 | Pending |
+| ORD-04 | Phase 2 | Complete |
 | STAFF-01 | Phase 2 | Pending |
 | STAFF-02 | Phase 2 | Pending |
-| STAFF-03 | Phase 2 | Pending |
+| STAFF-03 | Phase 2 | Complete |
 | PREF-01 | Phase 3 | Pending |
 | PREF-02 | Phase 3 | Pending |
 | PREF-03 | Phase 3 | Pending |

@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
-status: unknown
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-05-23T12:14:46.812Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-05-24T12:13:34.484Z"
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
+  percent: 17
 ---
 
 # Project State
@@ -49,6 +50,7 @@ Plan: 3 of 3 (Phase Complete)
 | Phase 01-owner-access-menu-management P01 | 8 | 2 tasks | 1 files |
 | Phase 01 P02 | 131 | 2 tasks | 3 files |
 | Phase 01 P03 | 7 | 2 tasks | 2 files |
+| Phase 02-order-tracking-staff-dashboard P01 | 6 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -69,6 +71,10 @@ Recent decisions affecting current work:
 - [Phase 01-03]: MenuTab uses union mode state ('list' | 'create' | { type: 'edit'; id: number }) to co-locate edit item ID with mode
 - [Phase 01-03]: Image onError collapses slot via direct DOM style mutation (no React state re-render needed)
 - [Phase 01-03]: Menu tab positioned second (after Overview) in dashboard tab strip
+- [Phase 02-order-tracking-staff-dashboard]: getOrderByNumber is fully public — orderNumber serves as the access credential (no token param)
+- [Phase 02-order-tracking-staff-dashboard]: staffNote stripped from public getOrderByNumber response via destructuring to prevent data leakage
+- [Phase 02-order-tracking-staff-dashboard]: updateOrderStatus now requires valid staff JWT before any db write (security fix from unverified state)
+- [Phase 02-order-tracking-staff-dashboard]: staffNote on updateOrderStatus is optional and only added to updateData when explicitly provided — avoids null overwrite
 
 ### Pending Todos
 
@@ -80,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-23T12:05:00.000Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-05-24T12:13:34.478Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
