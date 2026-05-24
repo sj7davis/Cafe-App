@@ -283,6 +283,9 @@ function OrdersTab({ venueId }: { venueId: number }) {
 
   const knownIds = useRef<Set<number>>(new Set());
   const [newOrderIds, setNewOrderIds] = useState<Set<number>>(new Set());
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<string>('');
+  const [staffNoteDraft, setStaffNoteDraft] = useState<string>('');
 
   useEffect(() => {
     if (!ordersList) return;
@@ -379,18 +382,78 @@ function OrdersTab({ venueId }: { venueId: number }) {
                   <StatusBadge status={order.status} />
                 </td>
                 <td style={{ padding: '14px 16px' }}>
-                  <select
-                    value={order.status}
-                    onChange={(e) => updateStatus.mutate({ token, orderId: order.id, status: e.target.value as any })}
-                    style={{
-                      padding: '4px 8px', borderRadius: '6px', border: '1px solid #e7e5e4',
-                      fontSize: '12px', background: '#fafaf9', cursor: 'pointer',
-                    }}
-                  >
-                    {['pending', 'confirmed', 'ready', 'completed', 'cancelled'].map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
+                  {editingOrderId === order.id ? (
+                    <div data-testid={`confirm-panel-${order.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+                      <div style={{ fontSize: 11, color: '#57534e' }}>
+                        New status: <strong style={{ textTransform: 'capitalize' }}>{pendingStatus}</strong>
+                      </div>
+                      <textarea
+                        data-testid={`staff-note-input-${order.id}`}
+                        value={staffNoteDraft}
+                        onChange={(e) => setStaffNoteDraft(e.target.value)}
+                        placeholder="Internal note (optional)"
+                        rows={2}
+                        style={{
+                          padding: '6px 8px', borderRadius: 6, border: '1px solid #e7e5e4',
+                          fontSize: 12, fontFamily: 'inherit', resize: 'vertical',
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          data-testid={`confirm-status-${order.id}`}
+                          onClick={() => {
+                            updateStatus.mutate({
+                              token,
+                              orderId: order.id,
+                              status: pendingStatus as any,
+                              staffNote: staffNoteDraft.trim() ? staffNoteDraft.trim() : undefined,
+                            });
+                            setEditingOrderId(null);
+                            setPendingStatus('');
+                            setStaffNoteDraft('');
+                          }}
+                          style={{
+                            padding: '4px 10px', borderRadius: 6, border: 'none',
+                            background: '#181818', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 600,
+                          }}
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingOrderId(null);
+                            setPendingStatus('');
+                            setStaffNoteDraft('');
+                          }}
+                          style={{
+                            padding: '4px 10px', borderRadius: 6, border: '1px solid #e7e5e4',
+                            background: '#fafaf9', color: '#57534e', fontSize: 12, cursor: 'pointer',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <select
+                      value={order.status}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next === order.status) return;
+                        setEditingOrderId(order.id);
+                        setPendingStatus(next);
+                        setStaffNoteDraft('');
+                      }}
+                      style={{
+                        padding: '4px 8px', borderRadius: 6, border: '1px solid #e7e5e4',
+                        fontSize: 12, background: '#fafaf9', cursor: 'pointer',
+                      }}
+                    >
+                      {['pending', 'confirmed', 'ready', 'completed', 'cancelled'].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td style={{ padding: '14px 16px', color: '#78716c', fontSize: '12px' }}>
                   {new Date(order.createdAt).toLocaleTimeString()}
