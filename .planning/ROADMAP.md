@@ -56,7 +56,7 @@ Plans:
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Owner Access & Menu Management** - Owner login page and full menu CRUD with image support (completed 2026-05-23)
-- [ ] **Phase 2: Order Tracking & Staff Dashboard** - Customer order status page and live-refreshing staff view
+- [x] **Phase 2: Order Tracking & Staff Dashboard** - Customer order status page and live-refreshing staff view (completed 2026-05-24)
 - [ ] **Phase 3: Customer Engagement** - Saved preferences at checkout and post-order review/rating flow
 - [ ] **Phase 4: Monetisation** - Gift card purchase/redemption and subscription coffee pass
 - [ ] **Phase 5: Venue Expansion** - Multi-location management and public catering enquiry form
@@ -97,12 +97,12 @@ Plans:
   4. Staff dashboard polls every 20 seconds and newly arrived orders are visually highlighted without a manual page reload
   5. Staff can type an internal note when updating an order's status
 
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 
 - [x] 02-01-PLAN.md — Backend: add getOrderByNumber query and extend updateOrderStatus with staffNote + JWT verify (ORD-01/04, STAFF-03)
-- [ ] 02-02-PLAN.md — Customer: OrderStatus page + /order/:orderNumber route + post-checkout link (ORD-01/02/03/04)
-- [ ] 02-03-PLAN.md — Staff: OrdersTab polling + new-order highlight + staff-note confirm panel (STAFF-01/02/03)
+- [x] 02-02-PLAN.md — Customer: OrderStatus page + /order/:orderNumber route + post-checkout link (ORD-01/02/03/04)
+- [x] 02-03-PLAN.md — Staff: OrdersTab polling + new-order highlight + staff-note confirm panel (STAFF-01/02/03)
 
 ### Phase 3: Customer Engagement
 
@@ -174,7 +174,7 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Owner Access & Menu Management | 3/3 | Complete   | 2026-05-23 | - |
-| 2. Order Tracking & Staff Dashboard | v1.1 | 1/3 | In Progress|  |
+| 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete   | 2026-05-24 |
 | 3. Customer Engagement | v1.1 | 0/? | Not started | - |
 | 4. Monetisation | v1.1 | 0/? | Not started | - |
 | 5. Venue Expansion | v1.1 | 0/? | Not started | - |
