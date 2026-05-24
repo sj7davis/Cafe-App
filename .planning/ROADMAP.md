@@ -118,7 +118,12 @@ Plans:
   5. Customer submits a 1–5 star rating with an optional comment; the venue public page shows the running average and recent reviews
   6. Owner dashboard shows all reviews with their star ratings
 
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+
+- [ ] 03-01-PLAN.md — Backend: add getCustomerPreferences, upsertCustomerPreferences, submitReview, listReviews to venueRouter (PREF-01/02/03, REV-02/03/04)
+- [ ] 03-02-PLAN.md — Customer: checkout form (phone/milk/sugar) + preference lookup on phone blur + post-order upsert in VenuePublic (PREF-01/02/03)
+- [ ] 03-03-PLAN.md — Reviews UI: /review/:orderId page, OrderStatus review link, VenuePublic reviews section, OwnerDashboard Reviews tab (REV-01/02/03/04)
 
 ### Phase 4: Monetisation
 
@@ -174,7 +179,7 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Owner Access & Menu Management | 3/3 | Complete   | 2026-05-23 | - |
-| 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete   | 2026-05-24 |
+| 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete    | 2026-05-24 |
 | 3. Customer Engagement | v1.1 | 0/? | Not started | - |
 | 4. Monetisation | v1.1 | 0/? | Not started | - |
 | 5. Venue Expansion | v1.1 | 0/? | Not started | - |
