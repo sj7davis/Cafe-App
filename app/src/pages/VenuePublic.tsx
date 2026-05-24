@@ -1,4 +1,4 @@
-import { useParams } from 'react-router';
+import { useParams, Link } from 'react-router';
 import { trpc } from '@/providers/trpc';
 import { useState } from 'react';
 import {
@@ -19,7 +19,7 @@ export default function VenuePublic() {
   const { slug } = useParams<{ slug: string }>();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
+  const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null);
 
   const { data: venue, isLoading, error } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
@@ -32,11 +32,11 @@ export default function VenuePublic() {
   );
 
   const createOrder = trpc.venue.createOrder.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       setCart([]);
-      setShowCart(false);
-      setOrderSuccess(true);
-      setTimeout(() => setOrderSuccess(false), 5000);
+      setPlacedOrderNumber(data.orderNumber);
+      setShowCart(true);  // keep drawer open so the confirmation panel is visible
+      // NOTE: do NOT auto-clear placedOrderNumber on a timer — the customer needs the link to remain
     },
   });
 
@@ -104,18 +104,6 @@ export default function VenuePublic() {
 
   return (
     <div style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
-      {/* Success Toast */}
-      {orderSuccess && (
-        <div style={{
-          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          background: '#16a34a', color: 'white', padding: '12px 24px', borderRadius: 8,
-          zIndex: 200, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        }}>
-          <CheckCircle size={18} /> Order placed successfully!
-        </div>
-      )}
-
       {/* Cart Drawer */}
       {showCart && (
         <div style={{
@@ -135,7 +123,35 @@ export default function VenuePublic() {
               </button>
             </div>
 
-            {cart.length === 0 ? (
+            {placedOrderNumber ? (
+              <div data-testid="post-checkout-panel" style={{ textAlign: 'center', padding: '24px 0' }}>
+                <CheckCircle size={48} style={{ color: '#16a34a', margin: '0 auto 16px' }} />
+                <h3 style={{ fontWeight: 600, fontSize: 18, color: '#181818', marginBottom: 8 }}>Order Confirmed</h3>
+                <p style={{ color: '#5E5E5E', fontSize: 13, marginBottom: 6 }}>Your order number is</p>
+                <div style={{ fontWeight: 700, fontSize: 20, color: '#181818', marginBottom: 20, letterSpacing: 0.5 }}>{placedOrderNumber}</div>
+                <Link
+                  to={`/order/${placedOrderNumber}`}
+                  data-testid="order-status-link"
+                  style={{
+                    display: 'inline-block', padding: '12px 24px',
+                    background: '#181818', color: '#fff', textDecoration: 'none',
+                    borderRadius: 8, fontSize: 14, fontWeight: 600,
+                  }}
+                >
+                  Track Your Order
+                </Link>
+                <button
+                  onClick={() => { setPlacedOrderNumber(null); setShowCart(false); }}
+                  style={{
+                    display: 'block', margin: '16px auto 0', background: 'none',
+                    border: 'none', color: '#5E5E5E', fontSize: 13, cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            ) : cart.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#5E5E5E' }}>
                 <ShoppingBag size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
                 <p>Your cart is empty</p>
