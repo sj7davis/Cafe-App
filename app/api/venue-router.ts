@@ -174,6 +174,39 @@ export const venueRouter = createRouter({
     return db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId));
   }),
 
+  getOrderByNumber: publicQuery.input(z.object({
+    orderNumber: z.string().min(1),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const orderResults = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.orderNumber, input.orderNumber))
+      .limit(1);
+    if (!orderResults[0]) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+    }
+    const orderRow = orderResults[0];
+
+    // Look up venue for "Back to [venue]" link in the UI
+    const venueResults = await db
+      .select({ id: venues.id, name: venues.name, slug: venues.slug })
+      .from(venues)
+      .where(eq(venues.id, orderRow.venueId))
+      .limit(1);
+    const venue = venueResults[0] ?? null;
+
+    // Look up items
+    const items = await db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderRow.id));
+
+    // Strip staffNote — it is internal and must NOT leak to the public response
+    const { staffNote: _omit, ...publicOrder } = orderRow;
+    return { order: publicOrder, venue, items };
+  }),
+
   updateOrderStatus: publicQuery.input(z.object({
     token: z.string(),
     orderId: z.number().int().positive(),
