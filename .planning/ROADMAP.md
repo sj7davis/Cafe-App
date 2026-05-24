@@ -83,7 +83,11 @@ Plans:
   3. Order status page shows estimated pickup time and the ordered items
   4. Staff dashboard polls every 20 seconds and newly arrived orders are visually highlighted without a manual page reload
   5. Staff can type an internal note when updating an order's status
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 02-01-PLAN.md — Backend: add getOrderByNumber query and extend updateOrderStatus with staffNote + JWT verify (ORD-01/04, STAFF-03)
+- [ ] 02-02-PLAN.md — Customer: OrderStatus page + /order/:orderNumber route + post-checkout link (ORD-01/02/03/04)
+- [ ] 02-03-PLAN.md — Staff: OrdersTab polling + new-order highlight + staff-note confirm panel (STAFF-01/02/03)
 
 ### Phase 3: Customer Engagement
 **Goal**: Customers get personalised checkout via saved preferences and can leave a review after order completion
