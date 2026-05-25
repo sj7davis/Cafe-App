@@ -61,18 +61,18 @@ export const venueRouter = createRouter({
       name: input.venueName,
       subdomain: input.venueSlug,
       trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    });
+    }).returning({ id: venues.id });
 
     // Create owner
     const passwordHash = await hash(input.password, 10);
     await db.insert(venueOwners).values({
-      venueId: Number(venueResult.insertId),
+      venueId: venueResult.id,
       email: input.email,
       name: input.name,
       passwordHash,
     });
 
-    return { venueId: Number(venueResult.insertId), slug: input.venueSlug };
+    return { venueId: venueResult.id, slug: input.venueSlug };
   }),
 
   login: publicQuery.input(z.object({
@@ -318,9 +318,9 @@ export const venueRouter = createRouter({
       totalAmount: totalAmount.toFixed(2),
       locationId: input.locationId,
       customerEmail: input.customerEmail,
-    });
+    }).returning({ id: orders.id });
 
-    const orderId = Number(orderResult.insertId);
+    const orderId = orderResult.id;
 
     // Create order items
     for (const item of itemDetails) {
@@ -803,8 +803,8 @@ export const venueRouter = createRouter({
       recipientName: input.recipientName,
       recipientPhone: input.recipientPhone,
       message: input.message,
-    });
-    return { id: Number(result.insertId), code };
+    }).returning({ id: giftCards.id });
+    return { id: result.id, code };
   }),
 
   listGiftCards: publicQuery.input(z.object({
@@ -900,8 +900,8 @@ export const venueRouter = createRouter({
       totalCredits: passConfig.totalCredits,
       remainingCredits: passConfig.totalCredits,
       price: String(Number(passConfig.price).toFixed(2)),
-    });
-    return { id: Number(result.insertId), remainingCredits: passConfig.totalCredits };
+    }).returning({ id: subscriptionPasses.id });
+    return { id: result.id, remainingCredits: passConfig.totalCredits };
   }),
 
   getPassByPhone: publicQuery.input(z.object({

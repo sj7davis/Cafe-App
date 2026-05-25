@@ -1,18 +1,20 @@
-import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+import type { IncomingMessage } from "http";
+import type { ServerResponse } from "http";
+import type { NodeHTTPCreateContextFnOptions } from "@trpc/server/adapters/node-http";
 
 export type TrpcContext = {
-  req: Request;
-  resHeaders: Headers;
+  req: IncomingMessage;
+  res: ServerResponse;
   venueId?: number;
 };
 
 export async function createContext(
-  opts: FetchCreateContextFnOptions,
+  opts: NodeHTTPCreateContextFnOptions<IncomingMessage, ServerResponse>,
 ): Promise<TrpcContext> {
-  const ctx: TrpcContext = { req: opts.req, resHeaders: opts.resHeaders };
-  const venueIdHeader = opts.req.headers.get("x-venue-id");
+  const ctx: TrpcContext = { req: opts.req as unknown as IncomingMessage, res: opts.res };
+  const venueIdHeader = opts.req.headers["x-venue-id"];
   if (venueIdHeader) {
-    ctx.venueId = Number(venueIdHeader);
+    ctx.venueId = Number(Array.isArray(venueIdHeader) ? venueIdHeader[0] : venueIdHeader);
   }
   return ctx;
 }

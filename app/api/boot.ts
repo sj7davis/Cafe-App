@@ -1,7 +1,9 @@
+import { createServer } from "http";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";
-import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { getRequestListener } from "@hono/node-server";
+import { nodeHTTPRequestHandler } from "@trpc/server/adapters/node-http";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
@@ -74,53 +76,10 @@ app.get("/api/square/callback", async (c) => {
   }
 });
 
-// tRPC API
-// @hono/node-server v2 wraps the Node.js IncomingMessage in a Web ReadableStream
-// but the stream is not reliably readable via c.req.raw in all environments.
-// Fix: read directly from the Node.js IncomingMessage via c.env.incoming.
-app.use("/api/trpc/*", async (c) => {
-  const incoming = c.env.incoming;
-  const method = incoming.method || "GET";
-
-  // Reconstruct full URL from incoming request
-  const host = incoming.headers.host || "localhost";
-  const url = `https://${host}${incoming.url}`;
-
-  // Read body bytes directly from the Node.js Readable stream
-  let bodyBuf: Buffer | undefined;
-  if (method !== "GET" && method !== "HEAD") {
-    bodyBuf = await new Promise<Buffer>((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      incoming.on("data", (chunk: Buffer) => chunks.push(chunk));
-      incoming.on("end", () => resolve(Buffer.concat(chunks)));
-      incoming.on("error", reject);
-    });
-  }
-
-  // Build a flat headers record
-  const headers: Record<string, string> = {};
-  for (const [k, v] of Object.entries(incoming.headers)) {
-    if (v !== undefined) headers[k] = Array.isArray(v) ? v.join(", ") : v;
-  }
-
-  const req = new Request(url, {
-    method,
-    headers,
-    body: bodyBuf && bodyBuf.length > 0 ? bodyBuf : undefined,
-  });
-
-  return fetchRequestHandler({
-    endpoint: "/api/trpc",
-    req,
-    router: appRouter,
-    createContext,
-  });
-});
-
 // Health check
 app.get("/api/health", (c) => c.json({ ok: true, ts: Date.now() }));
 
-// 404 for unmatched /api/* routes
+// 404 for unmatched /api/* routes (excluding /api/trpc which is handled below)
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 // Serve frontend static files in production
@@ -129,9 +88,31 @@ if (env.isProduction) {
   await serveStaticFiles(app);
 }
 
-const { serve } = await import("@hono/node-server");
+// Get Hono's Node.js request listener
+const honoListener = getRequestListener(app.fetch);
+
 const port = env.port;
-serve({ fetch: app.fetch, port }, () => {
+
+// Raw Node.js HTTP server — intercept /api/trpc/* before Hono's Fetch-API
+// translation so that nodeHTTPRequestHandler can read the body natively.
+const server = createServer((req, res) => {
+  if (req.url?.startsWith("/api/trpc")) {
+    // Extract the tRPC procedure path from the URL.
+    // e.g. /api/trpc/venue.login?batch=1 → "venue.login"
+    const trpcPath = (req.url ?? "").replace(/^\/api\/trpc\/?/, "").split("?")[0];
+    nodeHTTPRequestHandler({
+      router: appRouter,
+      req,
+      res,
+      path: trpcPath,
+      createContext,
+    });
+  } else {
+    honoListener(req, res);
+  }
+});
+
+server.listen(port, () => {
   console.log(`B1 Platform API running on http://localhost:${port}/`);
   if (env.isProduction) {
     console.log("Serving frontend from ./dist");
