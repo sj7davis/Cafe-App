@@ -25,6 +25,9 @@ export default function VenuePublic() {
   const [checkoutPickupTime, setCheckoutPickupTime] = useState('ASAP');
   const [checkoutMilk, setCheckoutMilk] = useState('');
   const [checkoutSugar, setCheckoutSugar] = useState('');
+  const [checkoutGiftCode, setCheckoutGiftCode] = useState('');
+  const [appliedGiftDiscount, setAppliedGiftDiscount] = useState(0);
+  const [checkoutUsePass, setCheckoutUsePass] = useState(false);
 
   const { data: venue, isLoading, error } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
@@ -52,6 +55,23 @@ export default function VenuePublic() {
 
   const upsertPreferences = trpc.venue.upsertCustomerPreferences.useMutation();
 
+  const redeemGiftCardMutation = trpc.venue.redeemGiftCard.useMutation({
+    onSuccess: (data) => {
+      setAppliedGiftDiscount(data.discount);
+    },
+    onError: (err) => {
+      alert(err.message);
+    },
+  });
+
+  const passQuery = trpc.venue.getPassByPhone.useQuery(
+    { venueId: venue?.id ?? 0, phone: checkoutPhone },
+    { enabled: false }
+  );
+  const passInfo = passQuery.data ?? null;
+
+  const usePassCreditMutation = trpc.venue.usePassCredit.useMutation();
+
   const createOrder = trpc.venue.createOrder.useMutation({
     onSuccess: (data) => {
       setCart([]);
@@ -65,6 +85,9 @@ export default function VenuePublic() {
           milk: checkoutMilk || undefined,
           sugar: checkoutSugar || undefined,
         });
+      }
+      if (checkoutUsePass && passInfo?.id && venue?.id) {
+        usePassCreditMutation.mutate({ passId: passInfo.id, venueId: venue.id });
       }
     },
   });
@@ -119,6 +142,7 @@ export default function VenuePublic() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const effectiveTotal = Math.max(0, cartTotal - appliedGiftDiscount);
 
   const handlePhoneBlur = async () => {
     if (checkoutPhone.length >= 8 && venue?.id) {
@@ -127,16 +151,21 @@ export default function VenuePublic() {
         if (result.data.milk) setCheckoutMilk(result.data.milk);
         if (result.data.sugar) setCheckoutSugar(result.data.sugar);
       }
+      await passQuery.refetch();
     }
   };
 
   const handlePlaceOrder = () => {
     if (cart.length === 0 || !venue?.id) return;
+    const orderNote = appliedGiftDiscount > 0
+      ? `Gift card: -$${appliedGiftDiscount.toFixed(2)}`
+      : undefined;
     createOrder.mutate({
       venueId: venue.id,
       customerName: checkoutName || 'Guest',
       customerPhone: checkoutPhone || '0000000000',
       pickupTime: checkoutPickupTime || 'ASAP',
+      orderNote,
       items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
     });
   };
@@ -188,6 +217,9 @@ export default function VenuePublic() {
                     setCheckoutMilk('');
                     setCheckoutSugar('');
                     setCheckoutPickupTime('ASAP');
+                    setCheckoutGiftCode('');
+                    setAppliedGiftDiscount(0);
+                    setCheckoutUsePass(false);
                   }}
                   style={{
                     display: 'block', margin: '16px auto 0', background: 'none',
