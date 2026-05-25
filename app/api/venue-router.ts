@@ -236,6 +236,32 @@ export const venueRouter = createRouter({
       updateData.staffNote = input.staffNote;
     }
     await db.update(orders).set(updateData).where(eq(orders.id, input.orderId));
+
+    // EMAIL-03: send review request when order marked completed
+    if (input.status === "completed") {
+      const completedOrder = await db
+        .select({
+          customerEmail: orders.customerEmail,
+          customerName: orders.customerName,
+          orderNumber: orders.orderNumber,
+          id: orders.id,
+        })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+      const co = completedOrder[0];
+      if (co?.customerEmail) {
+        sendEmail({
+          to: co.customerEmail,
+          subject: "How was your order?",
+          html: `<p>Hi ${co.customerName},</p>
+<p>Thanks for your order <strong>${co.orderNumber}</strong>!</p>
+<p>We'd love your feedback. Leave a review:</p>
+<p><a href="${env.appUrl}/review/${co.id}">${env.appUrl}/review/${co.id}</a></p>`,
+        });
+      }
+    }
+
     return { success: true };
   }),
 
