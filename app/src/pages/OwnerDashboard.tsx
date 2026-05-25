@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import QRCode from 'qrcode';
 
 export default function OwnerDashboard() {
@@ -96,6 +96,22 @@ export default function OwnerDashboard() {
 }
 
 function OverviewTab({ venue }: { venue: any }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
+    { token },
+    { enabled: !!token }
+  );
+  const sendEmail = trpc.venue.sendDailySummaryEmail.useMutation();
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sent' | 'error'>('idle');
+
+  const handleSendEmail = () => {
+    setEmailStatus('idle');
+    sendEmail.mutate({ token }, {
+      onSuccess: () => setEmailStatus('sent'),
+      onError: () => setEmailStatus('error'),
+    });
+  };
+
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -112,7 +128,7 @@ function OverviewTab({ venue }: { venue: any }) {
           </div>
         ))}
       </div>
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6 mb-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', textDecoration: 'none' }}>
@@ -128,6 +144,91 @@ function OverviewTab({ venue }: { venue: any }) {
             <Settings size={16} /> Edit Menu
           </button>
         </div>
+      </div>
+
+      {/* Today at a Glance */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <TrendingUp size={18} style={{ color: '#5E5E5E' }} />
+            <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Today at a Glance</h2>
+            {summary?.date && (
+              <span className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>
+                {new Date(summary.date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {emailStatus === 'sent' && (
+              <span className="font-data flex items-center gap-1" style={{ fontSize: '0.625rem', color: '#5E8B5E', letterSpacing: '0.08em' }}>
+                <Check size={10} /> SENT
+              </span>
+            )}
+            {emailStatus === 'error' && (
+              <span className="font-data flex items-center gap-1" style={{ fontSize: '0.625rem', color: '#B85450', letterSpacing: '0.08em' }}>
+                <AlertCircle size={10} /> FAILED
+              </span>
+            )}
+            <button
+              onClick={handleSendEmail}
+              disabled={sendEmail.isPending}
+              className="flex items-center gap-2 px-4 py-2 font-button"
+              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: sendEmail.isPending ? 'not-allowed' : 'pointer', opacity: sendEmail.isPending ? 0.6 : 1 }}
+            >
+              {sendEmail.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+              Send Summary Email
+            </button>
+          </div>
+        </div>
+
+        {summaryLoading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />
+          </div>
+        )}
+
+        {!summaryLoading && summary && (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: 'Total Orders', value: String(summary.orderCount ?? 0) },
+                { label: 'Completed', value: String(summary.completedCount ?? 0) },
+                { label: 'Pending', value: String(summary.pendingCount ?? 0) },
+                { label: 'Revenue', value: `$${Number(summary.totalRevenue ?? 0).toFixed(2)}` },
+              ].map((stat) => (
+                <div key={stat.label} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+                  <span className="font-data block mb-2" style={{ fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>{stat.label}</span>
+                  <span style={{ fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' }}>{stat.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {summary.topItems && summary.topItems.length > 0 && (
+              <div>
+                <span className="font-data block mb-3" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Top Items Today</span>
+                <div className="space-y-2">
+                  {summary.topItems.slice(0, 5).map((item: { name: string; qty: number }, idx: number) => (
+                    <div key={item.name} className="flex items-center gap-3">
+                      <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', width: '1.25rem', textAlign: 'right' }}>{idx + 1}.</span>
+                      <div className="flex-1 flex items-center justify-between border-b py-1" style={{ borderColor: 'rgba(24,24,24,0.06)' }}>
+                        <span style={{ fontSize: '0.875rem', color: '#181818' }}>{item.name}</span>
+                        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>{item.qty} sold</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(!summary.topItems || summary.topItems.length === 0) && summary.orderCount === 0 && (
+              <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E', textAlign: 'center', padding: '1.5rem 0' }}>No orders yet today.</p>
+            )}
+          </div>
+        )}
+
+        {!summaryLoading && !summary && (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>Could not load today's summary.</p>
+        )}
       </div>
     </div>
   );
@@ -483,12 +584,173 @@ function ReviewsTab({ venueId }: { venueId: number }) {
   );
 }
 
+// ── Modifier option parser ────────────────────────────────────────────────────
+// Parses "Oat (+0.50), Almond (+0.80), Regular" → [{name, priceAdj}]
+function parseModifierOptions(raw: string): { name: string; priceAdj: number }[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((segment) => {
+      const match = segment.match(/^(.+?)\s*\(([+-]\d+(?:\.\d+)?)\)\s*$/);
+      if (match) {
+        return { name: match[1].trim(), priceAdj: parseFloat(match[2]) };
+      }
+      return { name: segment, priceAdj: 0 };
+    });
+}
+
+// ── Modifier Panel (per menu item) ────────────────────────────────────────────
+function ModifiersPanel({ menuItemId, venueId }: { menuItemId: number; venueId: number }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const utils = trpc.useUtils();
+
+  const { data: allModifiers, isLoading } = trpc.venue.listMenuModifiers.useQuery(
+    { venueId },
+    { enabled: !!venueId }
+  );
+  const modifiers = allModifiers?.filter((m: any) => m.menuItemId === menuItemId) ?? [];
+
+  const addMutation = trpc.venue.addMenuModifier.useMutation({
+    onSuccess: () => {
+      utils.venue.listMenuModifiers.invalidate();
+      setAddForm({ name: '', options: '', required: false });
+      setAddError('');
+    },
+    onError: (err) => setAddError(err.message),
+  });
+
+  const deleteMutation = trpc.venue.deleteMenuModifier.useMutation({
+    onSuccess: () => utils.venue.listMenuModifiers.invalidate(),
+  });
+
+  const [addForm, setAddForm] = useState({ name: '', options: '', required: false });
+  const [addError, setAddError] = useState('');
+
+  const handleAdd = () => {
+    if (!addForm.name.trim() || !addForm.options.trim()) {
+      setAddError('Group name and at least one option are required.');
+      return;
+    }
+    const parsedOptions = parseModifierOptions(addForm.options);
+    addMutation.mutate({
+      token,
+      menuItemId,
+      name: addForm.name.trim(),
+      options: parsedOptions,
+      required: addForm.required,
+      sortOrder: modifiers.length,
+    });
+  };
+
+  const panelInputCls = "w-full bg-transparent border px-3 py-2 focus:outline-none";
+  const panelInputStyle = { fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
+  const panelLabelStyle = { fontSize: '0.5625rem', letterSpacing: '0.10em', textTransform: 'uppercase' as const, color: '#5E5E5E', fontFamily: 'Geist Mono' };
+
+  return (
+    <div style={{ background: '#FAFAF8', borderTop: '1px solid rgba(24,24,24,0.08)', padding: '1rem 1.25rem' }}>
+      <span className="font-data block mb-3" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Modifier Groups</span>
+
+      {isLoading && <Loader2 size={14} className="animate-spin" style={{ color: '#5E5E5E' }} />}
+
+      {!isLoading && modifiers.length === 0 && (
+        <p style={{ fontSize: '0.8125rem', color: '#5E5E5E', marginBottom: '0.75rem' }}>No modifier groups yet.</p>
+      )}
+
+      {/* Existing modifier groups */}
+      <div className="space-y-2 mb-4">
+        {modifiers.map((mod: any) => (
+          <div key={mod.id} className="border p-3 flex items-start justify-between gap-3" style={{ borderColor: 'rgba(24,24,24,0.10)', background: '#F3F2EE' }}>
+            <div style={{ flex: 1 }}>
+              <div className="flex items-center gap-2 mb-1">
+                <span style={{ fontWeight: 600, fontSize: '0.8125rem', color: '#181818' }}>{mod.name}</span>
+                {mod.required && (
+                  <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '1px 5px', background: 'rgba(24,24,24,0.08)', color: '#5E5E5E' }}>Required</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {mod.options?.map((opt: { name: string; priceAdj: number }, i: number) => (
+                  <span key={i} className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.06em', padding: '2px 6px', background: 'rgba(24,24,24,0.06)', color: '#5E5E5E' }}>
+                    {opt.name}{opt.priceAdj !== 0 ? ` (${opt.priceAdj > 0 ? '+' : ''}${opt.priceAdj.toFixed(2)})` : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => deleteMutation.mutate({ token, modifierId: mod.id })}
+              disabled={deleteMutation.isPending}
+              className="p-1.5 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
+              style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent', flexShrink: 0 }}
+              aria-label="Delete modifier group"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Add modifier group form */}
+      <div className="border p-3" style={{ borderColor: 'rgba(24,24,24,0.10)', background: '#F3F2EE' }}>
+        <span className="font-data block mb-2" style={{ fontSize: '0.5625rem', letterSpacing: '0.10em', textTransform: 'uppercase', color: '#5E5E5E' }}>Add Modifier Group</span>
+        <div className="grid grid-cols-1 gap-2 mb-2">
+          <div>
+            <label className="font-data block mb-1" style={panelLabelStyle}>Group Name</label>
+            <input
+              type="text"
+              value={addForm.name}
+              onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+              className={panelInputCls}
+              style={panelInputStyle}
+              placeholder="e.g. Milk Type"
+            />
+          </div>
+          <div>
+            <label className="font-data block mb-1" style={panelLabelStyle}>Options (comma-separated, optional price adj)</label>
+            <input
+              type="text"
+              value={addForm.options}
+              onChange={(e) => setAddForm({ ...addForm, options: e.target.value })}
+              className={panelInputCls}
+              style={panelInputStyle}
+              placeholder="Oat (+0.50), Almond (+0.80), Regular"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 mb-3">
+          <label className="flex items-center gap-2 cursor-pointer" style={{ fontSize: '0.8125rem', color: '#181818' }}>
+            <input
+              type="checkbox"
+              checked={addForm.required}
+              onChange={(e) => setAddForm({ ...addForm, required: e.target.checked })}
+              style={{ accentColor: '#181818' }}
+            />
+            <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E' }}>Required</span>
+          </label>
+        </div>
+        {addError && (
+          <p className="font-data mb-2" style={{ fontSize: '0.625rem', color: '#B85450' }}>{addError}</p>
+        )}
+        <button
+          onClick={handleAdd}
+          disabled={addMutation.isPending}
+          className="flex items-center gap-2 px-4 py-2 font-button"
+          style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: 'pointer', opacity: addMutation.isPending ? 0.6 : 1 }}
+        >
+          {addMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+          Add Modifier Group
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MenuTab({ venue }: { venue: any }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const utils = trpc.useUtils();
   const { data: items, isLoading } = trpc.venue.listMenu.useQuery({ venueId: venue.id });
 
   const [mode, setMode] = useState<'list' | 'create' | { type: 'edit'; id: number }>('list');
+  const [openModifiers, setOpenModifiers] = useState<Set<number>>(new Set());
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -692,6 +954,19 @@ function MenuTab({ venue }: { venue: any }) {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
+                    onClick={() => setOpenModifiers((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                      return next;
+                    })}
+                    aria-label="Manage modifiers"
+                    title="Manage Modifiers"
+                    className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all flex items-center gap-1"
+                    style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent', fontSize: '0' }}
+                  >
+                    {openModifiers.has(item.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  <button
                     onClick={() => startEdit(item)}
                     aria-label="Edit item"
                     className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
@@ -710,6 +985,11 @@ function MenuTab({ venue }: { venue: any }) {
                   </button>
                 </div>
               </div>
+
+              {/* Modifiers accordion panel */}
+              {openModifiers.has(item.id) && (
+                <ModifiersPanel menuItemId={item.id} venueId={venue.id} />
+              )}
 
               {/* Delete confirmation inline */}
               {deleteConfirm === item.id && (

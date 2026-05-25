@@ -13,6 +13,13 @@ interface CartItem {
   price: number;
   quantity: number;
   note?: string;
+  modifiers?: { group: string; option: string; priceAdj: number }[];
+}
+
+// Stable key for a cart entry — same item + same modifier combo = same slot
+function cartKey(menuItemId: number, modifiers?: { group: string; option: string; priceAdj: number }[]) {
+  if (!modifiers || modifiers.length === 0) return String(menuItemId);
+  return `${menuItemId}::${modifiers.map(m => `${m.group}=${m.option}`).join('|')}`;
 }
 
 export default function VenuePublic() {
@@ -32,6 +39,16 @@ export default function VenuePublic() {
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [cateringForm, setCateringForm] = useState({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
   const [cateringSubmitted, setCateringSubmitted] = useState(false);
+
+  // Modifier modal state
+  const [modifierModalItem, setModifierModalItem] = useState<NonNullable<typeof menuItems>[number] | null>(null);
+
+  // Toast state
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const { data: venue, isLoading, error } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
@@ -59,6 +76,11 @@ export default function VenuePublic() {
 
   const prefQuery = trpc.venue.getCustomerPreferences.useQuery(
     { venueId: venue?.id ?? 0, phone: checkoutPhone },
+    { enabled: false }
+  );
+
+  const orderHistoryQuery = trpc.venue.getOrdersByPhone.useQuery(
+    { venueId: venue?.id ?? 0, phone: checkoutPhone, limit: 5 },
     { enabled: false }
   );
 
@@ -142,24 +164,37 @@ export default function VenuePublic() {
   const breadItems = menuItems?.filter(i => i.category === 'bread') || [];
 
   type MenuItem = NonNullable<typeof menuItems>[number];
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: MenuItem, modifiers?: { group: string; option: string; priceAdj: number }[]) => {
+    const key = cartKey(item.id, modifiers);
+    const modAdj = modifiers ? modifiers.reduce((s, m) => s + m.priceAdj, 0) : 0;
     setCart(prev => {
-      const existing = prev.find(c => c.menuItemId === item.id);
+      const existing = prev.find(c => cartKey(c.menuItemId, c.modifiers) === key);
       if (existing) {
-        return prev.map(c => c.menuItemId === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+        return prev.map(c => cartKey(c.menuItemId, c.modifiers) === key ? { ...c, quantity: c.quantity + 1 } : c);
       }
-      return [...prev, { menuItemId: item.id, name: item.name, price: Number(item.price), quantity: 1 }];
+      return [...prev, {
+        menuItemId: item.id,
+        name: item.name,
+        price: Number(item.price) + modAdj,
+        quantity: 1,
+        modifiers: modifiers && modifiers.length > 0 ? modifiers : undefined,
+      }];
     });
   };
 
-  const removeFromCart = (menuItemId: number) => {
+  const removeFromCart = (key: string) => {
     setCart(prev => {
-      const existing = prev.find(c => c.menuItemId === menuItemId);
+      const existing = prev.find(c => cartKey(c.menuItemId, c.modifiers) === key);
       if (existing && existing.quantity > 1) {
-        return prev.map(c => c.menuItemId === menuItemId ? { ...c, quantity: c.quantity - 1 } : c);
+        return prev.map(c => cartKey(c.menuItemId, c.modifiers) === key ? { ...c, quantity: c.quantity - 1 } : c);
       }
-      return prev.filter(c => c.menuItemId !== menuItemId);
+      return prev.filter(c => cartKey(c.menuItemId, c.modifiers) !== key);
     });
+  };
+
+  const handleAddItem = (item: MenuItem) => {
+    // Open modifier modal; if item has no modifiers, ModifierModal will add directly
+    setModifierModalItem(item);
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -174,6 +209,7 @@ export default function VenuePublic() {
         if (result.data.sugar) setCheckoutSugar(result.data.sugar);
       }
       await passQuery.refetch();
+      await orderHistoryQuery.refetch();
     }
   };
 
@@ -190,12 +226,36 @@ export default function VenuePublic() {
       locationId: selectedLocationId ?? undefined,
       customerEmail: checkoutEmail || undefined,
       orderNote,
-      items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
+      items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity, note: c.note, modifiers: c.modifiers })),
     });
   };
 
   return (
     <div style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 300, background: '#181818', color: '#F3F2EE',
+          padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          pointerEvents: 'none',
+        }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Modifier modal */}
+      {modifierModalItem && (
+        <ModifierModal
+          item={modifierModalItem}
+          onClose={() => setModifierModalItem(null)}
+          onConfirm={(modifiers) => {
+            addToCart(modifierModalItem, modifiers);
+            setModifierModalItem(null);
+          }}
+        />
+      )}
       {/* Cart Drawer */}
       {showCart && (
         <div style={{
@@ -261,39 +321,71 @@ export default function VenuePublic() {
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {cart.map(item => (
-                    <div key={item.menuItemId} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '12px 0', borderBottom: '1px solid rgba(24,24,24,0.06)',
-                    }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{item.name}</div>
-                        <div style={{ fontSize: 13, color: '#5E5E5E' }}>${item.price.toFixed(2)} each</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <button
-                          onClick={() => removeFromCart(item.menuItemId)}
-                          style={{
-                            width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
-                            background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                {/* Recent Orders — shown once phone is entered */}
+                {checkoutPhone.length >= 8 && orderHistoryQuery.data && orderHistoryQuery.data.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Recent Orders
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {orderHistoryQuery.data.map(order => (
+                        <OrderAgainRow
+                          key={order.id}
+                          order={order}
+                          venueId={venue.id}
+                          menuItems={menuItems || []}
+                          onOrderAgain={(items) => {
+                            items.forEach(i => addToCart(i));
+                            if (order.customerName && !checkoutName) setCheckoutName(order.customerName);
+                            showToast('Items added to cart');
                           }}
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span style={{ fontWeight: 600, fontSize: 14, minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
-                        <button
-                          onClick={() => addToCart(menuItems?.find(m => m.id === item.menuItemId)!)}
-                          style={{
-                            width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
-                            background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
+                        />
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {cart.map(item => {
+                    const key = cartKey(item.menuItemId, item.modifiers);
+                    return (
+                      <div key={key} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '12px 0', borderBottom: '1px solid rgba(24,24,24,0.06)',
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{item.name}</div>
+                          {item.modifiers && item.modifiers.length > 0 && (
+                            <div style={{ fontSize: 11, color: '#5E5E5E', marginTop: 2 }}>
+                              {item.modifiers.map(m => m.option).join(', ')}
+                            </div>
+                          )}
+                          <div style={{ fontSize: 13, color: '#5E5E5E' }}>${item.price.toFixed(2)} each</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <button
+                            onClick={() => removeFromCart(key)}
+                            style={{
+                              width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
+                              background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span style={{ fontWeight: 600, fontSize: 14, minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
+                          <button
+                            onClick={() => addToCart(menuItems?.find(m => m.id === item.menuItemId)!, item.modifiers)}
+                            style={{
+                              width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
+                              background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Checkout form — rendered only when not in confirmation mode */}
@@ -565,7 +657,7 @@ export default function VenuePublic() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {coffeeItems.map(item => (
-                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => addToCart(item)} cartQty={cart.find(c => c.menuItemId === item.id)?.quantity || 0} onRemove={() => removeFromCart(item.id)} />
+                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => handleAddItem(item)} cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)} onRemove={() => removeFromCart(cartKey(item.id))} />
               ))}
             </div>
           </div>
@@ -583,7 +675,7 @@ export default function VenuePublic() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {pastryItems.map(item => (
-                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => addToCart(item)} cartQty={cart.find(c => c.menuItemId === item.id)?.quantity || 0} onRemove={() => removeFromCart(item.id)} />
+                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => handleAddItem(item)} cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)} onRemove={() => removeFromCart(cartKey(item.id))} />
               ))}
             </div>
           </div>
@@ -601,7 +693,7 @@ export default function VenuePublic() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {breadItems.map(item => (
-                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => addToCart(item)} cartQty={cart.find(c => c.menuItemId === item.id)?.quantity || 0} onRemove={() => removeFromCart(item.id)} />
+                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => handleAddItem(item)} cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)} onRemove={() => removeFromCart(cartKey(item.id))} />
               ))}
             </div>
           </div>
@@ -835,6 +927,193 @@ export default function VenuePublic() {
           </span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// ─── OrderAgainRow ──────────────────────────────────────────────────────────
+function OrderAgainRow({
+  order,
+  venueId,
+  menuItems,
+  onOrderAgain,
+}: {
+  order: { id: number; orderNumber: string; customerName: string | null; status: string; totalAmount: string | number; createdAt: string };
+  venueId: number;
+  menuItems: { id: number; name: string; price: string }[];
+  onOrderAgain: (items: { id: number; name: string; price: number }[]) => void;
+}) {
+  const orderItemsQuery = trpc.venue.getOrderItemsByOrderId.useQuery(
+    { orderId: order.id, venueId },
+    { enabled: false }
+  );
+
+  const handleOrderAgain = async () => {
+    const result = await orderItemsQuery.refetch();
+    if (!result.data) return;
+    const items = result.data.flatMap(oi => {
+      const mi = menuItems.find(m => m.id === oi.menuItemId);
+      if (!mi) return [];
+      return [{ id: mi.id, name: mi.name, price: Number(mi.price) }];
+    });
+    onOrderAgain(items);
+  };
+
+  const date = new Date(order.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  const total = Number(order.totalAmount).toFixed(2);
+
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '10px 12px', background: '#fff', borderRadius: 8,
+      border: '1px solid rgba(24,24,24,0.08)',
+    }}>
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#181818' }}>#{order.orderNumber}</div>
+        <div style={{ fontSize: 11, color: '#5E5E5E' }}>{date} · ${total}</div>
+        <div style={{ fontSize: 11, color: '#5E5E5E', textTransform: 'capitalize' }}>{order.status}</div>
+      </div>
+      <button
+        onClick={handleOrderAgain}
+        disabled={orderItemsQuery.isFetching}
+        style={{
+          padding: '6px 12px', borderRadius: 6, border: 'none',
+          background: '#181818', color: '#F3F2EE', fontSize: 12, fontWeight: 600,
+          cursor: orderItemsQuery.isFetching ? 'not-allowed' : 'pointer',
+          opacity: orderItemsQuery.isFetching ? 0.6 : 1,
+          flexShrink: 0,
+        }}
+      >
+        {orderItemsQuery.isFetching ? '…' : 'Order Again'}
+      </button>
+    </div>
+  );
+}
+
+// ─── ModifierModal ───────────────────────────────────────────────────────────
+type ModifierGroup = { id: number; name: string; options: { name: string; priceAdj: number }[]; required: boolean };
+
+function ModifierModal({
+  item,
+  onClose,
+  onConfirm,
+}: {
+  item: { id: number; name: string };
+  onClose: () => void;
+  onConfirm: (modifiers: { group: string; option: string; priceAdj: number }[]) => void;
+}) {
+  const { data: groups, isLoading } = trpc.venue.listMenuModifiersPublic.useQuery(
+    { menuItemId: item.id },
+    { enabled: true }
+  );
+
+  const [selections, setSelections] = useState<Record<string, { option: string; priceAdj: number }>>({});
+
+  // If no modifiers exist, confirm immediately with empty array
+  const hasLoaded = !isLoading && groups !== undefined;
+  const hasModifiers = groups && groups.length > 0;
+
+  useEffect(() => {
+    if (hasLoaded && !hasModifiers) {
+      onConfirm([]);
+    }
+  }, [hasLoaded, hasModifiers, onConfirm]);
+
+  if (isLoading) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Loader2 size={32} className="animate-spin" style={{ color: '#F3F2EE' }} />
+      </div>
+    );
+  }
+
+  if (!hasModifiers) return null;
+
+  const requiredGroups = (groups as ModifierGroup[]).filter(g => g.required);
+  const allRequiredSelected = requiredGroups.every(g => selections[g.name]);
+
+  const handleConfirm = () => {
+    const mods = Object.entries(selections).map(([group, { option, priceAdj }]) => ({ group, option, priceAdj }));
+    onConfirm(mods);
+  };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#F3F2EE', borderRadius: '12px 12px 0 0', width: '100%', maxWidth: 480,
+          padding: 24, maxHeight: '80dvh', overflowY: 'auto',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: '#181818', margin: 0 }}>
+            Customise — {item.name}
+          </h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={20} color="#5E5E5E" />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {(groups as ModifierGroup[]).map(group => (
+            <div key={group.id}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 8 }}>
+                {group.name}
+                {group.required && <span style={{ color: '#dc2626', marginLeft: 4 }}>*</span>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {group.options.map(opt => (
+                  <label key={opt.name} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, color: '#181818' }}>
+                    <input
+                      type="radio"
+                      name={`mod-${group.id}`}
+                      checked={selections[group.name]?.option === opt.name}
+                      onChange={() => setSelections(prev => ({ ...prev, [group.name]: { option: opt.name, priceAdj: opt.priceAdj } }))}
+                      style={{ accentColor: '#181818' }}
+                    />
+                    <span>{opt.name}</span>
+                    {opt.priceAdj !== 0 && (
+                      <span style={{ fontSize: 12, color: '#5E5E5E', marginLeft: 'auto' }}>
+                        {opt.priceAdj > 0 ? `+$${opt.priceAdj.toFixed(2)}` : `-$${Math.abs(opt.priceAdj).toFixed(2)}`}
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1, padding: '12px 0', borderRadius: 8,
+              border: '1px solid rgba(24,24,24,0.15)', background: 'none',
+              fontSize: 14, cursor: 'pointer', color: '#5E5E5E',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!allRequiredSelected}
+            style={{
+              flex: 2, padding: '12px 0', borderRadius: 8, border: 'none',
+              background: '#181818', color: '#F3F2EE',
+              fontSize: 14, fontWeight: 600,
+              cursor: allRequiredSelected ? 'pointer' : 'not-allowed',
+              opacity: allRequiredSelected ? 1 : 0.5,
+            }}
+          >
+            Add to Cart
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

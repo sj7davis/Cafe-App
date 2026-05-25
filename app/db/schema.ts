@@ -315,6 +315,20 @@ export const cateringRequests = pgTable("catering_requests", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Menu Item Modifiers (per-venue, per-item) ───
+// Modifier groups — e.g. "Milk Type" with options [Oat, Almond, Regular]
+export const menuItemModifiers = pgTable("menu_item_modifiers", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  menuItemId: bigint("menu_item_id", { mode: "number" }).notNull().references(() => menuItems.id),
+  name: varchar("name", { length: 64 }).notNull(),
+  options: json("options").notNull().$type<{ name: string; priceAdj: number }[]>(),
+  required: boolean("required").default(false),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type MenuItemModifier = typeof menuItemModifiers.$inferSelect;
+
 // ─── Push Subscriptions (per-venue) ───
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),

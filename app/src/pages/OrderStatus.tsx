@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router';
 import { trpc } from '@/providers/trpc';
 import { Coffee, Loader2, CheckCircle, Clock, Package, XCircle } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 const STEPS = ['pending', 'confirmed', 'ready', 'completed'] as const;
 type Step = typeof STEPS[number];
@@ -13,12 +14,56 @@ const STEP_COLORS: Record<string, { bg: string; text: string }> = {
   cancelled: { bg: '#fee2e2', text: '#dc2626' },
 };
 
+// Inject keyframe animations once
+const STYLE_ID = 'order-status-keyframes';
+if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    @keyframes readyPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.015); }
+    }
+    @keyframes readyCheckBounce {
+      0% { transform: scale(0.8); }
+      60% { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+    @keyframes coffeeSteam {
+      0%, 100% { transform: translateY(0) scaleX(1); opacity: 0.7; }
+      50% { transform: translateY(-6px) scaleX(0.85); opacity: 0.3; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 export default function OrderStatus() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
+
+  const prevStatusRef = useRef<string | null>(null);
+
   const { data, isLoading, error } = trpc.venue.getOrderByNumber.useQuery(
     { orderNumber: orderNumber || '' },
-    { enabled: !!orderNumber, refetchInterval: 30_000 }
+    {
+      enabled: !!orderNumber,
+      refetchInterval: (query) => {
+        const status = (query.state.data as any)?.order?.status;
+        return (status === 'pending' || status === 'confirmed' || status === 'ready')
+          ? 8_000
+          : 30_000;
+      },
+    }
   );
+
+  // Auto-scroll to top when status changes
+  useEffect(() => {
+    if (!data) return;
+    const currentStatus = data.order.status;
+    if (prevStatusRef.current !== null && prevStatusRef.current !== currentStatus) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    prevStatusRef.current = currentStatus;
+  }, [data?.order.status]);
 
   if (isLoading) {
     return (
@@ -42,11 +87,45 @@ export default function OrderStatus() {
 
   const { order, venue, items } = data;
   const isCancelled = order.status === 'cancelled';
+  const isReady = order.status === 'ready';
+  const isConfirmed = order.status === 'confirmed';
   const currentStepIdx = STEPS.indexOf(order.status as Step);
 
   return (
-    <div style={{ background: '#F3F2EE', minHeight: '100dvh', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', padding: '32px 16px' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div style={{ background: '#F3F2EE', minHeight: '100dvh', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+      {/* READY! Hero Banner */}
+      {isReady && (
+        <div style={{
+          width: '100%',
+          background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+          color: '#fff',
+          padding: '28px 24px',
+          textAlign: 'center',
+          animation: 'readyPulse 2s ease-in-out infinite',
+          boxShadow: '0 4px 24px rgba(5,150,105,0.35)',
+        }}>
+          <div style={{
+            fontSize: 64,
+            lineHeight: 1,
+            marginBottom: 12,
+            animation: 'readyCheckBounce 0.5s ease-out',
+            display: 'inline-block',
+          }}>
+            ✓
+          </div>
+          <div style={{
+            fontSize: 'clamp(18px, 4vw, 28px)',
+            fontWeight: 900,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            lineHeight: 1.2,
+          }}>
+            YOUR ORDER IS READY — HEAD TO THE COUNTER!
+          </div>
+        </div>
+      )}
+
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 16px' }}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 11, color: '#5E5E5E', textTransform: 'uppercase', letterSpacing: 0.5 }}>Order</div>
@@ -95,6 +174,45 @@ export default function OrderStatus() {
             </div>
           )}
         </div>
+
+        {/* "Preparing your order..." animated state for confirmed */}
+        {isConfirmed && (
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: '20px 24px',
+            marginBottom: 16,
+            border: '1px solid rgba(37,99,235,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+          }}>
+            {/* Animated coffee cup */}
+            <div style={{ position: 'relative', flexShrink: 0, width: 40, height: 48 }}>
+              {/* Steam wisps */}
+              {[0, 1, 2].map((i) => (
+                <div key={i} style={{
+                  position: 'absolute',
+                  bottom: 36,
+                  left: 6 + i * 10,
+                  width: 4,
+                  height: 10,
+                  borderRadius: 2,
+                  background: '#93c5fd',
+                  opacity: 0.7,
+                  animation: `coffeeSteam ${1.2 + i * 0.3}s ease-in-out infinite`,
+                  animationDelay: `${i * 0.2}s`,
+                }} />
+              ))}
+              {/* Cup body */}
+              <Coffee size={32} style={{ color: '#2563eb', position: 'absolute', bottom: 0, left: 4 }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#2563eb' }}>Preparing your order...</div>
+              <div style={{ fontSize: 13, color: '#5E5E5E', marginTop: 2 }}>The team is working on it. We'll have it ready soon!</div>
+            </div>
+          </div>
+        )}
 
         {/* Pickup time */}
         <div style={{ background: '#fff', borderRadius: 12, padding: 20, marginBottom: 16, border: '1px solid rgba(24,24,24,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>

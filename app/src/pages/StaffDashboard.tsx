@@ -1,6 +1,6 @@
+import React, { useState, useEffect, useRef } from 'react';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { trpc } from '@/providers/trpc';
-import { useState, useEffect, useRef } from 'react';
 import {
   Coffee,
   Users,
@@ -30,6 +30,12 @@ import {
 export default function StaffDashboard() {
   const { staff, venue, isAdmin, isManager, logout, loading } = useStaffAuth();
   const [activeTab, setActiveTab] = useState('orders');
+
+  const { data: pendingOrdersData } = trpc.venue.listOrders.useQuery(
+    { venueId: venue?.id ?? 0, status: 'pending', limit: 99 },
+    { enabled: !!venue, refetchInterval: 15_000 }
+  );
+  const pendingCount = pendingOrdersData?.length ?? 0;
 
   if (loading) {
     return (
@@ -178,7 +184,7 @@ export default function StaffDashboard() {
           flexShrink: 0,
         }}>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <SidebarItem icon={<ShoppingBag size={18} />} label="Orders" tab="orders" activeTab={activeTab} setActiveTab={setActiveTab} />
+            <SidebarItem icon={<ShoppingBag size={18} />} label="Orders" tab="orders" activeTab={activeTab} setActiveTab={setActiveTab} badge={pendingCount} />
             <SidebarItem icon={<Package size={18} />} label="Inventory" tab="inventory" activeTab={activeTab} setActiveTab={setActiveTab} />
             <SidebarItem icon={<Star size={18} />} label="Loyalty" tab="loyalty" activeTab={activeTab} setActiveTab={setActiveTab} />
             <SidebarItem icon={<Gift size={18} />} label="Gift Cards" tab="giftcards" activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -229,9 +235,28 @@ export default function StaffDashboard() {
   );
 }
 
+// ─── Audio Chime ───
+function playNewOrderChime() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.15);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.6);
+  } catch {}
+}
+
 // ─── Sidebar Item ───
-function SidebarItem({ icon, label, tab, activeTab, setActiveTab }: {
-  icon: React.ReactNode; label: string; tab: string; activeTab: string; setActiveTab: (t: string) => void;
+function SidebarItem({ icon, label, tab, activeTab, setActiveTab, badge }: {
+  icon: React.ReactNode; label: string; tab: string; activeTab: string; setActiveTab: (t: string) => void; badge?: number;
 }) {
   const isActive = activeTab === tab;
   return (
@@ -252,6 +277,7 @@ function SidebarItem({ icon, label, tab, activeTab, setActiveTab }: {
         width: '100%',
         textAlign: 'left',
         transition: 'all 0.15s',
+        position: 'relative',
       }}
       onMouseEnter={(e) => {
         if (!isActive) { e.currentTarget.style.background = '#f5f5f4'; e.currentTarget.style.color = '#44403c'; }
@@ -261,7 +287,26 @@ function SidebarItem({ icon, label, tab, activeTab, setActiveTab }: {
       }}
     >
       {icon}
-      {label}
+      <span style={{ flex: 1 }}>{label}</span>
+      {badge != null && badge > 0 && (
+        <span style={{
+          minWidth: 18,
+          height: 18,
+          borderRadius: 9,
+          background: '#dc2626',
+          color: '#fff',
+          fontSize: 10,
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '0 4px',
+          lineHeight: 1,
+          flexShrink: 0,
+        }}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -288,6 +333,12 @@ function OrdersTab({ venueId }: { venueId: number }) {
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
   const [pendingStatus, setPendingStatus] = useState<string>('');
   const [staffNoteDraft, setStaffNoteDraft] = useState<string>('');
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+
+  const { data: selectedOrderItems } = trpc.venue.getOrderItems.useQuery(
+    { orderId: selectedOrderId ?? 0 },
+    { enabled: !!selectedOrderId }
+  );
 
   useEffect(() => {
     if (!ordersList) return;
@@ -296,6 +347,7 @@ function OrdersTab({ venueId }: { venueId: number }) {
     if (!isFirstLoad) {
       const fresh = new Set([...incoming].filter(id => !knownIds.current.has(id)));
       if (fresh.size > 0) {
+        playNewOrderChime();
         setNewOrderIds(prev => {
           const merged = new Set(prev);
           fresh.forEach(id => merged.add(id));
@@ -380,13 +432,22 @@ function OrdersTab({ venueId }: { venueId: number }) {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
-        <StatCard icon={<ShoppingBag size={20} />} label="Today's Orders" value="24" color="#1c1917" />
-        <StatCard icon={<Clock size={20} />} label="Pending" value="6" color="#d97706" />
-        <StatCard icon={<CheckCircle size={20} />} label="Completed" value="16" color="#16a34a" />
-        <StatCard icon={<TrendingUp size={20} />} label="Revenue" value="$486.50" color="#2563eb" />
-      </div>
+      {/* Stats Cards — real data from ordersList */}
+      {(() => {
+        const todayStr = new Date().toDateString();
+        const todayOrders = (ordersList ?? []).filter(o => new Date(o.createdAt).toDateString() === todayStr);
+        const todayPending = todayOrders.filter(o => o.status === 'pending').length;
+        const todayCompleted = todayOrders.filter(o => o.status === 'completed').length;
+        const todayRevenue = todayOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
+            <StatCard icon={<ShoppingBag size={20} />} label="Today's Orders" value={String(todayOrders.length)} color="#1c1917" />
+            <StatCard icon={<Clock size={20} />} label="Pending" value={String(todayPending)} color="#d97706" />
+            <StatCard icon={<CheckCircle size={20} />} label="Completed" value={String(todayCompleted)} color="#16a34a" />
+            <StatCard icon={<TrendingUp size={20} />} label="Revenue" value={`$${todayRevenue.toFixed(2)}`} color="#2563eb" />
+          </div>
+        );
+      })()}
 
       {/* Orders Table */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
@@ -402,105 +463,136 @@ function OrdersTab({ venueId }: { venueId: number }) {
             </tr>
           </thead>
           <tbody>
-            {ordersList && ordersList.length > 0 ? ordersList.map((order) => (
-              <tr
-                key={order.id}
-                data-testid={`order-row-${order.id}`}
-                data-new-order={newOrderIds.has(order.id) ? 'true' : undefined}
-                style={{
-                  borderBottom: '1px solid #f5f5f4',
-                  transition: 'background 0.15s',
-                  background: newOrderIds.has(order.id) ? '#fffbeb' : '#fff',
-                  borderLeft: newOrderIds.has(order.id) ? '3px solid #d97706' : '3px solid transparent',
-                }}
-                onMouseEnter={(e) => { if (!newOrderIds.has(order.id)) e.currentTarget.style.background = '#fafaf9'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = newOrderIds.has(order.id) ? '#fffbeb' : '#fff'; }}
-              >
-                <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1c1917' }}>{order.orderNumber}</td>
-                <td style={{ padding: '14px 16px', color: '#44403c' }}>{order.customerName}</td>
-                <td style={{ padding: '14px 16px', color: '#78716c' }}>${Number(order.totalAmount).toFixed(2)}</td>
-                <td style={{ padding: '14px 16px' }}>
-                  <StatusBadge status={order.status} />
-                </td>
-                <td style={{ padding: '14px 16px' }}>
-                  {editingOrderId === order.id ? (
-                    <div data-testid={`confirm-panel-${order.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
-                      <div style={{ fontSize: 11, color: '#57534e' }}>
-                        New status: <strong style={{ textTransform: 'capitalize' }}>{pendingStatus}</strong>
-                      </div>
-                      <textarea
-                        data-testid={`staff-note-input-${order.id}`}
-                        value={staffNoteDraft}
-                        onChange={(e) => setStaffNoteDraft(e.target.value)}
-                        placeholder="Internal note (optional)"
-                        rows={2}
-                        style={{
-                          padding: '6px 8px', borderRadius: 6, border: '1px solid #e7e5e4',
-                          fontSize: 12, fontFamily: 'inherit', resize: 'vertical',
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          data-testid={`confirm-status-${order.id}`}
-                          onClick={() => {
-                            updateStatus.mutate({
-                              token,
-                              orderId: order.id,
-                              status: pendingStatus as any,
-                              staffNote: staffNoteDraft.trim() ? staffNoteDraft.trim() : undefined,
-                            });
-                            setEditingOrderId(null);
-                            setPendingStatus('');
+            {ordersList && ordersList.length > 0 ? ordersList.map((order) => {
+              const isExpanded = selectedOrderId === order.id;
+              const isNew = newOrderIds.has(order.id);
+              return (
+                <React.Fragment key={order.id}>
+                  <tr
+                    data-order-id={order.id}
+                    data-testid={`order-row-${order.id}`}
+                    data-new-order={isNew ? 'true' : undefined}
+                    onClick={() => setSelectedOrderId(isExpanded ? null : order.id)}
+                    style={{
+                      borderBottom: isExpanded ? 'none' : '1px solid #f5f5f4',
+                      transition: 'background 0.15s',
+                      background: isNew ? '#fffbeb' : isExpanded ? '#f0fdf4' : '#fff',
+                      borderLeft: isNew ? '3px solid #d97706' : isExpanded ? '3px solid #059669' : '3px solid transparent',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => { if (!isNew && !isExpanded) e.currentTarget.style.background = '#fafaf9'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = isNew ? '#fffbeb' : isExpanded ? '#f0fdf4' : '#fff'; }}
+                  >
+                    <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1c1917' }}>
+                      <span style={{ marginRight: 6, fontSize: 10, color: '#a8a29e' }}>{isExpanded ? '▼' : '▶'}</span>
+                      {order.orderNumber}
+                    </td>
+                    <td style={{ padding: '14px 16px', color: '#44403c' }}>{order.customerName}</td>
+                    <td style={{ padding: '14px 16px', color: '#78716c' }}>${Number(order.totalAmount).toFixed(2)}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <StatusBadge status={order.status} />
+                    </td>
+                    <td style={{ padding: '14px 16px' }} onClick={(e) => e.stopPropagation()}>
+                      {editingOrderId === order.id ? (
+                        <div data-testid={`confirm-panel-${order.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+                          <div style={{ fontSize: 11, color: '#57534e' }}>
+                            New status: <strong style={{ textTransform: 'capitalize' }}>{pendingStatus}</strong>
+                          </div>
+                          <textarea
+                            data-testid={`staff-note-input-${order.id}`}
+                            value={staffNoteDraft}
+                            onChange={(e) => setStaffNoteDraft(e.target.value)}
+                            placeholder="Internal note (optional)"
+                            rows={2}
+                            style={{
+                              padding: '6px 8px', borderRadius: 6, border: '1px solid #e7e5e4',
+                              fontSize: 12, fontFamily: 'inherit', resize: 'vertical',
+                            }}
+                          />
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              data-testid={`confirm-status-${order.id}`}
+                              onClick={() => {
+                                updateStatus.mutate({
+                                  token,
+                                  orderId: order.id,
+                                  status: pendingStatus as any,
+                                  staffNote: staffNoteDraft.trim() ? staffNoteDraft.trim() : undefined,
+                                });
+                                setEditingOrderId(null);
+                                setPendingStatus('');
+                                setStaffNoteDraft('');
+                              }}
+                              style={{
+                                padding: '4px 10px', borderRadius: 6, border: 'none',
+                                background: '#181818', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 600,
+                              }}
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingOrderId(null);
+                                setPendingStatus('');
+                                setStaffNoteDraft('');
+                              }}
+                              style={{
+                                padding: '4px 10px', borderRadius: 6, border: '1px solid #e7e5e4',
+                                background: '#fafaf9', color: '#57534e', fontSize: 12, cursor: 'pointer',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <select
+                          value={order.status}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            if (next === order.status) return;
+                            setEditingOrderId(order.id);
+                            setPendingStatus(next);
                             setStaffNoteDraft('');
                           }}
                           style={{
-                            padding: '4px 10px', borderRadius: 6, border: 'none',
-                            background: '#181818', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 600,
+                            padding: '4px 8px', borderRadius: 6, border: '1px solid #e7e5e4',
+                            fontSize: 12, background: '#fafaf9', cursor: 'pointer',
                           }}
                         >
-                          Confirm
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingOrderId(null);
-                            setPendingStatus('');
-                            setStaffNoteDraft('');
-                          }}
-                          style={{
-                            padding: '4px 10px', borderRadius: 6, border: '1px solid #e7e5e4',
-                            background: '#fafaf9', color: '#57534e', fontSize: 12, cursor: 'pointer',
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <select
-                      value={order.status}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        if (next === order.status) return;
-                        setEditingOrderId(order.id);
-                        setPendingStatus(next);
-                        setStaffNoteDraft('');
-                      }}
-                      style={{
-                        padding: '4px 8px', borderRadius: 6, border: '1px solid #e7e5e4',
-                        fontSize: 12, background: '#fafaf9', cursor: 'pointer',
-                      }}
-                    >
-                      {['pending', 'confirmed', 'ready', 'completed', 'cancelled'].map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                          {['pending', 'confirmed', 'ready', 'completed', 'cancelled'].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    <td style={{ padding: '14px 16px', color: '#78716c', fontSize: '12px' }}>
+                      {new Date(order.createdAt).toLocaleTimeString()}
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr style={{ borderBottom: '1px solid #f5f5f4', background: '#f8fffe' }}>
+                      <td colSpan={6} style={{ padding: '0 16px 14px 36px' }}>
+                        {!selectedOrderItems ? (
+                          <div style={{ fontSize: 12, color: '#a8a29e', paddingTop: 8 }}>Loading items...</div>
+                        ) : selectedOrderItems.length === 0 ? (
+                          <div style={{ fontSize: 12, color: '#a8a29e', paddingTop: 8 }}>No items found.</div>
+                        ) : (
+                          <ul style={{ listStyle: 'none', margin: 0, padding: '8px 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {selectedOrderItems.map((item: any) => (
+                              <li key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#44403c' }}>
+                                <span style={{ fontWeight: 500 }}>{item.quantity}× {item.itemName ?? item.name}</span>
+                                <span style={{ color: '#78716c' }}>${(Number(item.unitPrice) * item.quantity).toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
                   )}
-                </td>
-                <td style={{ padding: '14px 16px', color: '#78716c', fontSize: '12px' }}>
-                  {new Date(order.createdAt).toLocaleTimeString()}
-                </td>
-              </tr>
-            )) : (
+                </React.Fragment>
+              );
+            }) : (
               <tr>
                 <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#78716c' }}>
                   No orders found

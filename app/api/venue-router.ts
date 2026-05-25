@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests } from "@db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers } from "@db/schema";
+import { eq, and, desc, sql, gte, sum } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
@@ -237,6 +237,25 @@ export const venueRouter = createRouter({
     }
     await db.update(orders).set(updateData).where(eq(orders.id, input.orderId));
 
+    // EMAIL-02b: send "your order is ready" email when status → ready
+    if (input.status === "ready") {
+      const readyOrder = await db
+        .select({ customerEmail: orders.customerEmail, customerName: orders.customerName, orderNumber: orders.orderNumber })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+      const ro = readyOrder[0];
+      if (ro?.customerEmail) {
+        sendEmail({
+          to: ro.customerEmail,
+          subject: "Your order is ready! ☕",
+          html: `<p>Hi ${ro.customerName},</p>
+<p>Great news — your order <strong>${ro.orderNumber}</strong> is <strong>ready for pickup</strong>!</p>
+<p>Head to the counter and we'll have it waiting for you.</p>`,
+        });
+      }
+    }
+
     // EMAIL-03: send review request when order marked completed
     if (input.status === "completed") {
       const completedOrder = await db
@@ -277,6 +296,11 @@ export const venueRouter = createRouter({
       menuItemId: z.number().int().positive(),
       quantity: z.number().int().min(1),
       note: z.string().optional(),
+      modifiers: z.array(z.object({
+        group: z.string(),
+        option: z.string(),
+        priceAdj: z.number().default(0),
+      })).optional(),
     })),
     locationId: z.number().int().positive().optional(),
     customerEmail: z.string().email().optional(),
@@ -293,13 +317,21 @@ export const venueRouter = createRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: `Menu item ${item.menuItemId} not found` });
       }
       const unitPrice = Number(mi[0].price);
-      totalAmount += unitPrice * item.quantity;
+      // Add modifier price adjustments
+      const modifierAdj = (item.modifiers ?? []).reduce((sum, m) => sum + m.priceAdj, 0);
+      const effectivePrice = unitPrice + modifierAdj;
+      totalAmount += effectivePrice * item.quantity;
+      // Format modifiers into note
+      const modifierStr = (item.modifiers ?? []).length > 0
+        ? `[${(item.modifiers ?? []).map(m => `${m.group}: ${m.option}${m.priceAdj ? ` +$${m.priceAdj.toFixed(2)}` : ''}`).join(' | ')}]`
+        : '';
+      const fullNote = [modifierStr, item.note].filter(Boolean).join(' ');
       itemDetails.push({
         menuItemId: item.menuItemId,
         itemName: mi[0].name,
         quantity: item.quantity,
-        unitPrice,
-        note: item.note,
+        unitPrice: effectivePrice,
+        note: fullNote || undefined,
       });
     }
 
@@ -958,7 +990,7 @@ export const venueRouter = createRouter({
     details: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const result = await db.insert(cateringRequests).values({
+    const [cateringResult] = await db.insert(cateringRequests).values({
       venueId: input.venueId,
       name: input.name,
       phone: input.phone,
@@ -966,8 +998,8 @@ export const venueRouter = createRouter({
       eventDate: input.eventDate,
       guestCount: input.guestCount,
       details: input.details,
-    });
-    return { requestId: Number(result[0].insertId) };
+    }).returning({ id: cateringRequests.id });
+    return { requestId: cateringResult.id };
   }),
 
   listCateringRequests: publicQuery.input(z.object({
@@ -1010,6 +1042,236 @@ export const venueRouter = createRouter({
       .update(cateringRequests)
       .set({ status: input.status })
       .where(eq(cateringRequests.id, input.requestId));
+    return { success: true };
+  }),
+
+  // ─── Customer Order History ───
+  getOrdersByPhone: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().min(1),
+    limit: z.number().int().min(1).max(20).default(10),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const results = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.venueId, input.venueId), eq(orders.customerPhone, input.phone)))
+      .orderBy(desc(orders.createdAt))
+      .limit(input.limit);
+    return results;
+  }),
+
+  getOrderItemsByOrderId: publicQuery.input(z.object({
+    orderId: z.number().int().positive(),
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    // Verify order belongs to venue
+    const order = await db.select({ id: orders.id }).from(orders)
+      .where(and(eq(orders.id, input.orderId), eq(orders.venueId, input.venueId))).limit(1);
+    if (!order[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+    return db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId));
+  }),
+
+  // ─── Daily Summary ───
+  getDailySummary: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayOrders = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.venueId, venueId), gte(orders.createdAt, today)))
+      .orderBy(desc(orders.createdAt));
+
+    const totalRevenue = todayOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
+    const pendingCount = todayOrders.filter(o => o.status === 'pending').length;
+    const completedCount = todayOrders.filter(o => o.status === 'completed').length;
+
+    // Top items from order items
+    const todayOrderIds = todayOrders.map(o => o.id);
+    let topItems: { name: string; qty: number }[] = [];
+    if (todayOrderIds.length > 0) {
+      const allItems = await db
+        .select()
+        .from(orderItems)
+        .where(sql`order_id = ANY(ARRAY[${sql.raw(todayOrderIds.join(','))}]::int[])`);
+      const itemCounts: Record<string, number> = {};
+      for (const item of allItems) {
+        itemCounts[item.itemName] = (itemCounts[item.itemName] ?? 0) + item.quantity;
+      }
+      topItems = Object.entries(itemCounts)
+        .map(([name, qty]) => ({ name, qty }))
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 5);
+    }
+
+    return {
+      date: today.toISOString().slice(0, 10),
+      orderCount: todayOrders.length,
+      totalRevenue,
+      pendingCount,
+      completedCount,
+      topItems,
+    };
+  }),
+
+  sendDailySummaryEmail: publicQuery.input(z.object({
+    token: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayOrders = await db.select().from(orders)
+      .where(and(eq(orders.venueId, venueId), gte(orders.createdAt, today)));
+
+    const totalRevenue = todayOrders.reduce((s, o) => s + Number(o.totalAmount), 0);
+    const completedCount = todayOrders.filter(o => o.status === 'completed').length;
+
+    const todayOrderIds = todayOrders.map(o => o.id);
+    let topItems: { name: string; qty: number }[] = [];
+    if (todayOrderIds.length > 0) {
+      const allItems = await db.select().from(orderItems)
+        .where(sql`order_id = ANY(ARRAY[${sql.raw(todayOrderIds.join(','))}]::int[])`);
+      const itemCounts: Record<string, number> = {};
+      for (const item of allItems) {
+        itemCounts[item.itemName] = (itemCounts[item.itemName] ?? 0) + item.quantity;
+      }
+      topItems = Object.entries(itemCounts).map(([name, qty]) => ({ name, qty })).sort((a, b) => b.qty - a.qty).slice(0, 5);
+    }
+
+    const ownerRow = await db.select({ email: venueOwners.email, name: venueOwners.name })
+      .from(venueOwners).where(eq(venueOwners.venueId, venueId)).limit(1);
+    const owner = ownerRow[0];
+    if (!owner?.email) throw new TRPCError({ code: "BAD_REQUEST", message: "No owner email on file" });
+
+    const venueRow = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const venueName = venueRow[0]?.name ?? "Your Venue";
+
+    const dateStr = today.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+    const topItemsHtml = topItems.length > 0
+      ? `<ul>${topItems.map(i => `<li>${i.qty}× ${i.name}</li>`).join('')}</ul>`
+      : '<p>No items yet today.</p>';
+
+    await sendEmail({
+      to: owner.email,
+      subject: `${venueName} — Daily Summary for ${dateStr}`,
+      html: `<h2>${venueName} — Daily Summary</h2>
+<p><strong>Date:</strong> ${dateStr}</p>
+<hr/>
+<p>📦 <strong>Total Orders:</strong> ${todayOrders.length}</p>
+<p>✅ <strong>Completed:</strong> ${completedCount}</p>
+<p>💰 <strong>Revenue:</strong> $${totalRevenue.toFixed(2)}</p>
+<hr/>
+<p><strong>Top Items:</strong></p>${topItemsHtml}
+<hr/>
+<p style="color:#888;font-size:12px">B1 Platform — sent on demand from your Owner Dashboard</p>`,
+    });
+
+    return { success: true };
+  }),
+
+  // ─── Menu Item Modifiers ───
+  listMenuModifiers: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    menuItemId: z.number().int().positive().optional(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const conditions = [eq(menuItemModifiers.venueId, input.venueId)];
+    if (input.menuItemId) conditions.push(eq(menuItemModifiers.menuItemId, input.menuItemId));
+    return db.select().from(menuItemModifiers).where(and(...conditions)).orderBy(menuItemModifiers.sortOrder, menuItemModifiers.id);
+  }),
+
+  // Public version — no token required (needed at checkout)
+  listMenuModifiersPublic: publicQuery.input(z.object({
+    menuItemId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select().from(menuItemModifiers)
+      .where(eq(menuItemModifiers.menuItemId, input.menuItemId))
+      .orderBy(menuItemModifiers.sortOrder, menuItemModifiers.id);
+  }),
+
+  addMenuModifier: publicQuery.input(z.object({
+    token: z.string(),
+    menuItemId: z.number().int().positive(),
+    name: z.string().min(1).max(64),
+    options: z.array(z.object({
+      name: z.string().min(1),
+      priceAdj: z.number().default(0),
+    })).min(1),
+    required: z.boolean().default(false),
+    sortOrder: z.number().int().default(0),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    // Verify menu item belongs to venue
+    const item = await db.select({ id: menuItems.id }).from(menuItems)
+      .where(and(eq(menuItems.id, input.menuItemId), eq(menuItems.venueId, venueId))).limit(1);
+    if (!item[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Menu item not found" });
+
+    const [result] = await db.insert(menuItemModifiers).values({
+      venueId,
+      menuItemId: input.menuItemId,
+      name: input.name,
+      options: input.options,
+      required: input.required,
+      sortOrder: input.sortOrder,
+    }).returning({ id: menuItemModifiers.id });
+
+    return { id: result.id };
+  }),
+
+  updateMenuModifier: publicQuery.input(z.object({
+    token: z.string(),
+    modifierId: z.number().int().positive(),
+    name: z.string().min(1).max(64).optional(),
+    options: z.array(z.object({
+      name: z.string().min(1),
+      priceAdj: z.number().default(0),
+    })).min(1).optional(),
+    required: z.boolean().optional(),
+    sortOrder: z.number().int().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const mod = await db.select().from(menuItemModifiers)
+      .where(and(eq(menuItemModifiers.id, input.modifierId), eq(menuItemModifiers.venueId, venueId))).limit(1);
+    if (!mod[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Modifier not found" });
+
+    const updates: Partial<typeof menuItemModifiers.$inferInsert> = {};
+    if (input.name !== undefined) updates.name = input.name;
+    if (input.options !== undefined) updates.options = input.options;
+    if (input.required !== undefined) updates.required = input.required;
+    if (input.sortOrder !== undefined) updates.sortOrder = input.sortOrder;
+
+    await db.update(menuItemModifiers).set(updates).where(eq(menuItemModifiers.id, input.modifierId));
+    return { success: true };
+  }),
+
+  deleteMenuModifier: publicQuery.input(z.object({
+    token: z.string(),
+    modifierId: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    await db.delete(menuItemModifiers)
+      .where(and(eq(menuItemModifiers.id, input.modifierId), eq(menuItemModifiers.venueId, venueId)));
     return { success: true };
   }),
 });
