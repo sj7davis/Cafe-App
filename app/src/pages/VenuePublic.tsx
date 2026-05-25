@@ -29,6 +29,8 @@ export default function VenuePublic() {
   const [appliedGiftDiscount, setAppliedGiftDiscount] = useState(0);
   const [checkoutUsePass, setCheckoutUsePass] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
+  const [cateringForm, setCateringForm] = useState({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
+  const [cateringSubmitted, setCateringSubmitted] = useState(false);
 
   const { data: venue, isLoading, error } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
@@ -60,6 +62,13 @@ export default function VenuePublic() {
   );
 
   const upsertPreferences = trpc.venue.upsertCustomerPreferences.useMutation();
+
+  const submitCatering = trpc.venue.submitCateringRequest.useMutation({
+    onSuccess: () => {
+      setCateringSubmitted(true);
+      setCateringForm({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
+    },
+  });
 
   useEffect(() => {
     if (locationsList && locationsList.length === 1) {
@@ -650,6 +659,103 @@ export default function VenuePublic() {
             </div>
           </div>
         )}
+      </section>
+
+      {/* Catering Enquiries */}
+      <section className="content-container py-12 border-t" style={{ borderColor: `${primaryColor}15` }}>
+        <div className="max-w-lg mx-auto">
+          <h2 className="font-data mb-2 text-center" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: primaryColor }}>
+            Catering Enquiries
+          </h2>
+          <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#5E5E5E', marginBottom: '2rem' }}>
+            Planning an event? Get in touch and we'll put together a catering package for you.
+          </p>
+          {cateringSubmitted ? (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <CheckCircle size={48} style={{ color: '#16a34a', margin: '0 auto 16px' }} />
+              <h3 style={{ fontWeight: 600, fontSize: 18, color: '#181818', marginBottom: 8 }}>Enquiry Received</h3>
+              <p style={{ color: '#5E5E5E', fontSize: 14, marginBottom: 20 }}>We'll be in touch soon to discuss your event.</p>
+              <button
+                onClick={() => setCateringSubmitted(false)}
+                style={{ background: 'none', border: 'none', color: '#5E5E5E', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Submit another enquiry
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input
+                type="text"
+                placeholder="Your name *"
+                value={cateringForm.name}
+                onChange={e => setCateringForm(f => ({ ...f, name: e.target.value }))}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+              />
+              <input
+                type="tel"
+                placeholder="Phone number *"
+                value={cateringForm.phone}
+                onChange={e => setCateringForm(f => ({ ...f, phone: e.target.value }))}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+              />
+              <input
+                type="email"
+                placeholder="Email address (optional)"
+                value={cateringForm.email}
+                onChange={e => setCateringForm(f => ({ ...f, email: e.target.value }))}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+              />
+              <input
+                type="text"
+                placeholder="Event date * (e.g. 15 June 2026)"
+                value={cateringForm.eventDate}
+                onChange={e => setCateringForm(f => ({ ...f, eventDate: e.target.value }))}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+              />
+              <input
+                type="number"
+                placeholder="Number of guests *"
+                min={1}
+                value={cateringForm.guestCount}
+                onChange={e => setCateringForm(f => ({ ...f, guestCount: e.target.value }))}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+              />
+              <textarea
+                placeholder="Tell us about your event (optional)"
+                rows={4}
+                value={cateringForm.details}
+                onChange={e => setCateringForm(f => ({ ...f, details: e.target.value }))}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818', resize: 'vertical' }}
+              />
+              {submitCatering.error && (
+                <p style={{ color: '#dc2626', fontSize: 13 }}>{submitCatering.error.message}</p>
+              )}
+              <button
+                onClick={() => {
+                  if (!venue?.id || !cateringForm.name || !cateringForm.phone || !cateringForm.eventDate || !cateringForm.guestCount) return;
+                  submitCatering.mutate({
+                    venueId: venue.id,
+                    name: cateringForm.name,
+                    phone: cateringForm.phone,
+                    email: cateringForm.email || undefined,
+                    eventDate: cateringForm.eventDate,
+                    guestCount: parseInt(cateringForm.guestCount, 10),
+                    details: cateringForm.details || undefined,
+                  });
+                }}
+                disabled={submitCatering.isPending || !cateringForm.name || !cateringForm.phone || !cateringForm.eventDate || !cateringForm.guestCount}
+                style={{
+                  width: '100%', padding: 14, borderRadius: 8, border: 'none',
+                  background: primaryColor, color: '#F3F2EE', fontSize: 14, fontWeight: 600,
+                  cursor: submitCatering.isPending ? 'not-allowed' : 'pointer',
+                  opacity: (!cateringForm.name || !cateringForm.phone || !cateringForm.eventDate || !cateringForm.guestCount) ? 0.5 : 1,
+                }}
+              >
+                {submitCatering.isPending ? 'Sending…' : 'Send Enquiry'}
+              </button>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Reviews Section — hidden when no reviews exist */}
