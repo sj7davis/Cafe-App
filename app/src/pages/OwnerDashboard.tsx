@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase } from 'lucide-react';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering'>('overview');
 
   if (loading) {
     return (
@@ -67,6 +67,8 @@ export default function OwnerDashboard() {
             { id: 'reviews' as const, label: 'Reviews', icon: Star },
             { id: 'giftcards' as const, label: 'Gift Cards', icon: Gift },
             { id: 'passes' as const, label: 'Passes', icon: Ticket },
+            { id: 'locations' as const, label: 'Locations', icon: MapPin },
+            { id: 'catering' as const, label: 'Catering', icon: Briefcase },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
               <tab.icon size={14} /> {tab.label}
@@ -85,6 +87,8 @@ export default function OwnerDashboard() {
         {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
         {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
         {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
+        {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
+        {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
       </div>
     </div>
   );
