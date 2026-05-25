@@ -75,10 +75,28 @@ app.get("/api/square/callback", async (c) => {
 });
 
 // tRPC API
+// @hono/node-server v2 does not pipe the Node.js IncomingMessage body into
+// c.req.raw.body, so fetchRequestHandler gets an empty body on POST mutations.
+// Fix: read the body through Hono first, then hand a fully-formed Request to tRPC.
 app.use("/api/trpc/*", async (c) => {
+  const method = c.req.method;
+  const url = c.req.url;
+  const headers = new Headers(c.req.raw.headers as HeadersInit);
+
+  let body: string | undefined;
+  if (method !== "GET" && method !== "HEAD") {
+    body = await c.req.text();
+  }
+
+  const req = new Request(url, {
+    method,
+    headers,
+    body: body ?? undefined,
+  });
+
   return fetchRequestHandler({
     endpoint: "/api/trpc",
-    req: c.req.raw,
+    req,
     router: appRouter,
     createContext,
   });
