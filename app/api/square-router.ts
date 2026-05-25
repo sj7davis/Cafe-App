@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, menuItems } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { venues, menuItems, inventory } from "@db/schema";
+import { eq, and } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 
@@ -124,6 +124,96 @@ export const squareRouter = createRouter({
     } catch (e: any) {
       throw new TRPCError({ code: "BAD_REQUEST", message: e.message || "Failed to sync with Square" });
     }
+  }),
+
+  // Sync inventory counts from Square
+  syncInventory: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
+    if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
+
+    // Load menu items that have a Square catalog ID
+    const items = await db.select().from(menuItems).where(eq(menuItems.venueId, venueId));
+    const linkedItems = items.filter((item) => !!item.squareCatalogId);
+
+    if (linkedItems.length === 0) return { synced: 0 };
+
+    const catalogObjectIds = linkedItems.map((item) => item.squareCatalogId as string);
+
+    const body: Record<string, any> = { catalog_object_ids: catalogObjectIds };
+    if (venue.squareLocationId) {
+      body.location_ids = [venue.squareLocationId];
+    }
+
+    const countsRes = await fetch(`${SQUARE_API_BASE}/v2/inventory/counts/batch-retrieve`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${venue.squareAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!countsRes.ok) {
+      const err = await countsRes.json() as any;
+      throw new TRPCError({ code: "BAD_REQUEST", message: err.errors?.[0]?.detail || "Square inventory API error" });
+    }
+
+    const countsData = await countsRes.json() as any;
+    const counts: any[] = countsData.counts || [];
+
+    // Build a map from squareCatalogId → quantity
+    const quantityByCatalogId = new Map<string, number>();
+    for (const count of counts) {
+      if (count.catalog_object_id) {
+        const qty = parseFloat(count.quantity || "0");
+        const existing = quantityByCatalogId.get(count.catalog_object_id) || 0;
+        // Only track IN_STOCK state counts; NONE state = sold out
+        if (count.state === "IN_STOCK") {
+          quantityByCatalogId.set(count.catalog_object_id, existing + qty);
+        } else if (!quantityByCatalogId.has(count.catalog_object_id)) {
+          quantityByCatalogId.set(count.catalog_object_id, 0);
+        }
+      }
+    }
+
+    const now = new Date();
+    let synced = 0;
+
+    for (const item of linkedItems) {
+      const catalogId = item.squareCatalogId as string;
+      const quantity = quantityByCatalogId.get(catalogId) ?? 0;
+      const isAvailable = quantity > 0;
+
+      const existingEntry = await db.select().from(inventory).where(
+        and(eq(inventory.venueId, venueId), eq(inventory.menuItemId, item.id))
+      ).limit(1);
+
+      if (existingEntry.length > 0) {
+        await db.update(inventory).set({
+          isAvailable,
+          soldOutAt: isAvailable ? null : now,
+          restockedAt: isAvailable ? now : null,
+          updatedAt: now,
+        }).where(and(eq(inventory.venueId, venueId), eq(inventory.menuItemId, item.id)));
+      } else {
+        await db.insert(inventory).values({
+          venueId,
+          menuItemId: item.id,
+          isAvailable,
+          soldOutAt: isAvailable ? null : now,
+          restockedAt: isAvailable ? now : null,
+          updatedAt: now,
+        });
+      }
+
+      synced++;
+    }
+
+    return { synced };
   }),
 
   // Get connection status
