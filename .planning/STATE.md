@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
 status: Ready to plan
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-05-24T23:45:39.001Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-05-25T00:10:25.071Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
   percent: 33
 ---
 
@@ -54,6 +54,7 @@ Plan: Not started
 | Phase 02-order-tracking-staff-dashboard P02 | 15 | 3 tasks | 3 files |
 | Phase 02-order-tracking-staff-dashboard P03 | 15 | 2 tasks | 1 files |
 | Phase 03-customer-engagement P01 | 12 | 2 tasks | 1 files |
+| Phase 03-customer-engagement P02 | 15 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase 03-customer-engagement]: submitReview derives venueId from order row — client never trusted for ownership data
 - [Phase 03-customer-engagement]: upsertCustomerPreferences uses SELECT-then-INSERT/UPDATE pattern (schema has no unique index on venueId+phone)
 - [Phase 03-customer-engagement]: Duplicate review guard via application-level SELECT since schema has no unique constraint on orderId
+- [Phase 03-customer-engagement]: prefQuery uses enabled:false + refetch() in handlePhoneBlur — not reactive enabled flag — to prevent lookup on every keystroke
+- [Phase 03-customer-engagement]: upsertPreferences fires only in createOrder.onSuccess when phone is set AND preference chosen — never before order placement
+- [Phase 03-customer-engagement]: Milk/sugar stored as exact string values matching DB schema; sugar as string '0'/'0.5'/'1'/'2'/'3'
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-24T23:45:38.995Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-05-25T00:10:25.063Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
