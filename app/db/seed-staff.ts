@@ -6,7 +6,7 @@ async function seed() {
   const db = getDb();
 
   // Create a demo venue
-  const [venueResult] = await db.insert(venues).values({
+  const [venue] = await db.insert(venues).values({
     slug: "b1-backhaus",
     name: "B1 by Backhaus",
     subdomain: "b1-backhaus",
@@ -19,9 +19,9 @@ async function seed() {
     primaryColor: "#1c1917",
     accentColor: "#5E8B8B",
     isPublic: true,
-  });
+  }).returning({ id: venues.id });
 
-  const venueId = Number(venueResult.insertId);
+  const venueId = venue.id;
   console.log(`Created venue: B1 by Backhaus (ID: ${venueId})`);
 
   // Create default location

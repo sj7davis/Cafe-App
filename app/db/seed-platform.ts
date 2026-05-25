@@ -18,7 +18,7 @@ async function seed() {
   console.log("✅ Platform admin: admin@b1platform.com.au / admin123");
 
   // Create demo venue (B1 by Backhaus)
-  const [venueResult] = await db.insert(venues).values({
+  const [venue] = await db.insert(venues).values({
     slug: "b1-backhaus",
     name: "B1 by Backhaus",
     subdomain: "b1-backhaus",
@@ -34,9 +34,9 @@ async function seed() {
     subscriptionStatus: "active",
     isActive: true,
     isPublic: true,
-  });
+  }).returning({ id: venues.id });
 
-  const venueId = Number(venueResult.insertId);
+  const venueId = venue.id;
 
   // Create venue owner
   const ownerHash = await hash("owner123", 10);
