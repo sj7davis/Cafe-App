@@ -45,19 +45,19 @@
 
 ### Gift Cards
 
-- [ ] **GIFT-01**: Customer can purchase a gift card for a venue with a set dollar amount
-- [ ] **GIFT-02**: Gift card generates a unique code that can be shared with a recipient
-- [ ] **GIFT-03**: Customer can apply a gift card code at checkout to reduce order total
-- [ ] **GIFT-04**: Venue owner can view all active gift cards from the dashboard
+- [x] **GIFT-01**: Customer can purchase a gift card for a venue with a set dollar amount
+- [x] **GIFT-02**: Gift card generates a unique code that can be shared with a recipient
+- [x] **GIFT-03**: Customer can apply a gift card code at checkout to reduce order total
+- [x] **GIFT-04**: Venue owner can view all active gift cards from the dashboard
 
 ---
 
 ### Subscription Coffee Pass
 
-- [ ] **PASS-01**: Venue owner can configure a coffee pass (e.g. 10 coffees for $45)
-- [ ] **PASS-02**: Customer can purchase a subscription pass by phone number
-- [ ] **PASS-03**: Customer can use a credit from their pass at checkout
-- [ ] **PASS-04**: Remaining credits are displayed and decremented correctly on each use
+- [x] **PASS-01**: Venue owner can configure a coffee pass (e.g. 10 coffees for $45)
+- [x] **PASS-02**: Customer can purchase a subscription pass by phone number
+- [x] **PASS-03**: Customer can use a credit from their pass at checkout
+- [x] **PASS-04**: Remaining credits are displayed and decremented correctly on each use
 
 ---
 
@@ -148,14 +148,14 @@
 | REV-02 | Phase 3 | Complete |
 | REV-03 | Phase 3 | Complete |
 | REV-04 | Phase 3 | Complete |
-| GIFT-01 | Phase 4 | Pending |
-| GIFT-02 | Phase 4 | Pending |
-| GIFT-03 | Phase 4 | Pending |
-| GIFT-04 | Phase 4 | Pending |
-| PASS-01 | Phase 4 | Pending |
-| PASS-02 | Phase 4 | Pending |
-| PASS-03 | Phase 4 | Pending |
-| PASS-04 | Phase 4 | Pending |
+| GIFT-01 | Phase 4 | Complete |
+| GIFT-02 | Phase 4 | Complete |
+| GIFT-03 | Phase 4 | Complete |
+| GIFT-04 | Phase 4 | Complete |
+| PASS-01 | Phase 4 | Complete |
+| PASS-02 | Phase 4 | Complete |
+| PASS-03 | Phase 4 | Complete |
+| PASS-04 | Phase 4 | Complete |
 | LOC-01 | Phase 5 | Pending |
 | LOC-02 | Phase 5 | Pending |
 | LOC-03 | Phase 5 | Pending |

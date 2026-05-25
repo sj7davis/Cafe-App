@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
 status: Ready to plan
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-05-25T00:26:35.469Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-05-25T00:42:15.994Z"
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 15
+  completed_plans: 10
   percent: 50
 ---
 
@@ -24,14 +24,14 @@ See: .planning/PROJECT.md (updated 2026-05-23)
 
 ## Current Position
 
-Phase: 3
+Phase: 4
 Plan: Not started
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
+- Total plans completed: 6
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -40,6 +40,7 @@ Plan: Not started
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 02 | 3 | - | - |
+| 03 | 3 | - | - |
 
 **Recent Trend:**
 
@@ -56,6 +57,7 @@ Plan: Not started
 | Phase 03-customer-engagement P01 | 12 | 2 tasks | 1 files |
 | Phase 03-customer-engagement P02 | 15 | 2 tasks | 1 files |
 | Phase 03-customer-engagement P03 | 481 | 5 tasks | 5 files |
+| Phase 04-monetisation P01 | 15 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -92,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 03-customer-engagement]: Milk/sugar stored as exact string values matching DB schema; sugar as string '0'/'0.5'/'1'/'2'/'3'
 - [Phase 03-customer-engagement]: parseInt(orderId,10) coercion in Review.tsx — not Number() per documented pitfall
 - [Phase 03-customer-engagement]: Reviews section on VenuePublic hidden entirely when empty — no 'no reviews' heading rendered
+- [Phase 04-monetisation]: Gift card code generated via randomBytes(8).toString('base64url').toUpperCase().slice(0,12)
+- [Phase 04-monetisation]: passConfig stored in venues.settingsJson as nested object — no new DB table required
+- [Phase 04-monetisation]: usePassCredit uses sql template for atomic decrement to prevent race conditions
 
 ### Pending Todos
 
@@ -103,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-25T00:26:35.461Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-05-25T00:42:15.987Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

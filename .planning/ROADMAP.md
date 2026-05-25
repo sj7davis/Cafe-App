@@ -180,7 +180,7 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 |-------|-----------|----------------|--------|-----------|
 | 1. Owner Access & Menu Management | 3/3 | Complete   | 2026-05-23 | - |
 | 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete    | 2026-05-24 |
-| 3. Customer Engagement | v1.1 | 3/3 | Complete   | 2026-05-25 |
-| 4. Monetisation | v1.1 | 0/? | Not started | - |
+| 3. Customer Engagement | v1.1 | 3/3 | Complete    | 2026-05-25 |
+| 4. Monetisation | v1.1 | 1/3 | In Progress|  |
 | 5. Venue Expansion | v1.1 | 0/? | Not started | - |
 | 6. Marketing & Notifications | v1.1 | 0/? | Not started | - |
