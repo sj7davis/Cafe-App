@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
 status: Ready to plan
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-05-25T01:44:08.786Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-05-25T01:49:46.038Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 18
-  completed_plans: 16
-  percent: 83
+  completed_plans: 18
+  percent: 100
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-05-23)
 ## Current Position
 
 Phase: 6
-Plan: Not started
+Plan: 3 of 3 (complete)
 
 ## Performance Metrics
 
@@ -64,6 +64,8 @@ Plan: Not started
 | Phase 05-venue-expansion P02 | 363 | 3 tasks | 1 files |
 | Phase 05-venue-expansion P03 | 15 | 4 tasks | 2 files |
 | Phase 06-marketing-notifications P01 | 12 | 4 tasks | 8 files |
+| Phase 06-marketing-notifications P02 | 12 | 2 tasks | 1 files |
+| Phase 06-marketing-notifications P03 | 8 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -117,6 +119,8 @@ Recent decisions affecting current work:
 - [Phase 05-venue-expansion]: Location selector only shown for multi-location venues; single location auto-selected silently via useEffect
 - [Phase 05-venue-expansion]: Per-location hours replace venue-level hours section when locations exist; venue-level block preserved as fallback
 - [Phase 06-marketing-notifications]: resendApiKey uses || empty string not required() — server never crashes without the key; sendEmail catches errors without rethrowing — order mutations unaffected by email failures
+- [Phase 06-marketing-notifications]: IntegrationsTab accepts venue as { slug, name } | null prop; QRCode.toDataURL called in useEffect with [venue?.slug] dependency; programmatic anchor click for data URL download
+- [Phase 06-marketing-notifications]: checkoutEmail || undefined coercion in createOrder.mutate — empty string not sent to server z.string().email() validator
 
 ### Pending Todos
 
@@ -128,6 +132,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-25T01:44:08.779Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-05-25T01:53:00Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
