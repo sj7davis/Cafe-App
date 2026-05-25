@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
-status: Ready to plan
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-05-25T00:42:15.994Z"
+status: In progress
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-05-25T01:05:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
-  completed_plans: 10
-  percent: 50
+  completed_plans: 13
+  percent: 87
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-05-23)
 ## Current Position
 
 Phase: 4
-Plan: Not started
+Plan: 2 (completed)
 
 ## Performance Metrics
 
@@ -58,6 +58,8 @@ Plan: Not started
 | Phase 03-customer-engagement P02 | 15 | 2 tasks | 1 files |
 | Phase 03-customer-engagement P03 | 481 | 5 tasks | 5 files |
 | Phase 04-monetisation P01 | 15 | 2 tasks | 1 files |
+| Phase 04-monetisation P03 | 12 | 3 tasks | 1 files |
+| Phase 04-monetisation P02 | 12 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +99,12 @@ Recent decisions affecting current work:
 - [Phase 04-monetisation]: Gift card code generated via randomBytes(8).toString('base64url').toUpperCase().slice(0,12)
 - [Phase 04-monetisation]: passConfig stored in venues.settingsJson as nested object — no new DB table required
 - [Phase 04-monetisation]: usePassCredit uses sql template for atomic decrement to prevent race conditions
+- [Phase 04-02]: createOrder computes totalAmount server-side; gift card discount recorded as orderNote field, not a totalAmount override
+- [Phase 04-02]: effectiveTotal derived at render time (not inside handlePlaceOrder) to avoid stale state reads per Pitfall 6
+- [Phase 04-02]: usePassCreditMutation fires in createOrder.onSuccess only — never before order confirmation
+- [Phase 04-03]: GiftCardsTab reads token from localStorage (not venueId prop) — listGiftCards is owner-authed by JWT server-side
+- [Phase 04-03]: Number() coercion for card.amount and card.balance (MySQL DECIMAL returns as string)
+- [Phase 04-03]: Issue Pass form disabled when no passConfig — prevents orphaned pass creation
 
 ### Pending Todos
 
@@ -108,6 +116,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-25T00:42:15.987Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-05-25T01:05:00.000Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
