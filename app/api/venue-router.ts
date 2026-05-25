@@ -8,6 +8,7 @@ import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
 import { env } from "./lib/env";
+import { sendEmail } from "./lib/email";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -252,6 +253,7 @@ export const venueRouter = createRouter({
       note: z.string().optional(),
     })),
     locationId: z.number().int().positive().optional(),
+    customerEmail: z.string().email().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
 
@@ -289,6 +291,7 @@ export const venueRouter = createRouter({
       paymentMethod: input.paymentMethod as any,
       totalAmount: totalAmount.toFixed(2),
       locationId: input.locationId,
+      customerEmail: input.customerEmail,
     });
 
     const orderId = Number(orderResult.insertId);
@@ -302,6 +305,46 @@ export const venueRouter = createRouter({
         quantity: item.quantity,
         unitPrice: item.unitPrice.toFixed(2),
         note: item.note,
+      });
+    }
+
+    // EMAIL-01 + EMAIL-02: send post-order emails (non-blocking; never throw)
+    const ownerRow = await db
+      .select({ email: venueOwners.email })
+      .from(venueOwners)
+      .where(eq(venueOwners.venueId, input.venueId))
+      .limit(1);
+    const ownerEmail = ownerRow[0]?.email;
+
+    const itemLines = itemDetails
+      .map(i => `<li>${i.quantity}x ${i.itemName} — $${(i.unitPrice * i.quantity).toFixed(2)}</li>`)
+      .join("");
+
+    // EMAIL-01: customer confirmation
+    if (input.customerEmail) {
+      sendEmail({
+        to: input.customerEmail,
+        subject: `Order confirmed — ${orderNumber}`,
+        html: `<p>Hi ${input.customerName},</p>
+<p>Your order <strong>${orderNumber}</strong> has been received!</p>
+<ul>${itemLines}</ul>
+<p><strong>Pickup time:</strong> ${input.pickupTime}</p>
+<p><strong>Total:</strong> $${totalAmount.toFixed(2)}</p>
+<p>Track your order: <a href="${env.appUrl}/order/${orderNumber}">${env.appUrl}/order/${orderNumber}</a></p>`,
+      });
+    }
+
+    // EMAIL-02: owner alert
+    if (ownerEmail) {
+      sendEmail({
+        to: ownerEmail,
+        subject: `New order — ${orderNumber}`,
+        html: `<p>A new order has been placed.</p>
+<p><strong>Order:</strong> ${orderNumber}</p>
+<p><strong>Customer:</strong> ${input.customerName} (${input.customerPhone})</p>
+<ul>${itemLines}</ul>
+<p><strong>Pickup time:</strong> ${input.pickupTime}</p>
+<p><strong>Total:</strong> $${totalAmount.toFixed(2)}</p>`,
       });
     }
 
