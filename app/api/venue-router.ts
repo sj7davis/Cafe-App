@@ -157,11 +157,15 @@ export const venueRouter = createRouter({
     venueId: z.number().int().positive(),
     status: z.string().optional(),
     limit: z.number().int().min(1).max(100).default(50),
+    locationId: z.number().int().positive().optional(),
   })).query(async ({ input }) => {
     const db = getDb();
     const conditions = [eq(orders.venueId, input.venueId)];
     if (input.status) {
       conditions.push(eq(orders.status, input.status as any));
+    }
+    if (input.locationId) {
+      conditions.push(eq(orders.locationId, input.locationId));
     }
     const results = await db
       .select()
@@ -247,6 +251,7 @@ export const venueRouter = createRouter({
       quantity: z.number().int().min(1),
       note: z.string().optional(),
     })),
+    locationId: z.number().int().positive().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
 
@@ -283,6 +288,7 @@ export const venueRouter = createRouter({
       orderNote: input.orderNote,
       paymentMethod: input.paymentMethod as any,
       totalAmount: totalAmount.toFixed(2),
+      locationId: input.locationId,
     });
 
     const orderId = Number(orderResult.insertId);
