@@ -63,7 +63,7 @@
 
 ### Reviews & Ratings
 
-- [ ] **REV-01**: Customer receives a review link after their order is marked `completed`
+- [x] **REV-01**: Customer receives a review link after their order is marked `completed`
 - [x] **REV-02**: Customer can submit a star rating (1–5) and optional comment at `/review/:orderId`
 - [x] **REV-03**: Venue public page displays average star rating and recent reviews
 - [x] **REV-04**: Owner dashboard shows all reviews with ratings
@@ -144,7 +144,7 @@
 | PREF-01 | Phase 3 | Complete |
 | PREF-02 | Phase 3 | Complete |
 | PREF-03 | Phase 3 | Complete |
-| REV-01 | Phase 3 | Pending |
+| REV-01 | Phase 3 | Complete |
 | REV-02 | Phase 3 | Complete |
 | REV-03 | Phase 3 | Complete |
 | REV-04 | Phase 3 | Complete |

@@ -57,7 +57,7 @@ Plans:
 
 - [x] **Phase 1: Owner Access & Menu Management** - Owner login page and full menu CRUD with image support (completed 2026-05-23)
 - [x] **Phase 2: Order Tracking & Staff Dashboard** - Customer order status page and live-refreshing staff view (completed 2026-05-24)
-- [ ] **Phase 3: Customer Engagement** - Saved preferences at checkout and post-order review/rating flow
+- [x] **Phase 3: Customer Engagement** - Saved preferences at checkout and post-order review/rating flow (completed 2026-05-25)
 - [ ] **Phase 4: Monetisation** - Gift card purchase/redemption and subscription coffee pass
 - [ ] **Phase 5: Venue Expansion** - Multi-location management and public catering enquiry form
 - [ ] **Phase 6: Marketing & Notifications** - QR code generator and transactional email via Resend
@@ -118,12 +118,12 @@ Plans:
   5. Customer submits a 1–5 star rating with an optional comment; the venue public page shows the running average and recent reviews
   6. Owner dashboard shows all reviews with their star ratings
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 
 - [x] 03-01-PLAN.md — Backend: add getCustomerPreferences, upsertCustomerPreferences, submitReview, listReviews to venueRouter (PREF-01/02/03, REV-02/03/04)
 - [x] 03-02-PLAN.md — Customer: checkout form (phone/milk/sugar) + preference lookup on phone blur + post-order upsert in VenuePublic (PREF-01/02/03)
-- [ ] 03-03-PLAN.md — Reviews UI: /review/:orderId page, OrderStatus review link, VenuePublic reviews section, OwnerDashboard Reviews tab (REV-01/02/03/04)
+- [x] 03-03-PLAN.md — Reviews UI: /review/:orderId page, OrderStatus review link, VenuePublic reviews section, OwnerDashboard Reviews tab (REV-01/02/03/04)
 
 ### Phase 4: Monetisation
 
@@ -180,7 +180,7 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 |-------|-----------|----------------|--------|-----------|
 | 1. Owner Access & Menu Management | 3/3 | Complete   | 2026-05-23 | - |
 | 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete    | 2026-05-24 |
-| 3. Customer Engagement | v1.1 | 2/3 | In Progress|  |
+| 3. Customer Engagement | v1.1 | 3/3 | Complete   | 2026-05-25 |
 | 4. Monetisation | v1.1 | 0/? | Not started | - |
 | 5. Venue Expansion | v1.1 | 0/? | Not started | - |
 | 6. Marketing & Notifications | v1.1 | 0/? | Not started | - |
