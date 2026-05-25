@@ -14,4 +14,6 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || "b1-platform-jwt-secret-dev-only",
   platformAdminSecret: process.env.PLATFORM_ADMIN_SECRET || "b1-platform-admin-secret-dev-only",
   port: parseInt(process.env.PORT || "3001"),
+  resendApiKey: process.env.RESEND_API_KEY || "",
+  appUrl: process.env.APP_URL || "https://b1platform.com",
 };
