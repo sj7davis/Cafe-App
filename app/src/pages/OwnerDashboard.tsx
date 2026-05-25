@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star } from 'lucide-react';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'billing' | 'integrations' | 'menu'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews'>('overview');
 
   if (loading) {
     return (
@@ -64,6 +64,7 @@ export default function OwnerDashboard() {
             { id: 'settings' as const, label: 'Settings', icon: Settings },
             { id: 'billing' as const, label: 'Billing', icon: CreditCard },
             { id: 'integrations' as const, label: 'Integrations', icon: Link2 },
+            { id: 'reviews' as const, label: 'Reviews', icon: Star },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
               <tab.icon size={14} /> {tab.label}
@@ -79,6 +80,7 @@ export default function OwnerDashboard() {
         {activeTab === 'settings' && <SettingsTab venue={venue} />}
         {activeTab === 'billing' && <BillingTab />}
         {activeTab === 'integrations' && <IntegrationsTab />}
+        {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
       </div>
     </div>
   );
@@ -253,6 +255,55 @@ function IntegrationsTab() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ReviewsTab({ venueId }: { venueId: number }) {
+  const { data: reviewsList, isLoading } = trpc.venue.listReviews.useQuery(
+    { venueId, limit: 100 },
+    { enabled: !!venueId }
+  );
+
+  if (isLoading) return <p style={{ color: '#5E5E5E' }}>Loading reviews…</p>;
+  if (!reviewsList || reviewsList.length === 0) {
+    return <p style={{ color: '#5E5E5E' }}>No reviews yet.</p>;
+  }
+
+  const avg = reviewsList.reduce((s, r) => s + r.rating, 0) / reviewsList.length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Star size={20} fill="#F5B400" color="#F5B400" />
+        <span style={{ fontSize: 18, fontWeight: 700, color: '#181818' }}>{avg.toFixed(1)}</span>
+        <span style={{ fontSize: 14, color: '#5E5E5E' }}>across {reviewsList.length} reviews</span>
+      </div>
+      {reviewsList.map((r) => (
+        <div key={r.id} style={{
+          background: '#fff',
+          borderRadius: 12,
+          padding: 16,
+          border: '1px solid rgba(24,24,24,0.06)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Star key={i} size={14}
+                  fill={i <= r.rating ? '#F5B400' : '#D1D1D1'}
+                  color={i <= r.rating ? '#F5B400' : '#D1D1D1'} />
+              ))}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{r.customerName}</span>
+            <span style={{ fontSize: 12, color: '#5E5E5E', marginLeft: 'auto' }}>
+              {new Date(r.createdAt).toLocaleDateString()}
+            </span>
+          </div>
+          {r.comment && (
+            <p style={{ fontSize: 14, color: '#5E5E5E', margin: 0 }}>{r.comment}</p>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
