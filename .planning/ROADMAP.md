@@ -187,4 +187,4 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 | 3. Customer Engagement | v1.1 | 3/3 | Complete    | 2026-05-25 |
 | 4. Monetisation | v1.1 | 3/3 | Complete    | 2026-05-25 |
 | 5. Venue Expansion | v1.1 | 3/3 | Complete    | 2026-05-25 |
-| 6. Marketing & Notifications | v1.1 | 1/3 | In Progress|  |
+| 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |

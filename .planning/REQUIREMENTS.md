@@ -89,15 +89,15 @@
 
 ### QR Codes
 
-- [ ] **QR-01**: Owner dashboard generates a QR code that links to the venue's public ordering page
-- [ ] **QR-02**: QR code is downloadable as a PNG from the dashboard
-- [ ] **QR-03**: QR code works offline (encodes the full URL, not a redirect service)
+- [x] **QR-01**: Owner dashboard generates a QR code that links to the venue's public ordering page
+- [x] **QR-02**: QR code is downloadable as a PNG from the dashboard
+- [x] **QR-03**: QR code works offline (encodes the full URL, not a redirect service)
 
 ---
 
 ### Email Notifications
 
-- [ ] **EMAIL-01**: Customer receives an order confirmation email with order number, items, and pickup time
+- [x] **EMAIL-01**: Customer receives an order confirmation email with order number, items, and pickup time
 - [ ] **EMAIL-02**: Venue owner receives an email alert when a new order is placed
 - [ ] **EMAIL-03**: Customer receives a review request email when their order is marked `completed`
 - [x] **EMAIL-04**: Email sending is configurable via `RESEND_API_KEY` environment variable and gracefully skipped if not set
@@ -163,10 +163,10 @@
 | CAT-01 | Phase 5 | Complete |
 | CAT-02 | Phase 5 | Complete |
 | CAT-03 | Phase 5 | Complete |
-| QR-01 | Phase 6 | Pending |
-| QR-02 | Phase 6 | Pending |
-| QR-03 | Phase 6 | Pending |
-| EMAIL-01 | Phase 6 | Pending |
+| QR-01 | Phase 6 | Complete |
+| QR-02 | Phase 6 | Complete |
+| QR-03 | Phase 6 | Complete |
+| EMAIL-01 | Phase 6 | Complete |
 | EMAIL-02 | Phase 6 | Pending |
 | EMAIL-03 | Phase 6 | Pending |
 | EMAIL-04 | Phase 6 | Complete |
