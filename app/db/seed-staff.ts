@@ -1,28 +1,35 @@
 import { getDb } from "../api/queries/connection";
 import { venues, staffAccounts, menuItems, locations } from "./schema";
 import { hash } from "bcrypt-ts";
+import { eq } from "drizzle-orm";
 
 async function seed() {
   const db = getDb();
 
-  // Create a demo venue
-  const [venue] = await db.insert(venues).values({
-    slug: "b1-backhaus",
-    name: "B1 by Backhaus",
-    subdomain: "b1-backhaus",
-    description: "Artisan coffee & baked goods in East Keilor, Melbourne. Take-away only.",
-    address: "East Keilor, VIC 3033",
-    phone: "+61 3 1234 5678",
-    hoursWeekday: "6:00 AM - 3:00 PM",
-    hoursSaturday: "7:00 AM - 3:00 PM",
-    hoursSunday: "7:00 AM - 2:00 PM",
-    primaryColor: "#1c1917",
-    accentColor: "#5E8B8B",
-    isPublic: true,
-  }).returning({ id: venues.id });
-
-  const venueId = venue.id;
-  console.log(`Created venue: B1 by Backhaus (ID: ${venueId})`);
+  // Re-use venue created by seed-platform.ts if it already exists
+  const existing = await db.select({ id: venues.id }).from(venues).where(eq(venues.slug, "b1-backhaus"));
+  let venueId: number;
+  if (existing.length > 0) {
+    venueId = existing[0].id;
+    console.log(`Using existing venue: B1 by Backhaus (ID: ${venueId})`);
+  } else {
+    const [venue] = await db.insert(venues).values({
+      slug: "b1-backhaus",
+      name: "B1 by Backhaus",
+      subdomain: "b1-backhaus",
+      description: "Artisan coffee & baked goods in East Keilor, Melbourne. Take-away only.",
+      address: "East Keilor, VIC 3033",
+      phone: "+61 3 1234 5678",
+      hoursWeekday: "6:00 AM - 3:00 PM",
+      hoursSaturday: "7:00 AM - 3:00 PM",
+      hoursSunday: "7:00 AM - 2:00 PM",
+      primaryColor: "#1c1917",
+      accentColor: "#5E8B8B",
+      isPublic: true,
+    }).returning({ id: venues.id });
+    venueId = venue.id;
+    console.log(`Created venue: B1 by Backhaus (ID: ${venueId})`);
+  }
 
   // Create default location
   await db.insert(locations).values({
