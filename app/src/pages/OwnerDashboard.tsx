@@ -228,9 +228,29 @@ function BillingTab() {
 function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | null }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: squareStatus } = trpc.square.status.useQuery({ token }, { enabled: !!token });
+  const { data: oauthData, isLoading: oauthLoading, error: oauthError } = trpc.square.getOAuthUrl.useQuery(
+    { token },
+    { enabled: !!token && !squareStatus?.connected }
+  );
   const disconnect = trpc.square.disconnect.useMutation({ onSuccess: () => window.location.reload() });
+  const syncMenu = trpc.square.syncMenu.useMutation();
+  const syncInventory = trpc.square.syncInventory.useMutation();
+
+  const [squareConnectedBanner, setSquareConnectedBanner] = useState(false);
+  const [syncMenuResult, setSyncMenuResult] = useState<{ imported: number; total: number } | null>(null);
+  const [syncInventoryResult, setSyncInventoryResult] = useState<{ synced: number } | null>(null);
 
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('square') === 'connected') {
+      setSquareConnectedBanner(true);
+      params.delete('square');
+      const newSearch = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (newSearch ? '?' + newSearch : ''));
+    }
+  }, []);
 
   useEffect(() => {
     if (!venue?.slug) return;
@@ -248,8 +268,35 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
     a.click();
   }
 
+  function handleSyncMenu() {
+    setSyncMenuResult(null);
+    syncMenu.mutate({ token }, {
+      onSuccess: (data) => setSyncMenuResult(data),
+    });
+  }
+
+  function handleSyncInventory() {
+    setSyncInventoryResult(null);
+    syncInventory.mutate({ token }, {
+      onSuccess: (data) => setSyncInventoryResult(data),
+    });
+  }
+
+  const squareNotConfigured = oauthError && String(oauthError.message).toLowerCase().includes('not configured');
+
   return (
     <div className="space-y-4">
+      {squareConnectedBanner && (
+        <div className="border p-4 flex items-center justify-between" style={{ borderColor: '#5E8B5E', background: 'rgba(94,139,94,0.08)' }}>
+          <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <Check size={10} className="inline mr-1" /> Square connected successfully
+          </span>
+          <button onClick={() => setSquareConnectedBanner(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
@@ -263,24 +310,85 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                 When a customer orders online, it appears in your Square dashboard.
               </p>
               {squareStatus?.connected && (
-                <p className="font-data mt-2" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                  <Check size={10} className="inline mr-1" /> Connected
+                <div className="mt-2 space-y-1">
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
+                    <Check size={10} className="inline mr-1" /> Connected
+                  </p>
+                  {squareStatus.merchantId && (
+                    <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>
+                      Merchant ID: {squareStatus.merchantId}
+                    </p>
+                  )}
+                </div>
+              )}
+              {squareNotConfigured && (
+                <p className="font-data mt-2" style={{ fontSize: '0.5625rem', color: '#B85450' }}>
+                  <AlertCircle size={10} className="inline mr-1" /> Add SQUARE_APP_ID and SQUARE_APP_SECRET to Railway env vars to enable Square.
                 </p>
               )}
             </div>
           </div>
-          <div>
+          <div className="flex flex-col items-end gap-2">
             {squareStatus?.connected ? (
               <button onClick={() => disconnect.mutate({ token })} disabled={disconnect.isPending} className="px-4 py-2 font-data border" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
                 {disconnect.isPending ? 'Disconnecting...' : 'Disconnect'}
               </button>
-            ) : (
-              <button onClick={() => alert('Square OAuth would open here')} className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
-                <Link2 size={14} /> Connect Square
+            ) : squareNotConfigured ? null : (
+              <button
+                onClick={() => { if (oauthData?.url) window.location.href = oauthData.url; }}
+                disabled={oauthLoading || !oauthData?.url}
+                className="px-4 py-2 font-button flex items-center gap-2"
+                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: oauthLoading ? 0.6 : 1 }}
+              >
+                {oauthLoading ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+                {oauthLoading ? 'Loading...' : 'Connect Square'}
               </button>
             )}
           </div>
         </div>
+
+        {squareStatus?.connected && (
+          <div className="mt-4 pt-4 flex items-center gap-3" style={{ borderTop: '1px solid rgba(24,24,24,0.08)' }}>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={handleSyncMenu}
+                disabled={syncMenu.isPending}
+                className="px-4 py-2 font-button flex items-center gap-2"
+                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncMenu.isPending ? 0.6 : 1 }}
+              >
+                {syncMenu.isPending ? <Loader2 size={14} className="animate-spin" /> : <Coffee size={14} />}
+                Sync Menu
+              </button>
+              {syncMenuResult && (
+                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
+                  Imported {syncMenuResult.imported} / {syncMenuResult.total} items
+                </p>
+              )}
+              {syncMenu.isError && (
+                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>Sync failed</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={handleSyncInventory}
+                disabled={syncInventory.isPending}
+                className="px-4 py-2 font-button flex items-center gap-2"
+                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncInventory.isPending ? 0.6 : 1 }}
+              >
+                {syncInventory.isPending ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}
+                Sync Inventory
+              </button>
+              {syncInventoryResult && (
+                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
+                  Synced {syncInventoryResult.synced} inventory levels
+                </p>
+              )}
+              {syncInventory.isError && (
+                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>Sync failed</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* QR Code Section */}
