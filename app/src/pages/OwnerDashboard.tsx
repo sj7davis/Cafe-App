@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download } from 'lucide-react';
+import QRCode from 'qrcode';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -83,7 +84,7 @@ export default function OwnerDashboard() {
         {activeTab === 'menu' && <MenuTab venue={venue} />}
         {activeTab === 'settings' && <SettingsTab venue={venue} />}
         {activeTab === 'billing' && <BillingTab />}
-        {activeTab === 'integrations' && <IntegrationsTab />}
+        {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
         {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
         {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
         {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
@@ -224,10 +225,28 @@ function BillingTab() {
   );
 }
 
-function IntegrationsTab() {
+function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | null }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: squareStatus } = trpc.square.status.useQuery({ token }, { enabled: !!token });
   const disconnect = trpc.square.disconnect.useMutation({ onSuccess: () => window.location.reload() });
+
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!venue?.slug) return;
+    const url = `${window.location.origin}/v/${venue.slug}`;
+    QRCode.toDataURL(url, { width: 300, margin: 2 })
+      .then(setQrDataUrl)
+      .catch((err: unknown) => console.error('[qr] generation failed:', err));
+  }, [venue?.slug]);
+
+  function handleQrDownload() {
+    if (!qrDataUrl || !venue?.slug) return;
+    const a = document.createElement('a');
+    a.href = qrDataUrl;
+    a.download = `${venue.slug}-qr.png`;
+    a.click();
+  }
 
   return (
     <div className="space-y-4">
@@ -259,6 +278,46 @@ function IntegrationsTab() {
               <button onClick={() => alert('Square OAuth would open here')} className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
                 <Link2 size={14} /> Connect Square
               </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* QR Code Section */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 flex items-center justify-center" style={{ background: '#181818' }}>
+            <QrCode size={20} style={{ color: '#F3F2EE' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>QR Code</h3>
+            <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 16 }}>
+              Display this QR code in your venue. Customers scan it to open your ordering page directly.
+            </p>
+            {qrDataUrl && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+                <img
+                  src={qrDataUrl}
+                  alt="Venue QR code"
+                  style={{ width: 180, height: 180, border: '1px solid rgba(24,24,24,0.08)' }}
+                />
+                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>
+                  Links to: {window.location.origin}/v/{venue?.slug}
+                </p>
+                <button
+                  onClick={handleQrDownload}
+                  className="px-4 py-2 font-button flex items-center gap-2"
+                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}
+                >
+                  <Download size={14} /> Download PNG
+                </button>
+              </div>
+            )}
+            {!qrDataUrl && venue?.slug && (
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Generating QR code…</p>
+            )}
+            {!venue?.slug && (
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>No venue configured.</p>
             )}
           </div>
         </div>
