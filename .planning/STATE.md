@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
 status: Ready to plan
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-05-25T01:15:16.001Z"
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-05-25T01:28:20.799Z"
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 15
-  completed_plans: 14
-  percent: 67
+  completed_plans: 15
+  percent: 83
 ---
 
 # Project State
@@ -61,6 +61,7 @@ Plan: Not started
 | Phase 04-monetisation P01 | 15 | 2 tasks | 1 files |
 | Phase 05-venue-expansion P01 | 8 | 3 tasks | 1 files |
 | Phase 05-venue-expansion P02 | 363 | 3 tasks | 1 files |
+| Phase 05-venue-expansion P03 | 15 | 4 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,8 @@ Recent decisions affecting current work:
 - [Phase 05-venue-expansion]: locationId optional in createOrder/listOrders to preserve backwards compatibility with existing clients
 - [Phase 05-venue-expansion]: LocationsTab uses union-mode CRUD state matching MenuTab Phase 01-03 pattern
 - [Phase 05-venue-expansion]: CateringTab confirm-gate matches Phase 02-03 StaffDashboard pattern; CATERING_STATUS_NEXT map enforces forward-only progression
+- [Phase 05-venue-expansion]: Location selector only shown for multi-location venues; single location auto-selected silently via useEffect
+- [Phase 05-venue-expansion]: Per-location hours replace venue-level hours section when locations exist; venue-level block preserved as fallback
 
 ### Pending Todos
 
@@ -122,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-25T01:15:15.993Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-05-25T01:28:20.793Z
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None

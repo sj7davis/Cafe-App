@@ -59,7 +59,7 @@ Plans:
 - [x] **Phase 2: Order Tracking & Staff Dashboard** - Customer order status page and live-refreshing staff view (completed 2026-05-24)
 - [x] **Phase 3: Customer Engagement** - Saved preferences at checkout and post-order review/rating flow (completed 2026-05-25)
 - [x] **Phase 4: Monetisation** - Gift card purchase/redemption and subscription coffee pass (completed 2026-05-25)
-- [ ] **Phase 5: Venue Expansion** - Multi-location management and public catering enquiry form
+- [x] **Phase 5: Venue Expansion** - Multi-location management and public catering enquiry form (completed 2026-05-25)
 - [ ] **Phase 6: Marketing & Notifications** - QR code generator and transactional email via Resend
 
 ## Phase Details
@@ -157,7 +157,7 @@ Plans:
 
 - [x] 05-01-PLAN.md — Backend: add location mutations, catering procedures, extend createOrder/listOrders with locationId (LOC-01, LOC-02, LOC-04, CAT-01, CAT-02, CAT-03)
 - [x] 05-02-PLAN.md — OwnerDashboard UI: LocationsTab and CateringTab
-- [ ] 05-03-PLAN.md — VenuePublic: location hours display + catering form; StaffDashboard: location filter
+- [x] 05-03-PLAN.md — VenuePublic: location hours display + catering form; StaffDashboard: location filter
 
 ### Phase 6: Marketing & Notifications
 
@@ -186,5 +186,5 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 | 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete    | 2026-05-24 |
 | 3. Customer Engagement | v1.1 | 3/3 | Complete    | 2026-05-25 |
 | 4. Monetisation | v1.1 | 3/3 | Complete    | 2026-05-25 |
-| 5. Venue Expansion | v1.1 | 2/3 | In Progress|  |
+| 5. Venue Expansion | v1.1 | 3/3 | Complete   | 2026-05-25 |
 | 6. Marketing & Notifications | v1.1 | 0/? | Not started | - |
