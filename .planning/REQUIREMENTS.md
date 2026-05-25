@@ -100,7 +100,7 @@
 - [ ] **EMAIL-01**: Customer receives an order confirmation email with order number, items, and pickup time
 - [ ] **EMAIL-02**: Venue owner receives an email alert when a new order is placed
 - [ ] **EMAIL-03**: Customer receives a review request email when their order is marked `completed`
-- [ ] **EMAIL-04**: Email sending is configurable via `RESEND_API_KEY` environment variable and gracefully skipped if not set
+- [x] **EMAIL-04**: Email sending is configurable via `RESEND_API_KEY` environment variable and gracefully skipped if not set
 
 ---
 
@@ -169,4 +169,4 @@
 | EMAIL-01 | Phase 6 | Pending |
 | EMAIL-02 | Phase 6 | Pending |
 | EMAIL-03 | Phase 6 | Pending |
-| EMAIL-04 | Phase 6 | Pending |
+| EMAIL-04 | Phase 6 | Complete |
