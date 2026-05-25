@@ -22,6 +22,7 @@ export default function VenuePublic() {
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null);
   const [checkoutName, setCheckoutName] = useState('');
   const [checkoutPhone, setCheckoutPhone] = useState('');
+  const [checkoutEmail, setCheckoutEmail] = useState('');
   const [checkoutPickupTime, setCheckoutPickupTime] = useState('ASAP');
   const [checkoutMilk, setCheckoutMilk] = useState('');
   const [checkoutSugar, setCheckoutSugar] = useState('');
@@ -187,6 +188,7 @@ export default function VenuePublic() {
       customerPhone: checkoutPhone || '0000000000',
       pickupTime: checkoutPickupTime || 'ASAP',
       locationId: selectedLocationId ?? undefined,
+      customerEmail: checkoutEmail || undefined,
       orderNote,
       items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
     });
@@ -313,6 +315,18 @@ export default function VenuePublic() {
                     onBlur={handlePhoneBlur}
                     style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
                   />
+                  <div>
+                    <label className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: 4 }}>
+                      Email <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional — for order confirmation)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={checkoutEmail}
+                      onChange={e => setCheckoutEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', background: '#F3F2EE', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: '#181818', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
                   <input
                     type="text"
                     placeholder="Pickup time (e.g. ASAP, 10:30am)"
