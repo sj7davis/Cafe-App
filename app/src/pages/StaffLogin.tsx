@@ -13,8 +13,7 @@ export default function StaffLogin() {
   const loginMutation = trpc.staffAuth.login.useMutation({
     onSuccess: (data) => {
       login(data.token, data.venue.id);
-      window.location.hash = '/staff';
-      window.location.reload();
+      window.location.href = '/staff';
     },
     onError: (err) => {
       setError(err.message || 'Login failed');
