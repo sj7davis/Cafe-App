@@ -123,6 +123,35 @@ export default function OrderStatus() {
             <span>${Number(order.totalAmount).toFixed(2)}</span>
           </div>
         </div>
+
+        {/* Review CTA — only shown when order is completed */}
+        {order.status === 'completed' && (
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: 20,
+            marginTop: 16,
+            border: '1px solid rgba(24,24,24,0.06)',
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 14, color: '#5E5E5E', marginBottom: 12 }}>How was your order?</p>
+            <Link
+              to={`/review/${order.id}`}
+              style={{
+                display: 'inline-block',
+                padding: '10px 24px',
+                background: '#181818',
+                color: '#fff',
+                textDecoration: 'none',
+                borderRadius: 8,
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              Leave a Review
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
