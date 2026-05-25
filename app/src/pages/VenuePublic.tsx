@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router';
 import { trpc } from '@/providers/trpc';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Coffee, MapPin, Phone, Clock, Globe, Loader2,
   ShoppingBag, Plus, Minus, X, ChevronRight, Star,
@@ -28,6 +28,7 @@ export default function VenuePublic() {
   const [checkoutGiftCode, setCheckoutGiftCode] = useState('');
   const [appliedGiftDiscount, setAppliedGiftDiscount] = useState(0);
   const [checkoutUsePass, setCheckoutUsePass] = useState(false);
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
 
   const { data: venue, isLoading, error } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
@@ -44,6 +45,11 @@ export default function VenuePublic() {
     { enabled: !!venue?.id }
   );
 
+  const { data: locationsList } = trpc.venue.listLocations.useQuery(
+    { venueId: venue?.id || 0 },
+    { enabled: !!venue?.id }
+  );
+
   const avgRating = reviewsList && reviewsList.length > 0
     ? reviewsList.reduce((sum, r) => sum + r.rating, 0) / reviewsList.length
     : null;
@@ -54,6 +60,12 @@ export default function VenuePublic() {
   );
 
   const upsertPreferences = trpc.venue.upsertCustomerPreferences.useMutation();
+
+  useEffect(() => {
+    if (locationsList && locationsList.length === 1) {
+      setSelectedLocationId(locationsList[0].id);
+    }
+  }, [locationsList]);
 
   const redeemGiftCardMutation = trpc.venue.redeemGiftCard.useMutation({
     onSuccess: (data) => {
@@ -165,6 +177,7 @@ export default function VenuePublic() {
       customerName: checkoutName || 'Guest',
       customerPhone: checkoutPhone || '0000000000',
       pickupTime: checkoutPickupTime || 'ASAP',
+      locationId: selectedLocationId ?? undefined,
       orderNote,
       items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
     });
@@ -323,6 +336,25 @@ export default function VenuePublic() {
                     <option value="2">2 sugars</option>
                     <option value="3">3 sugars</option>
                   </select>
+
+                  {/* Location selector — only for multi-location venues */}
+                  {locationsList && locationsList.length > 1 && (
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 500, color: '#181818', display: 'block', marginBottom: 4 }}>
+                        Pickup Location *
+                      </label>
+                      <select
+                        value={selectedLocationId ?? ''}
+                        onChange={e => setSelectedLocationId(e.target.value ? Number(e.target.value) : null)}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                      >
+                        <option value="">Select a location…</option>
+                        {locationsList.map(loc => (
+                          <option key={loc.id} value={loc.id}>{loc.name} — {loc.address}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Gift card */}
                   {appliedGiftDiscount === 0 && (
