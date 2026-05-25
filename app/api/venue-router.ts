@@ -2,13 +2,18 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses } from "@db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
+import { randomBytes } from "crypto";
 import { env } from "./lib/env";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
+
+function generateGiftCardCode(): string {
+  return randomBytes(8).toString('base64url').toUpperCase().slice(0, 12);
+}
 
 export const venueRouter = createRouter({
   // Public: Get venue by slug (for customer-facing site)
@@ -622,4 +627,170 @@ export const venueRouter = createRouter({
         .orderBy(desc(reviews.createdAt))
         .limit(input.limit);
     }),
+
+  // ─── Gift Cards ───
+  createGiftCard: publicQuery.input(z.object({
+    token: z.string(),
+    amount: z.number().positive(),
+    senderName: z.string().optional(),
+    recipientName: z.string().optional(),
+    recipientPhone: z.string().optional(),
+    message: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const code = generateGiftCardCode();
+    const [result] = await db.insert(giftCards).values({
+      venueId,
+      code,
+      amount: String(input.amount.toFixed(2)),
+      balance: String(input.amount.toFixed(2)),
+      senderName: input.senderName,
+      recipientName: input.recipientName,
+      recipientPhone: input.recipientPhone,
+      message: input.message,
+    });
+    return { id: Number(result.insertId), code };
+  }),
+
+  listGiftCards: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    return db.select().from(giftCards)
+      .where(eq(giftCards.venueId, venueId))
+      .orderBy(desc(giftCards.createdAt));
+  }),
+
+  redeemGiftCard: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    code: z.string().min(1),
+    orderTotal: z.number().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const results = await db.select().from(giftCards)
+      .where(and(
+        eq(giftCards.venueId, input.venueId),
+        eq(giftCards.code, input.code.toUpperCase()),
+      ))
+      .limit(1);
+    const card = results[0];
+    if (!card) throw new TRPCError({ code: 'NOT_FOUND', message: 'Gift card not found' });
+    if (Number(card.balance) <= 0) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Gift card has no remaining balance' });
+
+    const discount = Math.min(Number(card.balance), input.orderTotal);
+    const newBalance = Number(card.balance) - discount;
+    await db.update(giftCards)
+      .set({ balance: String(newBalance.toFixed(2)), isRedeemed: newBalance <= 0 })
+      .where(eq(giftCards.id, card.id));
+
+    return { discount, remainingBalance: newBalance };
+  }),
+
+  // ─── Subscription Passes ───
+  upsertPassConfig: publicQuery.input(z.object({
+    token: z.string(),
+    name: z.string().min(1),
+    totalCredits: z.number().int().positive(),
+    price: z.number().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const venueResults = await db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
+    const venue = venueResults[0];
+    if (!venue) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venue not found' });
+
+    const existing = (venue.settingsJson as Record<string, unknown>) ?? {};
+    const updated = {
+      ...existing,
+      passConfig: { name: input.name, totalCredits: input.totalCredits, price: input.price },
+    };
+    await db.update(venues).set({ settingsJson: updated }).where(eq(venues.id, venueId));
+    return { success: true };
+  }),
+
+  getPassConfig: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const results = await db.select().from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    const venue = results[0];
+    if (!venue) return null;
+    return (venue.settingsJson as any)?.passConfig ?? null;
+  }),
+
+  purchasePass: publicQuery.input(z.object({
+    token: z.string(),
+    phone: z.string().min(1),
+    name: z.string().min(1),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const venueResults = await db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
+    const venue = venueResults[0];
+    if (!venue) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venue not found' });
+
+    const passConfig = (venue.settingsJson as any)?.passConfig;
+    if (!passConfig) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No pass configured for this venue' });
+
+    const [result] = await db.insert(subscriptionPasses).values({
+      venueId,
+      phone: input.phone,
+      name: input.name,
+      totalCredits: passConfig.totalCredits,
+      remainingCredits: passConfig.totalCredits,
+      price: String(Number(passConfig.price).toFixed(2)),
+    });
+    return { id: Number(result.insertId), remainingCredits: passConfig.totalCredits };
+  }),
+
+  getPassByPhone: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().min(1),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const results = await db.select().from(subscriptionPasses)
+      .where(and(
+        eq(subscriptionPasses.venueId, input.venueId),
+        eq(subscriptionPasses.phone, input.phone),
+        eq(subscriptionPasses.isActive, true),
+      ))
+      .orderBy(desc(subscriptionPasses.createdAt))
+      .limit(1);
+    return results[0] ?? null;
+  }),
+
+  usePassCredit: publicQuery.input(z.object({
+    passId: z.number().int().positive(),
+    venueId: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const results = await db.select().from(subscriptionPasses)
+      .where(and(
+        eq(subscriptionPasses.id, input.passId),
+        eq(subscriptionPasses.venueId, input.venueId),
+        eq(subscriptionPasses.isActive, true),
+      ))
+      .limit(1);
+    const pass = results[0];
+    if (!pass) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pass not found' });
+    if (pass.remainingCredits <= 0) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No remaining credits' });
+
+    const newCredits = pass.remainingCredits - 1;
+    await db.update(subscriptionPasses)
+      .set({
+        remainingCredits: sql`remaining_credits - 1`,
+        isActive: newCredits > 0,
+      })
+      .where(eq(subscriptionPasses.id, pass.id));
+
+    return { remainingCredits: newCredits };
+  }),
 });
