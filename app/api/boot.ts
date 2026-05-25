@@ -75,23 +75,38 @@ app.get("/api/square/callback", async (c) => {
 });
 
 // tRPC API
-// @hono/node-server v2 does not pipe the Node.js IncomingMessage body into
-// c.req.raw.body, so fetchRequestHandler gets an empty body on POST mutations.
-// Fix: read the body through Hono first, then hand a fully-formed Request to tRPC.
+// @hono/node-server v2 wraps the Node.js IncomingMessage in a Web ReadableStream
+// but the stream is not reliably readable via c.req.raw in all environments.
+// Fix: read directly from the Node.js IncomingMessage via c.env.incoming.
 app.use("/api/trpc/*", async (c) => {
-  const method = c.req.method;
-  const url = c.req.url;
-  const headers = new Headers(c.req.raw.headers as HeadersInit);
+  const incoming = c.env.incoming;
+  const method = incoming.method || "GET";
 
-  let body: string | undefined;
+  // Reconstruct full URL from incoming request
+  const host = incoming.headers.host || "localhost";
+  const url = `https://${host}${incoming.url}`;
+
+  // Read body bytes directly from the Node.js Readable stream
+  let bodyBuf: Buffer | undefined;
   if (method !== "GET" && method !== "HEAD") {
-    body = await c.req.text();
+    bodyBuf = await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      incoming.on("data", (chunk: Buffer) => chunks.push(chunk));
+      incoming.on("end", () => resolve(Buffer.concat(chunks)));
+      incoming.on("error", reject);
+    });
+  }
+
+  // Build a flat headers record
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(incoming.headers)) {
+    if (v !== undefined) headers[k] = Array.isArray(v) ? v.join(", ") : v;
   }
 
   const req = new Request(url, {
     method,
     headers,
-    body: body ?? undefined,
+    body: bodyBuf && bodyBuf.length > 0 ? bodyBuf : undefined,
   });
 
   return fetchRequestHandler({
