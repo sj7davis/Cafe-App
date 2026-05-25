@@ -165,6 +165,7 @@ export const orders = mysqlTable("orders", {
   locationId: bigint("location_id", { mode: "number", unsigned: true }),
   // Square order ID for sync
   squareOrderId: varchar("square_order_id", { length: 50 }),
+  customerEmail: varchar("customer_email", { length: 320 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
 });
