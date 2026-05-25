@@ -323,6 +323,65 @@ export default function VenuePublic() {
                     <option value="2">2 sugars</option>
                     <option value="3">3 sugars</option>
                   </select>
+
+                  {/* Gift card */}
+                  {appliedGiftDiscount === 0 && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        type="text"
+                        placeholder="Gift card code"
+                        value={checkoutGiftCode}
+                        onChange={e => setCheckoutGiftCode(e.target.value.toUpperCase())}
+                        style={{
+                          flex: 1, padding: '10px 12px', borderRadius: 8,
+                          border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818',
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          if (checkoutGiftCode && venue?.id) {
+                            redeemGiftCardMutation.mutate({
+                              venueId: venue.id,
+                              code: checkoutGiftCode,
+                              orderTotal: cartTotal,
+                            });
+                          }
+                        }}
+                        disabled={redeemGiftCardMutation.isPending || !checkoutGiftCode}
+                        style={{
+                          padding: '10px 14px', borderRadius: 8, border: 'none',
+                          background: '#181818', color: '#F3F2EE', fontSize: 13, cursor: 'pointer',
+                          opacity: redeemGiftCardMutation.isPending || !checkoutGiftCode ? 0.6 : 1,
+                        }}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  )}
+                  {appliedGiftDiscount > 0 && (
+                    <div style={{ fontSize: 13, color: '#16a34a', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Gift card applied</span>
+                      <span>-${appliedGiftDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {/* Pass credit toggle */}
+                  {passInfo && passInfo.remainingCredits > 0 && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#181818', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={checkoutUsePass}
+                        onChange={e => setCheckoutUsePass(e.target.checked)}
+                        style={{ width: 16, height: 16 }}
+                      />
+                      <span>
+                        Use 1 pass credit
+                        <span style={{ color: '#5E5E5E', fontSize: 12, marginLeft: 6 }}>
+                          ({passInfo.remainingCredits} remaining)
+                        </span>
+                      </span>
+                    </label>
+                  )}
                 </div>
 
                 <div style={{
@@ -333,9 +392,15 @@ export default function VenuePublic() {
                     <span style={{ color: '#5E5E5E' }}>Subtotal</span>
                     <span style={{ fontWeight: 600 }}>${cartTotal.toFixed(2)}</span>
                   </div>
+                  {appliedGiftDiscount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#16a34a' }}>
+                      <span>Gift card discount</span>
+                      <span>-${appliedGiftDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 18, fontWeight: 700 }}>
                     <span>Total</span>
-                    <span>${cartTotal.toFixed(2)}</span>
+                    <span>${effectiveTotal.toFixed(2)}</span>
                   </div>
                   <button
                     onClick={handlePlaceOrder}
