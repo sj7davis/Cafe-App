@@ -269,11 +269,13 @@ function SidebarItem({ icon, label, tab, activeTab, setActiveTab }: {
 // ─── Tab Components ───
 function OrdersTab({ venueId }: { venueId: number }) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<number | null>(null);
   const utils = trpc.useUtils();
   const { data: ordersList } = trpc.venue.listOrders.useQuery(
-    { venueId, status: statusFilter === 'all' ? undefined : statusFilter, limit: 50 },
+    { venueId, status: statusFilter === 'all' ? undefined : statusFilter, locationId: locationFilter ?? undefined, limit: 50 },
     { refetchInterval: 20_000 }
   );
+  const { data: locationsList } = trpc.venue.listLocations.useQuery({ venueId });
 
   const updateStatus = trpc.venue.updateOrderStatus.useMutation({
     onSuccess: () => utils.venue.listOrders.invalidate(),
@@ -338,6 +340,45 @@ function OrdersTab({ venueId }: { venueId: number }) {
           ))}
         </div>
       </div>
+
+      {/* Location filter — only renders when venue has 2+ locations */}
+      {locationsList && locationsList.length > 1 && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <button
+            onClick={() => setLocationFilter(null)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '6px',
+              border: 'none',
+              background: locationFilter === null ? '#1c1917' : '#e7e5e4',
+              color: locationFilter === null ? '#fafaf9' : '#57534e',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            All Locations
+          </button>
+          {locationsList.map(loc => (
+            <button
+              key={loc.id}
+              onClick={() => setLocationFilter(loc.id)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                background: locationFilter === loc.id ? '#1c1917' : '#e7e5e4',
+                color: locationFilter === loc.id ? '#fafaf9' : '#57534e',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {loc.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
