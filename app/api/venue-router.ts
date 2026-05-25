@@ -877,4 +877,70 @@ export const venueRouter = createRouter({
 
     return { remainingCredits: newCredits };
   }),
+
+  // ─── Catering Requests ───
+  submitCateringRequest: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    name: z.string().min(1),
+    phone: z.string().min(1),
+    email: z.string().email().optional(),
+    eventDate: z.string().min(1),
+    guestCount: z.number().int().min(1),
+    details: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const result = await db.insert(cateringRequests).values({
+      venueId: input.venueId,
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      eventDate: input.eventDate,
+      guestCount: input.guestCount,
+      details: input.details,
+    });
+    return { requestId: Number(result[0].insertId) };
+  }),
+
+  listCateringRequests: publicQuery.input(z.object({
+    token: z.string(),
+    status: z.string().optional(),
+    limit: z.number().int().min(1).max(100).default(50),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const conditions = [eq(cateringRequests.venueId, venueId)];
+    if (input.status) {
+      conditions.push(eq(cateringRequests.status, input.status as any));
+    }
+    return db
+      .select()
+      .from(cateringRequests)
+      .where(and(...conditions))
+      .orderBy(desc(cateringRequests.createdAt))
+      .limit(input.limit);
+  }),
+
+  updateCateringStatus: publicQuery.input(z.object({
+    token: z.string(),
+    requestId: z.number().int().positive(),
+    status: z.enum(["new", "quoted", "confirmed", "completed"]),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const req = await db
+      .select()
+      .from(cateringRequests)
+      .where(eq(cateringRequests.id, input.requestId))
+      .limit(1);
+    if (!req[0] || req[0].venueId !== venueId) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Catering request not found" });
+    }
+    await db
+      .update(cateringRequests)
+      .set({ status: input.status })
+      .where(eq(cateringRequests.id, input.requestId));
+    return { success: true };
+  }),
 });
