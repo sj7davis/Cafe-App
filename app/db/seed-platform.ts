@@ -1,6 +1,6 @@
 // Seed script for B1 Platform
 import { getDb } from "../api/queries/connection";
-import { venues, venueOwners, platformAdmins, staffAccounts } from "./schema";
+import { venues, venueOwners, platformAdmins } from "./schema";
 import { hash } from "bcrypt-ts";
 
 async function seed() {
@@ -49,22 +49,11 @@ async function seed() {
   });
   console.log("✅ Venue owner: owner@b1bybackhaus.com / owner123");
 
-  // Create demo staff
-  const staffHash = await hash("admin123", 10);
-  await db.insert(staffAccounts).values({
-    venueId,
-    name: "Store Manager",
-    username: "admin",
-    passwordHash: staffHash,
-    role: "admin",
-  });
-  console.log("✅ Staff: admin / admin123");
-
   console.log("\n🎉 Platform seeded successfully!");
+  console.log("\nRun `npm run seed` next to create staff accounts and menu items.");
   console.log("\nLogin credentials:");
   console.log("  Platform Admin: admin@b1platform.com.au / admin123");
   console.log("  Venue Owner:    owner@b1bybackhaus.com / owner123");
-  console.log("  Staff:          admin / admin123");
 }
 
 seed().catch(console.error);
