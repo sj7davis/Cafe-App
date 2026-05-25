@@ -36,6 +36,15 @@ export default function VenuePublic() {
     { enabled: !!venue?.id }
   );
 
+  const { data: reviewsList } = trpc.venue.listReviews.useQuery(
+    { venueId: venue?.id ?? 0, limit: 20 },
+    { enabled: !!venue?.id }
+  );
+
+  const avgRating = reviewsList && reviewsList.length > 0
+    ? reviewsList.reduce((sum, r) => sum + r.rating, 0) / reviewsList.length
+    : null;
+
   const prefQuery = trpc.venue.getCustomerPreferences.useQuery(
     { venueId: venue?.id ?? 0, phone: checkoutPhone },
     { enabled: false }
@@ -474,6 +483,55 @@ export default function VenuePublic() {
           </div>
         </div>
       </section>
+
+      {/* Reviews Section — hidden when no reviews exist */}
+      {reviewsList && reviewsList.length > 0 && (
+        <section style={{ padding: '32px 16px', maxWidth: 800, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: '#181818', margin: 0 }}>Reviews</h2>
+            {avgRating !== null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Star size={20} fill="#F5B400" color="#F5B400" />
+                <span style={{ fontSize: 16, fontWeight: 600, color: '#181818' }}>
+                  {avgRating.toFixed(1)}
+                </span>
+                <span style={{ fontSize: 14, color: '#5E5E5E' }}>
+                  ({reviewsList.length})
+                </span>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {reviewsList.slice(0, 5).map((r) => (
+              <div key={r.id} style={{
+                background: '#fff',
+                borderRadius: 12,
+                padding: 16,
+                border: '1px solid rgba(24,24,24,0.06)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star
+                        key={i}
+                        size={14}
+                        fill={i <= r.rating ? '#F5B400' : '#D1D1D1'}
+                        color={i <= r.rating ? '#F5B400' : '#D1D1D1'}
+                      />
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>
+                    {r.customerName}
+                  </span>
+                </div>
+                {r.comment && (
+                  <p style={{ fontSize: 14, color: '#5E5E5E', margin: 0 }}>{r.comment}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="py-6 border-t" style={{ borderColor: `${primaryColor}15` }}>
