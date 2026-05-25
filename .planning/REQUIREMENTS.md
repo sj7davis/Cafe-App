@@ -72,7 +72,7 @@
 
 ### Multi-Location
 
-- [ ] **LOC-01**: Venue owner can add and manage multiple locations from the dashboard
+- [x] **LOC-01**: Venue owner can add and manage multiple locations from the dashboard
 - [ ] **LOC-02**: Customer can select a pickup location when placing an order
 - [ ] **LOC-03**: Each location has its own hours displayed on the public venue page
 - [ ] **LOC-04**: Staff dashboard is filterable by location
@@ -82,8 +82,8 @@
 ### Catering Requests
 
 - [ ] **CAT-01**: Public venue page includes a catering enquiry form (name, phone, date, guest count, details)
-- [ ] **CAT-02**: Catering request is saved to the database and visible in the owner dashboard
-- [ ] **CAT-03**: Owner can update catering request status (new → quoted → confirmed → completed)
+- [x] **CAT-02**: Catering request is saved to the database and visible in the owner dashboard
+- [x] **CAT-03**: Owner can update catering request status (new → quoted → confirmed → completed)
 
 ---
 
@@ -156,13 +156,13 @@
 | PASS-02 | Phase 4 | Complete |
 | PASS-03 | Phase 4 | Complete |
 | PASS-04 | Phase 4 | Complete |
-| LOC-01 | Phase 5 | Pending |
+| LOC-01 | Phase 5 | Complete |
 | LOC-02 | Phase 5 | Pending |
 | LOC-03 | Phase 5 | Pending |
 | LOC-04 | Phase 5 | Pending |
 | CAT-01 | Phase 5 | Pending |
-| CAT-02 | Phase 5 | Pending |
-| CAT-03 | Phase 5 | Pending |
+| CAT-02 | Phase 5 | Complete |
+| CAT-03 | Phase 5 | Complete |
 | QR-01 | Phase 6 | Pending |
 | QR-02 | Phase 6 | Pending |
 | QR-03 | Phase 6 | Pending |
