@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { bodyLimit } from "hono/body-limit";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
@@ -13,8 +12,6 @@ const app = new Hono<{ Bindings: HttpBindings }>();
 if (!env.isProduction) {
   app.use(cors({ origin: "http://localhost:3000", credentials: true }));
 }
-
-app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 
 // tRPC API
 app.use("/api/trpc/*", async (c) => {
