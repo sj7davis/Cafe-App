@@ -592,25 +592,64 @@ export default function VenuePublic() {
         )}
       </section>
 
-      {/* Hours Detail */}
+      {/* Hours Detail — per-location when locations exist, else venue-level */}
       <section className="content-container py-12 border-t" style={{ borderColor: `${primaryColor}15` }}>
-        <div className="max-w-md mx-auto border p-6" style={{ borderColor: `${primaryColor}15` }}>
-          <h2 className="font-data mb-4 text-center" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: primaryColor }}>
-            Opening Hours
-          </h2>
-          <div className="space-y-2">
-            {[
-              { label: 'Monday — Friday', hours: venue.hoursWeekday || 'Closed' },
-              { label: 'Saturday', hours: venue.hoursSaturday || 'Closed' },
-              { label: 'Sunday', hours: venue.hoursSunday || 'Closed' },
-            ].map((h) => (
-              <div key={h.label} className="flex justify-between py-2" style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                <span style={{ fontSize: '0.875rem', color: '#181818' }}>{h.label}</span>
-                <span className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>{h.hours}</span>
-              </div>
-            ))}
+        {locationsList && locationsList.length > 0 ? (
+          <div>
+            <h2 className="font-data mb-8 text-center" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: primaryColor }}>
+              Our Locations
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {locationsList.map((loc) => (
+                <div key={loc.id} className="border p-6" style={{ borderColor: `${primaryColor}15` }}>
+                  <div style={{ fontWeight: 500, fontSize: '1rem', color: primaryColor, marginBottom: 8 }}>{loc.name}</div>
+                  <div className="flex items-center gap-2 mb-4" style={{ fontSize: '0.875rem', color: '#5E5E5E' }}>
+                    <MapPin size={12} style={{ color: '#5E5E5E', flexShrink: 0 }} />
+                    {loc.address}
+                  </div>
+                  {loc.phone && (
+                    <div className="flex items-center gap-2 mb-4" style={{ fontSize: '0.875rem', color: '#5E5E5E' }}>
+                      <Phone size={12} style={{ color: '#5E5E5E', flexShrink: 0 }} />
+                      {loc.phone}
+                    </div>
+                  )}
+                  {(loc.hoursWeekday || loc.hoursSaturday || loc.hoursSunday) && (
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Monday — Friday', hours: loc.hoursWeekday || 'Closed' },
+                        { label: 'Saturday', hours: loc.hoursSaturday || 'Closed' },
+                        { label: 'Sunday', hours: loc.hoursSunday || 'Closed' },
+                      ].map((h) => (
+                        <div key={h.label} className="flex justify-between py-2" style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                          <span style={{ fontSize: '0.875rem', color: '#181818' }}>{h.label}</span>
+                          <span className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>{h.hours}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="max-w-md mx-auto border p-6" style={{ borderColor: `${primaryColor}15` }}>
+            <h2 className="font-data mb-4 text-center" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: primaryColor }}>
+              Opening Hours
+            </h2>
+            <div className="space-y-2">
+              {[
+                { label: 'Monday — Friday', hours: venue.hoursWeekday || 'Closed' },
+                { label: 'Saturday', hours: venue.hoursSaturday || 'Closed' },
+                { label: 'Sunday', hours: venue.hoursSunday || 'Closed' },
+              ].map((h) => (
+                <div key={h.label} className="flex justify-between py-2" style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                  <span style={{ fontSize: '0.875rem', color: '#181818' }}>{h.label}</span>
+                  <span className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>{h.hours}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Reviews Section — hidden when no reviews exist */}
