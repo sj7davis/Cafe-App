@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Full Feature Build
 status: In progress
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-05-25T01:05:00.000Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-05-25T01:10:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 15
-  completed_plans: 13
-  percent: 87
+  completed_plans: 11
+  percent: 53
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-23)
 
 **Core value:** Every cafe gets a branded online ordering site, real-time Square POS sync, staff management, and loyalty programs — all from one deployable app.
-**Current focus:** Phase 01 — owner-access-menu-management
+**Current focus:** Phase 05 — venue-expansion
 
 ## Current Position
 
-Phase: 4
-Plan: 2 (completed)
+Phase: 5
+Plan: 1 (completed)
 
 ## Performance Metrics
 
@@ -58,8 +58,7 @@ Plan: 2 (completed)
 | Phase 03-customer-engagement P02 | 15 | 2 tasks | 1 files |
 | Phase 03-customer-engagement P03 | 481 | 5 tasks | 5 files |
 | Phase 04-monetisation P01 | 15 | 2 tasks | 1 files |
-| Phase 04-monetisation P03 | 12 | 3 tasks | 1 files |
-| Phase 04-monetisation P02 | 12 | 2 tasks | 1 files |
+| Phase 05-venue-expansion P01 | 8 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -105,6 +104,9 @@ Recent decisions affecting current work:
 - [Phase 04-03]: GiftCardsTab reads token from localStorage (not venueId prop) — listGiftCards is owner-authed by JWT server-side
 - [Phase 04-03]: Number() coercion for card.amount and card.balance (MySQL DECIMAL returns as string)
 - [Phase 04-03]: Issue Pass form disabled when no passConfig — prevents orphaned pass creation
+- [Phase 05-venue-expansion]: deleteLocation enforces FK guard in application code (orders.locationId has no DB-level FK constraint)
+- [Phase 05-venue-expansion]: submitCateringRequest is public (no JWT) — customer-facing form submission
+- [Phase 05-venue-expansion]: locationId optional in createOrder/listOrders to preserve backwards compatibility with existing clients
 
 ### Pending Todos
 
@@ -116,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-25T01:05:00.000Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-05-25T01:10:00.000Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None

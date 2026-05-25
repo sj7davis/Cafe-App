@@ -153,7 +153,11 @@ Plans:
   4. Staff dashboard has a location filter so staff only see orders for their assigned location
   5. Public venue page has a catering enquiry form; submissions appear in the owner dashboard and the owner can move requests through statuses (new → quoted → confirmed → completed)
 
-**Plans**: TBD
+**Plans**: 1/3 complete
+
+- [x] 05-01-PLAN.md — Backend: add location mutations, catering procedures, extend createOrder/listOrders with locationId (LOC-01, LOC-02, LOC-04, CAT-01, CAT-02, CAT-03)
+- [ ] 05-02-PLAN.md — OwnerDashboard UI: LocationsTab and CateringTab
+- [ ] 05-03-PLAN.md — VenuePublic: location hours display + catering form; StaffDashboard: location filter
 
 ### Phase 6: Marketing & Notifications
 
@@ -182,5 +186,5 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 | 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete    | 2026-05-24 |
 | 3. Customer Engagement | v1.1 | 3/3 | Complete    | 2026-05-25 |
 | 4. Monetisation | v1.1 | 3/3 | Complete | 2026-05-25 |
-| 5. Venue Expansion | v1.1 | 0/? | Not started | - |
+| 5. Venue Expansion | v1.1 | 1/3 | In progress | - |
 | 6. Marketing & Notifications | v1.1 | 0/? | Not started | - |
