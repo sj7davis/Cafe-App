@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests } from "@db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -503,6 +503,84 @@ export const venueRouter = createRouter({
   })).query(async ({ input }) => {
     const db = getDb();
     return db.select().from(locations).where(eq(locations.venueId, input.venueId));
+  }),
+
+  addLocation: publicQuery.input(z.object({
+    token: z.string(),
+    name: z.string().min(1).max(128),
+    address: z.string().min(1).max(255),
+    phone: z.string().optional(),
+    isDefault: z.boolean().optional(),
+    hoursWeekday: z.string().optional(),
+    hoursSaturday: z.string().optional(),
+    hoursSunday: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const result = await db.insert(locations).values({
+      venueId,
+      name: input.name,
+      address: input.address,
+      phone: input.phone,
+      isDefault: input.isDefault ?? false,
+      hoursWeekday: input.hoursWeekday,
+      hoursSaturday: input.hoursSaturday,
+      hoursSunday: input.hoursSunday,
+    });
+    return { locationId: Number(result[0].insertId) };
+  }),
+
+  updateLocation: publicQuery.input(z.object({
+    token: z.string(),
+    locationId: z.number().int().positive(),
+    name: z.string().min(1).max(128).optional(),
+    address: z.string().min(1).max(255).optional(),
+    phone: z.string().optional(),
+    isDefault: z.boolean().optional(),
+    hoursWeekday: z.string().optional(),
+    hoursSaturday: z.string().optional(),
+    hoursSunday: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const loc = await db.select().from(locations).where(eq(locations.id, input.locationId)).limit(1);
+    if (!loc[0] || loc[0].venueId !== venueId) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
+    }
+    const updates: Record<string, unknown> = {};
+    if (input.name !== undefined) updates.name = input.name;
+    if (input.address !== undefined) updates.address = input.address;
+    if (input.phone !== undefined) updates.phone = input.phone;
+    if (input.isDefault !== undefined) updates.isDefault = input.isDefault;
+    if (input.hoursWeekday !== undefined) updates.hoursWeekday = input.hoursWeekday;
+    if (input.hoursSaturday !== undefined) updates.hoursSaturday = input.hoursSaturday;
+    if (input.hoursSunday !== undefined) updates.hoursSunday = input.hoursSunday;
+    if (Object.keys(updates).length > 0) {
+      await db.update(locations).set(updates).where(eq(locations.id, input.locationId));
+    }
+    return { success: true };
+  }),
+
+  deleteLocation: publicQuery.input(z.object({
+    token: z.string(),
+    locationId: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const loc = await db.select().from(locations).where(eq(locations.id, input.locationId)).limit(1);
+    if (!loc[0] || loc[0].venueId !== venueId) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
+    }
+    const orderCheck = await db.select({ id: orders.id }).from(orders)
+      .where(eq(orders.locationId, input.locationId)).limit(1);
+    if (orderCheck[0]) {
+      throw new TRPCError({ code: "CONFLICT", message: "Cannot delete a location that has existing orders" });
+    }
+    await db.delete(locations).where(eq(locations.id, input.locationId));
+    return { success: true };
   }),
 
   // ─── Customer Preferences ───
