@@ -21,4 +21,7 @@ export const env = {
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || "",
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || "",
   twilioFromNumber: process.env.TWILIO_FROM_NUMBER || "",
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "BPpmlYOB1TcR2ipSZiGyr-cyaq2KHXPcZnzT8K_ubb6Z6PSCsppjyPM-Zb7AZg0ol6qS1yqzTLB8dPx-G5edN_M",
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
+  vapidEmail: process.env.VAPID_EMAIL ?? "mailto:admin@example.com",
 };

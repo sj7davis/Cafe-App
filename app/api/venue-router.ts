@@ -244,7 +244,7 @@ export const venueRouter = createRouter({
     // EMAIL-02b + SMS: send "your order is ready" when status → ready
     if (input.status === "ready") {
       const readyOrder = await db
-        .select({ customerEmail: orders.customerEmail, customerName: orders.customerName, orderNumber: orders.orderNumber, customerPhone: orders.customerPhone })
+        .select({ customerEmail: orders.customerEmail, customerName: orders.customerName, orderNumber: orders.orderNumber, customerPhone: orders.customerPhone, venueId: orders.venueId, id: orders.id })
         .from(orders)
         .where(eq(orders.id, input.orderId))
         .limit(1);
@@ -260,6 +260,26 @@ export const venueRouter = createRouter({
       }
       if (ro?.customerPhone) {
         void sendSms(ro.customerPhone, `Your order #${ro.orderNumber} is ready for pickup! ☕`);
+      }
+      // Send push notifications to subscribers for this venue when order is ready
+      if (ro?.venueId) {
+        try {
+          const { sendPush } = await import("./lib/push");
+          const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.venueId, ro.venueId));
+          for (const sub of subs) {
+            try {
+              await sendPush(
+                { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+                { title: "Order Ready! ☕", body: `Order ${ro.orderNumber} for ${ro.customerName} is ready for pickup.`, tag: `order-${ro.id}` }
+              );
+            } catch (pushErr: any) {
+              if (pushErr?.statusCode === 410) {
+                // Subscription expired — remove it
+                await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
+              }
+            }
+          }
+        } catch { /* non-blocking */ }
       }
     }
 
@@ -1801,6 +1821,50 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Push Subscriptions ───
+  getVapidPublicKey: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(() => {
+    return { publicKey: env.vapidPublicKey || null };
+  }),
+
+  savePushSubscription: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    endpoint: z.string().min(1),
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+    phone: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const existing = await db.select({ id: pushSubscriptions.id })
+      .from(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.endpoint, input.endpoint), eq(pushSubscriptions.venueId, input.venueId)))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(pushSubscriptions).set({
+        p256dh: input.p256dh,
+        auth: input.auth,
+        ...(input.phone !== undefined ? { phone: input.phone } : {}),
+      }).where(eq(pushSubscriptions.id, existing[0].id));
+    } else {
+      await db.insert(pushSubscriptions).values({
+        venueId: input.venueId,
+        endpoint: input.endpoint,
+        p256dh: input.p256dh,
+        auth: input.auth,
+        phone: input.phone,
+      });
+    }
+    return { ok: true };
+  }),
+
+  deletePushSubscription: publicQuery.input(z.object({
+    endpoint: z.string().min(1),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, input.endpoint));
+    return { ok: true };
+  }),
+
   listPushSubscriptions: publicQuery.input(z.object({
     token: z.string(),
   })).query(async ({ input }) => {

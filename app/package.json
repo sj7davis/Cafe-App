@@ -90,6 +90,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tsx": "4.22.3",
     "vaul": "^1.1.2",
+    "web-push": "^3.6.7",
     "zod": "^4.3.5"
   },
   "devDependencies": {
@@ -97,6 +98,7 @@
     "@types/node": "^24.12.4",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.1.2",
