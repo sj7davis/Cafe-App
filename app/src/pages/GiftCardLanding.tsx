@@ -1,5 +1,5 @@
 import { useParams } from 'react-router'
-import { trpc } from '@/lib/trpc'
+import { trpc } from '@/providers/trpc'
 import { useState } from 'react'
 
 export default function GiftCardLanding() {

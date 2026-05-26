@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { trpc } from '@/lib/trpc'
+import { trpc } from '@/providers/trpc'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface OrderWithItems {
