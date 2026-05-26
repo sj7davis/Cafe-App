@@ -1823,14 +1823,16 @@ function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: st
   const hourlyData = hourlyQuery.data ?? [];
   const categoryData = categoryQuery.data ?? [];
   const nps = npsQuery.data;
-  const wasteSummary = wasteSummaryQuery.data ?? [];
+  const topWastedItems = wasteSummaryQuery.data?.topWastedItems ?? [];
+  const totalWasteEntries = wasteSummaryQuery.data?.totalWasteEntries ?? 0;
+  const totalWasteCost = wasteSummaryQuery.data?.totalCost ?? 0;
   const invLevels = invLevelsQuery.data ?? [];
 
   const topItem = topItems[0]?.name ?? '—';
 
   const npsColor = nps == null ? '#78716c'
-    : nps.score >= 50 ? '#16a34a'
-    : nps.score >= 0 ? '#d97706'
+    : (nps.npsScore ?? 0) >= 50 ? '#16a34a'
+    : (nps.npsScore ?? 0) >= 0 ? '#d97706'
     : '#dc2626';
 
   // Low stock items: quantity not null and quantity <= quantityAlert
@@ -1875,27 +1877,27 @@ function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: st
         ) : (
           <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '56px', fontWeight: 800, color: npsColor, lineHeight: 1 }}>{nps.score}</div>
+              <div style={{ fontSize: '56px', fontWeight: 800, color: npsColor, lineHeight: 1 }}>{nps.npsScore ?? '—'}</div>
               <div style={{ fontSize: '12px', color: '#78716c', marginTop: '4px' }}>NPS Score</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
               <div style={{ display: 'flex', gap: '24px', fontSize: '13px' }}>
                 <span style={{ color: '#57534e' }}>Responses: <strong>{nps.totalResponses}</strong></span>
-                <span style={{ color: '#57534e' }}>Avg score: <strong>{nps.avgScore ? Number(nps.avgScore).toFixed(1) : '—'}/10</strong></span>
+                <span style={{ color: '#57534e' }}>Avg score: <strong>{nps.averageScore ? Number(nps.averageScore).toFixed(1) : '—'}/10</strong></span>
               </div>
-              {nps.recentComments && nps.recentComments.length > 0 && (
+              {nps.recentResponses && nps.recentResponses.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Recent Comments</div>
-                  {nps.recentComments.slice(0, 5).map((comment: string, i: number) => (
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Recent Responses</div>
+                  {nps.recentResponses.slice(0, 5).map((resp: { score: number; comment?: string | null; createdAt: string | Date }, i: number) => (
                     <div key={i} style={{
                       background: '#f5f5f4',
                       borderRadius: '6px',
                       padding: '8px 12px',
                       fontSize: '12px',
                       color: '#57534e',
-                      fontStyle: 'italic',
                     }}>
-                      "{comment}"
+                      <span style={{ fontWeight: 600, marginRight: '8px' }}>{resp.score}/10</span>
+                      {resp.comment && <span style={{ fontStyle: 'italic' }}>"{resp.comment}"</span>}
                     </div>
                   ))}
                 </div>
@@ -2001,13 +2003,13 @@ function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: st
         </h3>
 
         {/* Top wasted items */}
-        {wasteSummary.length > 0 && (
+        {topWastedItems.length > 0 && (
           <div style={{ marginBottom: '16px' }}>
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#a8a29e', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-              High Waste Items
+              High Waste Items {totalWasteEntries > 0 && <span style={{ fontWeight: 400, textTransform: 'none' }}>({totalWasteEntries} total entries, ${totalWasteCost.toFixed(2)} est. cost)</span>}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {wasteSummary.slice(0, 5).map((item: any, i: number) => (
+              {topWastedItems.slice(0, 5).map((item: any, i: number) => (
                 <div key={i} style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -2059,7 +2061,7 @@ function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: st
           </div>
         )}
 
-        {wasteSummary.length === 0 && lowStockItems.length === 0 && (
+        {topWastedItems.length === 0 && lowStockItems.length === 0 && (
           <p style={{ color: '#78716c', fontSize: '13px' }}>No supplier suggestions at this time.</p>
         )}
       </div>
@@ -2303,39 +2305,241 @@ function StaffManagementTab({ venueId: _venueId, isAdmin }: { venueId: number; i
   );
 }
 
-function SettingsTab({ venueId: _venueId }: { venueId: number }) {
+function SettingsTab({ venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
+  const utils = trpc.useUtils();
+
+  // ── Wait Time ──
+  const { data: waitTimeData } = trpc.venue.getWaitTime.useQuery({ venueId }, { enabled: !!venueId });
+  const [waitInput, setWaitInput] = useState('');
+  const [waitMsg, setWaitMsg] = useState('');
+  const setWaitTime = trpc.venue.setWaitTime.useMutation({
+    onSuccess: (data) => {
+      setWaitMsg(`✓ Wait time set to ${data.minutes} min`);
+      utils.venue.getWaitTime.invalidate();
+      setTimeout(() => setWaitMsg(''), 3000);
+    },
+    onError: (e) => setWaitMsg(`Error: ${e.message}`),
+  });
+
+  // ── Venue Hours ──
+  // Stored as 3 free-text fields: hoursWeekday (Mon-Fri), hoursSaturday, hoursSunday
+  const [hoursWeekday, setHoursWeekday] = useState('');
+  const [hoursSaturday, setHoursSaturday] = useState('');
+  const [hoursSunday, setHoursSunday] = useState('');
+  const [hoursMsg, setHoursMsg] = useState('');
+const updateVenueMut = trpc.venue.update.useMutation({
+    onSuccess: () => {
+      setHoursMsg('✓ Hours saved');
+      setTimeout(() => setHoursMsg(''), 3000);
+    },
+    onError: (e) => setHoursMsg(`Error: ${e.message}`),
+  });
+
+  // ── Notification Preferences (localStorage) ──
+  const [chimeEnabled, setChimeEnabled] = useState(() => {
+    const v = localStorage.getItem('b1-chime-enabled');
+    return v === null ? true : v === 'true';
+  });
+  const [desktopNotif, setDesktopNotif] = useState(() => {
+    const v = localStorage.getItem('b1-desktop-notif');
+    return v === null ? true : v === 'true';
+  });
+
+  function handleChimeToggle(val: boolean) {
+    setChimeEnabled(val);
+    localStorage.setItem('b1-chime-enabled', String(val));
+  }
+
+  function handleDesktopNotifToggle(val: boolean) {
+    setDesktopNotif(val);
+    localStorage.setItem('b1-desktop-notif', String(val));
+  }
+
+  const cardStyle: React.CSSProperties = {
+    background: '#fff',
+    borderRadius: '12px',
+    border: '1px solid #e7e5e4',
+    padding: '24px',
+    marginBottom: '16px',
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: '11px',
+    color: '#78716c',
+    display: 'block',
+    marginBottom: '4px',
+    fontWeight: 600,
+  };
+  const inputStyle: React.CSSProperties = {
+    border: '1px solid #e7e5e4',
+    borderRadius: '6px',
+    padding: '8px 10px',
+    fontSize: '13px',
+    fontFamily: 'inherit',
+    width: '100%',
+    boxSizing: 'border-box',
+  };
+  const saveBtnStyle: React.CSSProperties = {
+    padding: '8px 18px',
+    background: '#1c1917',
+    color: '#fafaf9',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginTop: '12px',
+  };
+  const toggleRowStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 0',
+    borderBottom: '1px solid #f5f5f4',
+  };
+
   return (
     <div>
       <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 24px' }}>Venue Settings</h2>
-      <div style={{ display: 'grid', gap: '16px' }}>
-        {[
-          { label: 'Business Hours', desc: 'Set opening and closing times for each day' },
-          { label: 'Menu Management', desc: 'Add, edit, or remove menu items' },
-          { label: 'Payment Methods', desc: 'Configure accepted payment options' },
-          { label: 'Notification Preferences', desc: 'Set up order alerts and customer notifications' },
-          { label: 'POS Integration', desc: 'Connect and sync with Square POS' },
-        ].map((setting) => (
-          <div key={setting.label} style={{
-            background: '#fff',
-            borderRadius: '12px',
-            border: '1px solid #e7e5e4',
-            padding: '20px 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            cursor: 'pointer',
-            transition: 'box-shadow 0.15s',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '14px', color: '#1c1917' }}>{setting.label}</div>
-              <div style={{ fontSize: '13px', color: '#78716c', marginTop: '2px' }}>{setting.desc}</div>
-            </div>
-            <ChevronRight size={18} color="#d6d3d1" />
+
+      {/* ── Venue Hours ── */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Business Hours</h3>
+        <p style={{ fontSize: '13px', color: '#78716c', margin: '0 0 16px' }}>
+          Enter opening hours as text, e.g. "7:00am – 4:00pm". Leave blank if closed.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '4px' }}>
+          <div>
+            <label style={labelStyle}>Mon – Fri</label>
+            <input
+              value={hoursWeekday}
+              onChange={e => setHoursWeekday(e.target.value)}
+              placeholder="7:00am – 4:00pm"
+              style={inputStyle}
+            />
           </div>
-        ))}
+          <div>
+            <label style={labelStyle}>Saturday</label>
+            <input
+              value={hoursSaturday}
+              onChange={e => setHoursSaturday(e.target.value)}
+              placeholder="8:00am – 3:00pm"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Sunday</label>
+            <input
+              value={hoursSunday}
+              onChange={e => setHoursSunday(e.target.value)}
+              placeholder="Closed"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+          <button
+            onClick={() => {
+              setHoursMsg('');
+              updateVenueMut.mutate({
+                token,
+                data: {
+                  hoursWeekday: hoursWeekday || undefined,
+                  hoursSaturday: hoursSaturday || undefined,
+                  hoursSunday: hoursSunday || undefined,
+                },
+              });
+            }}
+            disabled={updateVenueMut.isPending}
+            style={saveBtnStyle}
+          >
+            {updateVenueMut.isPending ? 'Saving…' : 'Save Hours'}
+          </button>
+          {hoursMsg && (
+            <span style={{ fontSize: '13px', color: hoursMsg.startsWith('✓') ? '#16a34a' : '#dc2626' }}>
+              {hoursMsg}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Wait Time ── */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Current Wait Time</h3>
+        {waitTimeData != null && (
+          <p style={{ fontSize: '13px', color: '#78716c', margin: '0 0 12px' }}>
+            Current: <strong>{waitTimeData.minutes} min</strong>
+          </p>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="number"
+            min="0"
+            max="120"
+            value={waitInput}
+            onChange={e => setWaitInput(e.target.value)}
+            placeholder="e.g. 15"
+            style={{ ...inputStyle, width: '80px' }}
+          />
+          <span style={{ fontSize: '13px', color: '#78716c' }}>minutes</span>
+          <button
+            onClick={() => {
+              const mins = Number(waitInput);
+              if (!waitInput || mins < 0) return;
+              setWaitMsg('');
+              setWaitTime.mutate({ token, venueId, minutes: mins });
+            }}
+            disabled={setWaitTime.isPending}
+            style={{ ...saveBtnStyle, marginTop: 0 }}
+          >
+            {setWaitTime.isPending ? 'Saving…' : 'Save'}
+          </button>
+          {waitMsg && (
+            <span style={{ fontSize: '13px', color: waitMsg.startsWith('✓') ? '#16a34a' : '#dc2626' }}>
+              {waitMsg}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Notification Preferences ── */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 600 }}>Notification Preferences</h3>
+        <p style={{ fontSize: '13px', color: '#78716c', margin: '0 0 16px' }}>
+          These settings are saved to this browser only.
+        </p>
+        <div>
+          <div style={toggleRowStyle}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: '#1c1917' }}>Play chime on new order</div>
+              <div style={{ fontSize: '12px', color: '#78716c', marginTop: '2px' }}>Plays an audio chime when a new order arrives</div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={chimeEnabled}
+                onChange={e => handleChimeToggle(e.target.checked)}
+                style={{ width: '16px', height: '16px', accentColor: '#1c1917', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '13px', color: '#57534e' }}>{chimeEnabled ? 'On' : 'Off'}</span>
+            </label>
+          </div>
+          <div style={{ ...toggleRowStyle, borderBottom: 'none' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: '#1c1917' }}>Show desktop notifications</div>
+              <div style={{ fontSize: '12px', color: '#78716c', marginTop: '2px' }}>Shows browser notifications for new and ready orders</div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={desktopNotif}
+                onChange={e => handleDesktopNotifToggle(e.target.checked)}
+                style={{ width: '16px', height: '16px', accentColor: '#1c1917', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '13px', color: '#57534e' }}>{desktopNotif ? 'On' : 'Off'}</span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
   );

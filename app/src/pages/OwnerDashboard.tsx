@@ -84,7 +84,7 @@ export default function OwnerDashboard() {
 
       {/* Content */}
       <div className="content-container py-8">
-        {activeTab === 'overview' && <OverviewTab venue={venue} />}
+        {activeTab === 'overview' && <OverviewTab venue={venue} setActiveTab={setActiveTab} />}
         {activeTab === 'menu' && <MenuTab venue={venue} />}
         {activeTab === 'settings' && <SettingsTab venue={venue} />}
         {activeTab === 'billing' && <BillingTab />}
@@ -103,7 +103,7 @@ export default function OwnerDashboard() {
   );
 }
 
-function OverviewTab({ venue }: { venue: any }) {
+function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty') => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
@@ -142,13 +142,13 @@ function OverviewTab({ venue }: { venue: any }) {
           <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', textDecoration: 'none' }}>
             <Coffee size={16} /> View Your Live Site
           </a>
-          <button onClick={() => alert('Coming soon')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+          <button onClick={() => setActiveTab('settings')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
             <Users size={16} /> Manage Staff
           </button>
-          <button onClick={() => alert('Coming soon')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+          <button onClick={() => setActiveTab('overview')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
             <BarChart3 size={16} /> View Analytics
           </button>
-          <button onClick={() => alert('Coming soon')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+          <button onClick={() => setActiveTab('menu')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
             <Settings size={16} /> Edit Menu
           </button>
         </div>
