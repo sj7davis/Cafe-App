@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions } from "@db/schema";
 import { eq, and, desc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -1749,6 +1749,68 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
     const settings = venueRows[0]?.settingsJson as Record<string, unknown> | null;
     return { minutes: (settings?.waitTimeMinutes as number | undefined) ?? 0 };
+  }),
+
+  // ─── Subscription Passes List ───
+  listSubscriptionPasses: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    return db.select().from(subscriptionPasses)
+      .where(eq(subscriptionPasses.venueId, venueId))
+      .orderBy(desc(subscriptionPasses.createdAt))
+      .limit(100);
+  }),
+
+  // ─── Corporate Accounts ───
+  listCorporateAccounts: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    return db.select().from(corporateAccounts)
+      .where(and(eq(corporateAccounts.venueId, venueId), eq(corporateAccounts.isActive, true)))
+      .orderBy(desc(corporateAccounts.createdAt));
+  }),
+
+  createCorporateAccount: publicQuery.input(z.object({
+    token: z.string(),
+    companyName: z.string().min(1),
+    contactName: z.string().min(1),
+    contactPhone: z.string().min(1),
+    contactEmail: z.string().email().optional(),
+    billingAddress: z.string().optional(),
+    paymentTerms: z.enum(["prepaid", "net_7", "net_14", "net_30"]).optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const [result] = await db.insert(corporateAccounts).values({
+      venueId,
+      companyName: input.companyName,
+      contactName: input.contactName,
+      contactPhone: input.contactPhone,
+      contactEmail: input.contactEmail ?? null,
+      billingAddress: input.billingAddress ?? null,
+      paymentTerms: input.paymentTerms ?? "net_7",
+    }).returning({ id: corporateAccounts.id });
+    return { id: result.id };
+  }),
+
+  // ─── Push Subscriptions ───
+  listPushSubscriptions: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const [row] = await db.select({ count: count(pushSubscriptions.id) })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.venueId, venueId));
+    return { count: Number(row?.count ?? 0) };
   }),
 
   // ─── Review Reply ───

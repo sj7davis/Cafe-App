@@ -1273,81 +1273,498 @@ function LoyaltyTab({ venueId, token }: { venueId: number; token: string }) {
   );
 }
 
-function GiftCardsTab({ venueId: _venueId }: { venueId: number }) {
+function GiftCardsTab({ venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
+  const utils = trpc.useUtils();
+  const { data: cards, isLoading } = trpc.venue.listGiftCards.useQuery({ token }, { enabled: !!token });
+
+  const markRedeemed = trpc.venue.redeemGiftCard.useMutation({
+    onSuccess: () => utils.venue.listGiftCards.invalidate(),
+  });
+
+  const activeCount = (cards ?? []).filter(c => !c.isRedeemed).length;
+  const totalValue = (cards ?? []).reduce((s, c) => s + Number(c.amount), 0);
+  const redeemedCount = (cards ?? []).filter(c => c.isRedeemed).length;
+
   return (
     <div>
       <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 24px' }}>Gift Cards</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
-        <StatCard icon={<Gift size={20} />} label="Active Cards" value="34" color="#1c1917" />
-        <StatCard icon={<CreditCard size={20} />} label="Total Value" value="$1,240" color="#2563eb" />
-        <StatCard icon={<CheckCircle size={20} />} label="Redeemed" value="18" color="#16a34a" />
+        <StatCard icon={<Gift size={20} />} label="Active Cards" value={String(activeCount)} color="#1c1917" />
+        <StatCard icon={<CreditCard size={20} />} label="Total Value" value={`$${totalValue.toFixed(2)}`} color="#2563eb" />
+        <StatCard icon={<CheckCircle size={20} />} label="Redeemed" value={String(redeemedCount)} color="#16a34a" />
       </div>
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '24px' }}>
-        <p style={{ color: '#78716c', fontSize: '14px' }}>Gift card management — create, track balance, mark redeemed.</p>
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e7e5e4' }}>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Code</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Recipient</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Amount</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Balance</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Status</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Created</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>Loading...</td></tr>
+            ) : (cards ?? []).length === 0 ? (
+              <tr><td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>No gift cards yet</td></tr>
+            ) : (cards ?? []).map(c => (
+              <tr key={c.id} style={{ borderBottom: '1px solid #f5f5f4' }}>
+                <td style={{ padding: '12px', fontSize: '14px', fontWeight: 600, fontFamily: 'monospace' }}>{c.code}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>{c.recipientName ?? c.recipientPhone ?? '—'}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>${Number(c.amount).toFixed(2)}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>${Number(c.balance).toFixed(2)}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, background: c.isRedeemed ? '#fee2e2' : '#dcfce7', color: c.isRedeemed ? '#dc2626' : '#16a34a' }}>
+                    {c.isRedeemed ? 'Redeemed' : 'Active'}
+                  </span>
+                </td>
+                <td style={{ padding: '12px', fontSize: '14px', color: '#78716c' }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>
+                  {!c.isRedeemed && (
+                    <button
+                      onClick={() => markRedeemed.mutate({ venueId, code: c.code, orderTotal: Number(c.balance) })}
+                      disabled={markRedeemed.isPending}
+                      style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Mark Redeemed
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function SubscriptionsTab({ venueId: _venueId }: { venueId: number }) {
+function SubscriptionsTab({ venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
+  const utils = trpc.useUtils();
+  const { data: passes, isLoading } = trpc.venue.listSubscriptionPasses.useQuery({ token }, { enabled: !!token });
+  const { data: passConfig } = trpc.venue.getPassConfig.useQuery({ venueId });
+
+  const [editConfig, setEditConfig] = useState(false);
+  const [configName, setConfigName] = useState('');
+  const [configCredits, setConfigCredits] = useState('');
+  const [configPrice, setConfigPrice] = useState('');
+
+  const upsertConfig = trpc.venue.upsertPassConfig.useMutation({
+    onSuccess: () => {
+      utils.venue.getPassConfig.invalidate();
+      setEditConfig(false);
+    },
+  });
+
+  const activeCount = (passes ?? []).filter(p => p.isActive).length;
+  const totalValue = (passes ?? []).reduce((s, p) => s + Number(p.price), 0);
+  const totalCreditsRemaining = (passes ?? []).reduce((s, p) => s + p.remainingCredits, 0);
+
   return (
     <div>
       <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 24px' }}>Subscription Passes</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
-        <StatCard icon={<Users size={20} />} label="Subscribers" value="28" color="#1c1917" />
-        <StatCard icon={<CreditCard size={20} />} label="Monthly Revenue" value="$840" color="#16a34a" />
-        <StatCard icon={<Coffee size={20} />} label="Credits Used" value="142" color="#d97706" />
+        <StatCard icon={<Users size={20} />} label="Active Passes" value={String(activeCount)} color="#1c1917" />
+        <StatCard icon={<CreditCard size={20} />} label="Total Value" value={`$${totalValue.toFixed(2)}`} color="#16a34a" />
+        <StatCard icon={<Coffee size={20} />} label="Credits Remaining" value={String(totalCreditsRemaining)} color="#d97706" />
       </div>
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '24px' }}>
-        <p style={{ color: '#78716c', fontSize: '14px' }}>Subscription management — view passes, track credits, handle renewals.</p>
+
+      {/* Pass Config */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '24px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Pass Configuration</h3>
+          <button
+            onClick={() => {
+              setConfigName(passConfig?.name ?? '');
+              setConfigCredits(passConfig?.totalCredits ? String(passConfig.totalCredits) : '');
+              setConfigPrice(passConfig?.price ? String(passConfig.price) : '');
+              setEditConfig(!editConfig);
+            }}
+            style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #e7e5e4', background: '#fff', color: '#57534e', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            {editConfig ? 'Cancel' : 'Edit'}
+          </button>
+        </div>
+        {!editConfig ? (
+          passConfig ? (
+            <p style={{ margin: 0, fontSize: '14px', color: '#44403c' }}>
+              Current Pass: <strong>{passConfig.name}</strong> — {passConfig.totalCredits} credits for ${Number(passConfig.price).toFixed(2)}
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: '14px', color: '#78716c' }}>No pass configured</p>
+          )
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '8px', alignItems: 'end' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Name</label>
+              <input value={configName} onChange={e => setConfigName(e.target.value)} placeholder="Monthly Coffee Pass"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Credits</label>
+              <input type="number" value={configCredits} onChange={e => setConfigCredits(e.target.value)} placeholder="20"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Price ($)</label>
+              <input type="number" value={configPrice} onChange={e => setConfigPrice(e.target.value)} placeholder="30"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <button
+              onClick={() => {
+                if (!configName || !configCredits || !configPrice) return;
+                upsertConfig.mutate({ token, name: configName, totalCredits: Number(configCredits), price: Number(configPrice) });
+              }}
+              disabled={upsertConfig.isPending}
+              style={{ background: '#1c1917', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', height: '36px' }}
+            >
+              {upsertConfig.isPending ? '…' : 'Save'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Passes Table */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e7e5e4' }}>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Phone</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Name</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Credits</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Price</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Expires</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>Loading...</td></tr>
+            ) : (passes ?? []).length === 0 ? (
+              <tr><td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>No passes yet</td></tr>
+            ) : (passes ?? []).map(p => (
+              <tr key={p.id} style={{ borderBottom: '1px solid #f5f5f4' }}>
+                <td style={{ padding: '12px', fontSize: '14px' }}>{p.phone}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>{p.name}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>{p.remainingCredits}/{p.totalCredits}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>${Number(p.price).toFixed(2)}</td>
+                <td style={{ padding: '12px', fontSize: '14px', color: '#78716c' }}>{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : '—'}</td>
+                <td style={{ padding: '12px', fontSize: '14px', color: '#78716c' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
 function PushNotificationsTab({ venueId: _venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
+  const { data } = trpc.venue.listPushSubscriptions.useQuery({ token }, { enabled: !!token });
+  const subscriberCount = data?.count ?? 0;
+
   return (
     <div>
       <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 24px' }}>Push Notifications</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
-        <StatCard icon={<Bell size={20} />} label="Subscribers" value="89" color="#1c1917" />
-        <StatCard icon={<TrendingUp size={20} />} label="Sent Today" value="3" color="#2563eb" />
-        <StatCard icon={<CheckCircle size={20} />} label="Delivery Rate" value="94%" color="#16a34a" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '16px', marginBottom: '28px' }}>
+        <StatCard icon={<Bell size={20} />} label="Subscribers" value={String(subscriberCount)} color="#1c1917" />
       </div>
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '24px' }}>
-        <p style={{ color: '#78716c', fontSize: '14px' }}>Push notification management — compose and send to subscribers.</p>
+        <p style={{ color: '#44403c', fontSize: '14px', margin: 0 }}>
+          Push notifications are automatically sent when orders are marked ready. <strong>{subscriberCount}</strong> device{subscriberCount !== 1 ? 's are' : ' is'} currently subscribed.
+        </p>
       </div>
     </div>
   );
 }
 
-function CateringTab({ venueId: _venueId }: { venueId: number }) {
+function CateringTab({ venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
+  const utils = trpc.useUtils();
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [quotingId, setQuotingId] = useState<number | null>(null);
+  const [quoteText, setQuoteText] = useState('');
+  const [quoteAmount, setQuoteAmount] = useState('');
+
+  const { data: requests, isLoading } = trpc.venue.listCateringRequests.useQuery(
+    { token, status: statusFilter === 'all' ? undefined : statusFilter },
+    { enabled: !!token }
+  );
+
+  const updateStatus = trpc.venue.updateCateringStatus.useMutation({
+    onSuccess: () => utils.venue.listCateringRequests.invalidate(),
+  });
+
+  const sendQuote = trpc.venue.sendCateringQuote.useMutation({
+    onSuccess: () => {
+      utils.venue.listCateringRequests.invalidate();
+      setQuotingId(null);
+      setQuoteText('');
+      setQuoteAmount('');
+    },
+  });
+
+  const newCount = (requests ?? []).filter(r => r.status === 'new').length;
+  const confirmedCount = (requests ?? []).filter(r => r.status === 'confirmed').length;
+  const completedCount = (requests ?? []).filter(r => r.status === 'completed').length;
+
+  const statusColors: Record<string, { bg: string; color: string }> = {
+    new: { bg: '#fef9c3', color: '#a16207' },
+    quoted: { bg: '#dbeafe', color: '#1d4ed8' },
+    confirmed: { bg: '#dcfce7', color: '#16a34a' },
+    completed: { bg: '#f5f5f4', color: '#57534e' },
+  };
+
   return (
     <div>
       <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 24px' }}>Catering Requests</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
-        <StatCard icon={<Truck size={20} />} label="New Requests" value="3" color="#d97706" />
-        <StatCard icon={<CheckCircle size={20} />} label="Confirmed" value="8" color="#16a34a" />
-        <StatCard icon={<Star size={20} />} label="Completed" value="24" color="#1c1917" />
+        <StatCard icon={<Truck size={20} />} label="New Requests" value={String(newCount)} color="#d97706" />
+        <StatCard icon={<CheckCircle size={20} />} label="Confirmed" value={String(confirmedCount)} color="#16a34a" />
+        <StatCard icon={<Star size={20} />} label="Completed" value={String(completedCount)} color="#1c1917" />
       </div>
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '24px' }}>
-        <p style={{ color: '#78716c', fontSize: '14px' }}>Catering management — view requests, send quotes, confirm bookings.</p>
+
+      {/* Status filter */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        {['all', 'new', 'quoted', 'confirmed', 'completed'].map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)}
+            style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: statusFilter === s ? '#1c1917' : '#e7e5e4', color: statusFilter === s ? '#fafaf9' : '#57534e', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize' }}>
+            {s === 'all' ? 'All' : s}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e7e5e4' }}>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Name</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Phone</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Event Date</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Guests</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Status</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>Loading...</td></tr>
+            ) : (requests ?? []).length === 0 ? (
+              <tr><td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>No catering requests</td></tr>
+            ) : (requests ?? []).map(r => (
+              <React.Fragment key={r.id}>
+                <tr style={{ borderBottom: quotingId === r.id ? 'none' : '1px solid #f5f5f4' }}>
+                  <td style={{ padding: '12px', fontSize: '14px', fontWeight: 600 }}>{r.name}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{r.phone}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{r.eventDate}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{r.guestCount}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>
+                    <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, ...(statusColors[r.status] ?? { bg: '#f5f5f4', color: '#57534e' }) }}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <select
+                        value={r.status}
+                        onChange={e => {
+                          if (e.target.value !== r.status) updateStatus.mutate({ token, requestId: r.id, status: e.target.value as any });
+                        }}
+                        style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '12px', background: '#fafaf9', cursor: 'pointer' }}
+                      >
+                        {['new', 'quoted', 'confirmed', 'completed'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {r.email && (
+                        <button
+                          onClick={() => setQuotingId(quotingId === r.id ? null : r.id)}
+                          style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: '#dbeafe', color: '#1d4ed8', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Send Quote
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {quotingId === r.id && (
+                  <tr style={{ borderBottom: '1px solid #f5f5f4', background: '#f8faff' }}>
+                    <td colSpan={6} style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '600px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#57534e' }}>Quote Details</label>
+                        <textarea
+                          value={quoteText}
+                          onChange={e => setQuoteText(e.target.value)}
+                          placeholder="Describe the catering package, menu items, inclusions..."
+                          rows={3}
+                          style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical' }}
+                        />
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            value={quoteAmount}
+                            onChange={e => setQuoteAmount(e.target.value)}
+                            placeholder="Total amount ($)"
+                            style={{ width: '160px', padding: '8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '13px' }}
+                          />
+                          <button
+                            onClick={() => sendQuote.mutate({ token, requestId: r.id, quoteText, totalAmount: quoteAmount })}
+                            disabled={sendQuote.isPending || !quoteText || !quoteAmount}
+                            style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: '#1c1917', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            {sendQuote.isPending ? '…' : 'Send Quote Email'}
+                          </button>
+                          <button
+                            onClick={() => setQuotingId(null)}
+                            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #e7e5e4', background: '#fff', color: '#57534e', fontSize: '13px', cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
 function CorporateTab({ venueId: _venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
+  const utils = trpc.useUtils();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ companyName: '', contactName: '', contactPhone: '', contactEmail: '', paymentTerms: 'net_7' as const });
+  const [formError, setFormError] = useState('');
+
+  const { data: accounts, isLoading } = trpc.venue.listCorporateAccounts.useQuery({ token }, { enabled: !!token });
+
+  const createAccount = trpc.venue.createCorporateAccount.useMutation({
+    onSuccess: () => {
+      utils.venue.listCorporateAccounts.invalidate();
+      setShowForm(false);
+      setForm({ companyName: '', contactName: '', contactPhone: '', contactEmail: '', paymentTerms: 'net_7' });
+      setFormError('');
+    },
+    onError: (e) => setFormError(e.message),
+  });
+
+  const termsColors: Record<string, { bg: string; color: string }> = {
+    prepaid: { bg: '#dcfce7', color: '#16a34a' },
+    net_7: { bg: '#dbeafe', color: '#1d4ed8' },
+    net_14: { bg: '#fef9c3', color: '#a16207' },
+    net_30: { bg: '#fee2e2', color: '#dc2626' },
+  };
+
   return (
     <div>
-      <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 24px' }}>Corporate Accounts</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
-        <StatCard icon={<Briefcase size={20} />} label="Companies" value="6" color="#1c1917" />
-        <StatCard icon={<ShoppingBag size={20} />} label="Monthly Orders" value="48" color="#2563eb" />
-        <StatCard icon={<CreditCard size={20} />} label="Outstanding" value="$2,400" color='#d97706' />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: 0 }}>Corporate Accounts</h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          style={{ padding: '8px 16px', background: showForm ? '#57534e' : '#1c1917', color: '#fafaf9', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Plus size={16} /> {showForm ? 'Cancel' : 'Add Company'}
+        </button>
       </div>
-      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '24px' }}>
-        <p style={{ color: '#78716c', fontSize: '14px' }}>Corporate account management — view accounts, track orders, manage billing.</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '16px', marginBottom: '28px' }}>
+        <StatCard icon={<Briefcase size={20} />} label="Companies" value={String((accounts ?? []).length)} color="#1c1917" />
+      </div>
+
+      {showForm && (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '24px', marginBottom: '16px' }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Add Corporate Account</h3>
+          {formError && <p style={{ color: '#dc2626', fontSize: '13px', marginBottom: '12px' }}>{formError}</p>}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Company Name</label>
+              <input value={form.companyName} onChange={e => setForm({ ...form, companyName: e.target.value })} placeholder="Acme Corp"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Contact Name</label>
+              <input value={form.contactName} onChange={e => setForm({ ...form, contactName: e.target.value })} placeholder="Jane Smith"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Contact Phone</label>
+              <input value={form.contactPhone} onChange={e => setForm({ ...form, contactPhone: e.target.value })} placeholder="+61 4xx xxx xxx"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Contact Email</label>
+              <input value={form.contactEmail} onChange={e => setForm({ ...form, contactEmail: e.target.value })} placeholder="jane@acme.com"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Payment Terms</label>
+              <select value={form.paymentTerms} onChange={e => setForm({ ...form, paymentTerms: e.target.value as any })}
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', background: '#fafaf9', boxSizing: 'border-box' }}>
+                <option value="prepaid">Prepaid</option>
+                <option value="net_7">Net 7</option>
+                <option value="net_14">Net 14</option>
+                <option value="net_30">Net 30</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  if (!form.companyName || !form.contactName || !form.contactPhone) { setFormError('Company name, contact name and phone are required'); return; }
+                  createAccount.mutate({ token, ...form, contactEmail: form.contactEmail || undefined });
+                }}
+                disabled={createAccount.isPending}
+                style={{ width: '100%', background: '#1c1917', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', height: '36px' }}
+              >
+                {createAccount.isPending ? '…' : 'Create Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e7e5e4' }}>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Company</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Contact</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Phone</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Email</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Terms</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#78716c', textTransform: 'uppercase' }}>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>Loading...</td></tr>
+            ) : (accounts ?? []).length === 0 ? (
+              <tr><td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>No corporate accounts yet</td></tr>
+            ) : (accounts ?? []).map(a => (
+              <tr key={a.id} style={{ borderBottom: '1px solid #f5f5f4' }}>
+                <td style={{ padding: '12px', fontSize: '14px', fontWeight: 600 }}>{a.companyName}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>{a.contactName}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>{a.contactPhone}</td>
+                <td style={{ padding: '12px', fontSize: '14px', color: '#78716c' }}>{a.contactEmail ?? '—'}</td>
+                <td style={{ padding: '12px', fontSize: '14px' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, ...(termsColors[a.paymentTerms ?? 'net_7'] ?? { bg: '#f5f5f4', color: '#57534e' }) }}>
+                    {(a.paymentTerms ?? 'net_7').replace('_', ' ')}
+                  </span>
+                </td>
+                <td style={{ padding: '12px', fontSize: '14px', color: '#78716c' }}>{new Date(a.createdAt).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
