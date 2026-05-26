@@ -8,7 +8,7 @@ import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations } from "@db/schema";
+import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders } from "@db/schema";
 import { eq, and, gte, isNull, lte } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -167,6 +167,121 @@ app.get("/api/xero/callback", async (c) => {
   } catch (err) {
     console.error("Xero OAuth callback error:", err);
     return c.redirect("/dashboard?xero=error");
+  }
+});
+
+// Uber Eats order webhook
+app.post("/api/webhooks/uber-eats", async (c) => {
+  try {
+    const body = await c.req.json() as any;
+    const db = getDb();
+    // Uber Eats sends events with type like "orders.notification"
+    const event = body.meta?.status || body.type || "";
+    if (!event.includes("order") && !event.includes("notification")) {
+      return c.json({ received: true });
+    }
+    const order = body.data?.order || body.order || body;
+    const venueId = Number(c.req.query("venue") || body.meta?.resource_href?.split("/")[3] || 0);
+    if (!venueId) return c.json({ received: true });
+
+    const items = (order.cart?.items || []).map((i: any) => ({
+      name: i.title || i.name || "Item",
+      quantity: i.quantity || 1,
+      price: i.price?.unit_price?.total_price ? Number(i.price.unit_price.total_price) / 100 : 0,
+    }));
+    const subtotal = order.payment?.charges?.total_charge?.amount
+      ? Number(order.payment.charges.total_charge.amount) / 100
+      : items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
+    const platformFee = subtotal * 0.30; // ~30% UE commission
+
+    await db.insert(deliveryOrders).values({
+      venueId,
+      platform: "uber_eats",
+      externalId: order.id || body.order_id,
+      customerName: order.eater?.first_name ? `${order.eater.first_name} ${order.eater.last_name || ""}`.trim() : "Uber Eats Customer",
+      itemsJson: JSON.stringify(items),
+      subtotal: String(subtotal.toFixed(2)),
+      platformFee: String(platformFee.toFixed(2)),
+      netRevenue: String((subtotal - platformFee).toFixed(2)),
+      status: "received",
+    });
+    return c.json({ received: true });
+  } catch {
+    return c.json({ received: true });
+  }
+});
+
+// DoorDash order webhook
+app.post("/api/webhooks/doordash", async (c) => {
+  try {
+    const body = await c.req.json() as any;
+    const db = getDb();
+    const event = body.event_type || "";
+    if (!event.includes("ORDER")) return c.json({ received: true });
+
+    const order = body.order_data || body;
+    const venueId = Number(c.req.query("venue") || body.merchant_id || 0);
+    if (!venueId) return c.json({ received: true });
+
+    const items = (order.items || []).map((i: any) => ({
+      name: i.name || "Item",
+      quantity: i.quantity || 1,
+      price: i.price ? Number(i.price) / 100 : 0,
+    }));
+    const subtotal = order.subtotal ? Number(order.subtotal) / 100 : items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
+    const platformFee = subtotal * 0.25;
+
+    await db.insert(deliveryOrders).values({
+      venueId,
+      platform: "doordash",
+      externalId: order.id || order.delivery_id,
+      customerName: order.consumer_name || "DoorDash Customer",
+      itemsJson: JSON.stringify(items),
+      subtotal: String(subtotal.toFixed(2)),
+      platformFee: String(platformFee.toFixed(2)),
+      netRevenue: String((subtotal - platformFee).toFixed(2)),
+      status: "received",
+    });
+    return c.json({ received: true });
+  } catch {
+    return c.json({ received: true });
+  }
+});
+
+// Menulog/Just Eat order webhook
+app.post("/api/webhooks/menulog", async (c) => {
+  try {
+    const body = await c.req.json() as any;
+    const db = getDb();
+    const event = body.event || body.EventType || "";
+    if (!String(event).toLowerCase().includes("order")) return c.json({ received: true });
+
+    const venueId = Number(c.req.query("venue") || body.restaurant_id || 0);
+    if (!venueId) return c.json({ received: true });
+
+    const order = body.order || body.Order || body;
+    const items = (order.ProductLines || order.items || []).map((i: any) => ({
+      name: i.ProductName || i.name || "Item",
+      quantity: i.Quantity || i.quantity || 1,
+      price: i.UnitPrice || i.unit_price || 0,
+    }));
+    const subtotal = Number(order.TotalOrderValue || order.total || items.reduce((s: number, i: any) => s + i.price * i.quantity, 0));
+    const platformFee = subtotal * 0.12;
+
+    await db.insert(deliveryOrders).values({
+      venueId,
+      platform: "menulog",
+      externalId: String(order.OrderId || order.id || Date.now()),
+      customerName: order.CustomerName || order.customer_name || "Menulog Customer",
+      itemsJson: JSON.stringify(items),
+      subtotal: String(subtotal.toFixed(2)),
+      platformFee: String(platformFee.toFixed(2)),
+      netRevenue: String((subtotal - platformFee).toFixed(2)),
+      status: "received",
+    });
+    return c.json({ received: true });
+  } catch {
+    return c.json({ received: true });
   }
 });
 

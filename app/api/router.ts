@@ -23,6 +23,10 @@ import { imposRouter } from "./impos-router";
 import { deliveryRouter } from "./delivery-router";
 import { clockRouter } from "./clock-router";
 import { auditRouter } from "./audit-router";
+import { multiVenueRouter } from "./multi-venue-router";
+import { smsMarketingRouter } from "./sms-marketing-router";
+import { trainingRouter } from "./training-router";
+import { franchiseeRouter } from "./franchisee-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -52,6 +56,10 @@ export const appRouter = createRouter({
   delivery: deliveryRouter,
   clock: clockRouter,
   audit: auditRouter,
+  multiVenue: multiVenueRouter,
+  smsMarketing: smsMarketingRouter,
+  training: trainingRouter,
+  franchisee: franchiseeRouter,
 });
 
 export type AppRouter = typeof appRouter;

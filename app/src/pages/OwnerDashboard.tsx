@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import QRCode from 'qrcode';
 
@@ -10,7 +10,7 @@ export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -106,6 +106,9 @@ export default function OwnerDashboard() {
             { id: 'loyalty' as const, label: 'Loyalty', icon: Star },
             { id: 'delivery' as const, label: 'Delivery', icon: Globe },
             { id: 'audit' as const, label: 'Audit', icon: Shield },
+            { id: 'allvenues' as const, label: 'All Venues', icon: Building2 },
+            { id: 'smsmarketing' as const, label: 'SMS Marketing', icon: MessageSquare },
+            { id: 'franchisee' as const, label: 'Franchisee', icon: Percent },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
               <tab.icon size={14} /> {tab.label}
@@ -134,12 +137,15 @@ export default function OwnerDashboard() {
         {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
         {activeTab === 'delivery' && <DeliveryTab />}
         {activeTab === 'audit' && <AuditTab />}
+        {activeTab === 'allvenues' && <AllVenuesTab />}
+        {activeTab === 'smsmarketing' && <SmsMarketingTab />}
+        {activeTab === 'franchisee' && <FranchiseeTab />}
       </div>
     </div>
   );
 }
 
-function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit') => void }) {
+function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee') => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
@@ -4086,6 +4092,619 @@ function GMBCard({ token }: { token: string }) {
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── All Venues Tab ───────────────────────────────────────────────────────────
+function AllVenuesTab() {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [period, setPeriod] = useState<7 | 30 | 90>(30);
+
+  const { data: allVenues, isLoading: venuesLoading, error: venuesError } = trpc.multiVenue.getAllVenues.useQuery(
+    { token }, { enabled: !!token }
+  );
+  const { data: consolidated, isLoading: consolidatedLoading } = trpc.multiVenue.getConsolidatedRevenue.useQuery(
+    { token, days: period }, { enabled: !!token }
+  );
+  const { data: comparison, isLoading: comparisonLoading } = trpc.multiVenue.getVenueComparison.useQuery(
+    { token, days: period }, { enabled: !!token }
+  );
+
+  const venues = (allVenues as any[]) ?? [];
+  const consolidatedData = consolidated as any;
+  const comparisonData = (comparison as any[]) ?? [];
+
+  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+
+  return (
+    <div className="space-y-6">
+      {/* Header + period selector */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Building2 size={20} style={{ color: '#5E5E5E' }} />
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>
+            All Venues
+            {venues.length > 0 && (
+              <span className="font-data ml-2" style={{ fontSize: '0.625rem', color: '#5E5E5E', letterSpacing: '0.08em' }}>({venues.length})</span>
+            )}
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PERIOD:</span>
+          {([7, 30, 90] as const).map((d) => (
+            <button key={d} onClick={() => setPeriod(d)}
+              className="px-3 py-1 font-data"
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: period === d ? '#181818' : 'transparent', color: period === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              {d}D
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Consolidated revenue card */}
+      {(consolidatedLoading) && (
+        <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+      )}
+      {!consolidatedLoading && consolidatedData && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="border p-5" style={statCardStyle}>
+            <span style={monoLabel}>Total Revenue (All Venues)</span>
+            <span style={bigNum}>${Number(consolidatedData.totalRevenue ?? 0).toFixed(2)}</span>
+          </div>
+          <div className="border p-5" style={statCardStyle}>
+            <span style={monoLabel}>Total Orders</span>
+            <span style={bigNum}>{consolidatedData.totalOrders ?? 0}</span>
+          </div>
+          <div className="border p-5" style={statCardStyle}>
+            <span style={monoLabel}>Active Venues</span>
+            <span style={bigNum}>{consolidatedData.activeVenues ?? venues.length}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {venuesError && (
+        <div className="border p-4 flex items-center gap-2" style={{ borderColor: '#B85450', background: 'rgba(184,84,80,0.06)' }}>
+          <AlertCircle size={14} style={{ color: '#B85450' }} />
+          <span style={{ fontSize: '0.875rem', color: '#B85450' }}>{venuesError.message}</span>
+        </div>
+      )}
+
+      {/* Loading */}
+      {venuesLoading && (
+        <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+      )}
+
+      {/* Per-venue cards */}
+      {!venuesLoading && venues.length === 0 && !venuesError && (
+        <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No venues found.</p>
+      )}
+
+      {!venuesLoading && venues.length > 0 && (
+        <div>
+          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Venue Breakdown</h3>
+          {(comparisonLoading) && (
+            <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {venues.map((v: any) => {
+              const stats = comparisonData.find((c: any) => c.venueId === v.id) as any | undefined;
+              const change = stats?.revenueChange ?? null;
+              const isPositive = change !== null && change >= 0;
+              return (
+                <div key={v.id} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.1)', background: '#E8E4DD' }}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <span style={{ fontWeight: 500, fontSize: '1rem', color: '#181818', display: 'block' }}>{v.name}</span>
+                      {v.address && (
+                        <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>{v.address}</span>
+                      )}
+                    </div>
+                    <a
+                      href={`/dashboard?v=${v.id}`}
+                      className="px-3 py-1.5 font-data"
+                      style={{ fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.2)', color: '#181818', textDecoration: 'none', background: 'transparent', whiteSpace: 'nowrap' as const }}>
+                      Open Dashboard
+                    </a>
+                  </div>
+                  {stats ? (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <span style={monoLabel}>Revenue</span>
+                        <span style={{ fontWeight: 500, fontSize: '0.9375rem', color: '#181818' }}>${Number(stats.revenue ?? 0).toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span style={monoLabel}>Orders</span>
+                        <span style={{ fontWeight: 500, fontSize: '0.9375rem', color: '#181818' }}>{stats.orderCount ?? 0}</span>
+                      </div>
+                      <div>
+                        <span style={monoLabel}>Change</span>
+                        {change !== null ? (
+                          <span className="flex items-center gap-1" style={{ fontWeight: 500, fontSize: '0.9375rem', color: isPositive ? '#5E8B5E' : '#B85450' }}>
+                            {isPositive ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            {Math.abs(Number(change)).toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.875rem', color: '#5E5E5E' }}>—</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : !comparisonLoading ? (
+                    <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>No data for this period.</p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SMS Marketing Tab ────────────────────────────────────────────────────────
+const SMS_SEGMENTS = [
+  { id: 'all', label: 'All Customers', description: 'Every customer in your database' },
+  { id: 'lapsed_30d', label: 'Lapsed 30 Days', description: 'No order in last 30 days' },
+  { id: 'lapsed_60d', label: 'Lapsed 60 Days', description: 'No order in last 60 days' },
+  { id: 'birthday_month', label: 'Birthday This Month', description: 'Customers with birthday this month' },
+  { id: 'top_spenders', label: 'Top Spenders', description: 'Top 20% by lifetime value' },
+] as const;
+
+type SmsSegmentId = typeof SMS_SEGMENTS[number]['id'];
+
+function SmsMarketingTab() {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [selectedSegment, setSelectedSegment] = useState<SmsSegmentId>('all');
+  const [message, setMessage] = useState('');
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+
+  const { data: segmentsData, isLoading: segmentsLoading } = trpc.smsMarketing.getSegments.useQuery(
+    { token }, { enabled: !!token }
+  );
+  const { data: historyData, isLoading: historyLoading, refetch: refetchHistory } = trpc.smsMarketing.getCampaignHistory.useQuery(
+    { token }, { enabled: !!token }
+  );
+
+  const sendBulk = trpc.smsMarketing.sendBulkSms.useMutation({
+    onSuccess: (data: any) => {
+      setSendResult({ sent: data.sent ?? 0, failed: data.failed ?? 0 });
+      setConfirmVisible(false);
+      setMessage('');
+      refetchHistory();
+    },
+    onError: () => {
+      setConfirmVisible(false);
+    },
+  });
+
+  const segments = (segmentsData as any[]) ?? [];
+  const history = (historyData as any[]) ?? [];
+
+  const currentSegment = segments.find((s: any) => s.id === selectedSegment) as any | undefined;
+  const customerCount = currentSegment?.count ?? 0;
+  const charCount = message.length;
+  const maxChars = 160;
+
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <MessageSquare size={20} style={{ color: '#5E5E5E' }} />
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>SMS Marketing</h2>
+      </div>
+
+      {/* Segment selector */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Select Audience</h3>
+        {segmentsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {SMS_SEGMENTS.map((seg) => {
+            const segStats = segments.find((s: any) => s.id === seg.id) as any | undefined;
+            const count = segStats?.count ?? '—';
+            const isSelected = selectedSegment === seg.id;
+            return (
+              <button
+                key={seg.id}
+                onClick={() => { setSelectedSegment(seg.id); setSendResult(null); }}
+                style={{
+                  background: isSelected ? '#181818' : '#E8E4DD',
+                  border: `1px solid ${isSelected ? '#181818' : 'rgba(24,24,24,0.12)'}`,
+                  color: isSelected ? '#F3F2EE' : '#181818',
+                  padding: '12px 16px',
+                  textAlign: 'left' as const,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <span style={{ fontWeight: 500, fontSize: '0.875rem', display: 'block' }}>{seg.label}</span>
+                  <span style={{ fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.06em', opacity: 0.7 }}>{seg.description}</span>
+                </div>
+                <span style={{ fontFamily: 'Geist Mono', fontSize: '0.75rem', fontWeight: 600, flexShrink: 0 }}>
+                  {count} customers
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Message composer */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Compose Message</h3>
+        <div className="relative">
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value.slice(0, maxChars))}
+            rows={4}
+            placeholder="Type your SMS message here…"
+            style={{
+              width: '100%',
+              fontFamily: 'Inter',
+              fontSize: '0.9375rem',
+              color: '#181818',
+              background: 'transparent',
+              border: '1px solid rgba(24,24,24,0.15)',
+              padding: '12px 14px',
+              resize: 'vertical' as const,
+              boxSizing: 'border-box' as const,
+            }}
+          />
+          <span className="font-data" style={{
+            fontSize: '0.5625rem',
+            letterSpacing: '0.08em',
+            position: 'absolute',
+            bottom: 10,
+            right: 12,
+            color: charCount >= maxChars ? '#B85450' : '#5E5E5E',
+          }}>
+            {charCount}/{maxChars}
+          </span>
+        </div>
+
+        {sendResult && (
+          <div className="mt-3 border p-3 flex items-center gap-2" style={{ borderColor: '#5E8B5E', background: 'rgba(94,139,94,0.08)' }}>
+            <Check size={14} style={{ color: '#5E8B5E' }} />
+            <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E', letterSpacing: '0.08em' }}>
+              Sent {sendResult.sent} messages{sendResult.failed > 0 ? `, ${sendResult.failed} failed` : ''}.
+            </span>
+          </div>
+        )}
+
+        {sendBulk.isError && (
+          <div className="mt-3 border p-3 flex items-center gap-2" style={{ borderColor: '#B85450', background: 'rgba(184,84,80,0.06)' }}>
+            <AlertCircle size={14} style={{ color: '#B85450' }} />
+            <span className="font-data" style={{ fontSize: '0.625rem', color: '#B85450', letterSpacing: '0.08em' }}>
+              {sendBulk.error?.message ?? 'Send failed.'}
+            </span>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center gap-3">
+          {!confirmVisible ? (
+            <button
+              disabled={!message.trim() || customerCount === 0}
+              onClick={() => setConfirmVisible(true)}
+              className="px-6 py-3 font-button flex items-center gap-2"
+              style={{
+                background: '#181818',
+                color: '#F3F2EE',
+                fontSize: '0.75rem',
+                opacity: (!message.trim() || customerCount === 0) ? 0.5 : 1,
+                cursor: (!message.trim() || customerCount === 0) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <Send size={14} /> Send SMS
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 border p-3" style={{ borderColor: '#C4953A', background: 'rgba(196,149,58,0.08)' }}>
+              <span className="font-data" style={{ fontSize: '0.625rem', color: '#C4953A', letterSpacing: '0.06em' }}>
+                Send to {customerCount} customers?
+              </span>
+              <button
+                onClick={() => sendBulk.mutate({ token, segment: selectedSegment, message })}
+                disabled={sendBulk.isPending}
+                className="px-4 py-2 font-button flex items-center gap-2"
+                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', opacity: sendBulk.isPending ? 0.6 : 1 }}
+              >
+                {sendBulk.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirmVisible(false)}
+                disabled={sendBulk.isPending}
+                className="px-4 py-2 font-data border"
+                style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#5E5E5E', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Campaign history */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Campaign History</h3>
+        {historyLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        {!historyLoading && history.length === 0 && (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No campaigns sent yet.</p>
+        )}
+        {!historyLoading && history.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Date', 'Segment', 'Message', 'Sent'].map((h) => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((row: any, i: number) => (
+                  <tr key={row.id ?? i} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <td style={{ padding: '10px 10px', color: '#5E5E5E', whiteSpace: 'nowrap' as const, fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
+                      {new Date(row.sentAt ?? row.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td style={{ padding: '10px 10px', color: '#181818', textTransform: 'capitalize' as const, fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
+                      {SMS_SEGMENTS.find((s) => s.id === row.segment)?.label ?? row.segment}
+                    </td>
+                    <td style={{ padding: '10px 10px', color: '#5E5E5E', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                      {row.message}
+                    </td>
+                    <td style={{ padding: '10px 10px', color: '#5E8B5E', fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
+                      {row.sentCount ?? row.sent ?? 0}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Franchisee Tab ───────────────────────────────────────────────────────────
+function FranchiseeTab() {
+  const token = localStorage.getItem('b1-owner-token') || '';
+
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const periodEnd = now.toISOString().slice(0, 10);
+
+  const { data: configData, isLoading: configLoading, error: configError, refetch: refetchConfig } = trpc.franchisee.getConfig.useQuery(
+    { token }, { enabled: !!token }
+  );
+  const { data: splitData, isLoading: splitLoading } = trpc.franchisee.getRevenueSplit.useQuery(
+    { token, periodStart, periodEnd }, { enabled: !!token }
+  );
+  const { data: payoutsData, isLoading: payoutsLoading, refetch: refetchPayouts } = trpc.franchisee.listPayouts.useQuery(
+    { token }, { enabled: !!token }
+  );
+
+  const setupMutation = trpc.franchisee.setup.useMutation({
+    onSuccess: () => { refetchConfig(); setConfigMsg('Config saved!'); },
+    onError: (e) => setConfigMsg(e.message),
+  });
+  const payoutMutation = trpc.franchisee.processMonthlyPayout.useMutation({
+    onSuccess: () => { refetchPayouts(); setPayoutMsg('Payout processed!'); },
+    onError: (e) => setPayoutMsg(e.message),
+  });
+
+  const config = configData as any;
+  const split = splitData as any;
+  const payouts = (payoutsData as any[]) ?? [];
+
+  const [feeInput, setFeeInput] = useState('');
+  const [scheduleInput, setScheduleInput] = useState('monthly');
+  const [configMsg, setConfigMsg] = useState('');
+  const [payoutMsg, setPayoutMsg] = useState('');
+  const [confirmPayout, setConfirmPayout] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  if (config && !configLoaded) {
+    setConfigLoaded(true);
+    setFeeInput(String(config.platformFeePercent ?? ''));
+    setScheduleInput(config.payoutSchedule ?? 'monthly');
+  }
+
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+
+  const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Percent size={20} style={{ color: '#5E5E5E' }} />
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Franchisee</h2>
+      </div>
+
+      {/* Config error */}
+      {configError && (
+        <div className="border p-4 flex items-center gap-2" style={{ borderColor: '#B85450', background: 'rgba(184,84,80,0.06)' }}>
+          <AlertCircle size={14} style={{ color: '#B85450' }} />
+          <span style={{ fontSize: '0.875rem', color: '#B85450' }}>{configError.message}</span>
+        </div>
+      )}
+
+      {/* Config section */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Platform Configuration</h3>
+        {configLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        {!configLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E' }}>Platform Fee %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={feeInput}
+                onChange={(e) => setFeeInput(e.target.value)}
+                className={inputCls}
+                style={inputStyle}
+                placeholder="e.g. 5"
+              />
+            </div>
+            <div>
+              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E' }}>Payout Schedule</label>
+              <select
+                value={scheduleInput}
+                onChange={(e) => setScheduleInput(e.target.value)}
+                className={inputCls}
+                style={{ ...inputStyle, background: 'transparent' }}
+              >
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="fortnightly">Fortnightly</option>
+              </select>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <button
+            disabled={setupMutation.isPending || configLoading}
+            onClick={() => {
+              setConfigMsg('');
+              setupMutation.mutate({ token, platformFeePercent: Number(feeInput), payoutSchedule: scheduleInput });
+            }}
+            className="px-6 py-3 font-button flex items-center gap-2"
+            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (setupMutation.isPending || configLoading) ? 0.6 : 1 }}
+          >
+            {setupMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Check size={14} /> Save Config</>}
+          </button>
+          {configMsg && (
+            <span className="font-data" style={{ fontSize: '0.625rem', color: configMsg.includes('saved') ? '#5E8B5E' : '#B85450' }}>{configMsg}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Current month revenue split */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+          Current Month Revenue Split
+          <span className="font-data ml-2" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
+            {new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }).toUpperCase()}
+          </span>
+        </h3>
+        {splitLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        {!splitLoading && split && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="border p-5" style={statCardStyle}>
+              <span style={monoLabel}>Gross Revenue</span>
+              <span style={bigNum}>${Number(split.grossRevenue ?? 0).toFixed(2)}</span>
+            </div>
+            <div className="border p-5" style={statCardStyle}>
+              <span style={monoLabel}>Platform Fee ({Number(split.platformFeePercent ?? config?.platformFeePercent ?? 0).toFixed(1)}%)</span>
+              <span style={{ ...bigNum, color: '#B85450' }}>${Number(split.platformFee ?? 0).toFixed(2)}</span>
+            </div>
+            <div className="border p-5" style={statCardStyle}>
+              <span style={monoLabel}>Net Payout</span>
+              <span style={{ ...bigNum, color: '#5E8B5E' }}>${Number(split.netPayout ?? 0).toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+        {!splitLoading && !split && (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No revenue data for the current month.</p>
+        )}
+
+        {/* Process payout */}
+        <div className="mt-5 pt-5" style={{ borderTop: '1px solid rgba(24,24,24,0.08)' }}>
+          {!confirmPayout ? (
+            <button
+              onClick={() => setConfirmPayout(true)}
+              className="px-6 py-3 font-button flex items-center gap-2"
+              style={{ background: '#5E8B5E', color: '#F3F2EE', fontSize: '0.75rem' }}
+            >
+              <DollarSign size={14} /> Process This Month's Payout
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 border p-3" style={{ borderColor: '#C4953A', background: 'rgba(196,149,58,0.08)' }}>
+              <span className="font-data" style={{ fontSize: '0.625rem', color: '#C4953A', letterSpacing: '0.06em' }}>
+                Process payout for {new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}?
+              </span>
+              <button
+                onClick={() => { setPayoutMsg(''); payoutMutation.mutate({ token, periodStart, periodEnd }); setConfirmPayout(false); }}
+                disabled={payoutMutation.isPending}
+                className="px-4 py-2 font-button flex items-center gap-2"
+                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', opacity: payoutMutation.isPending ? 0.6 : 1 }}
+              >
+                {payoutMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirmPayout(false)}
+                className="px-4 py-2 font-data border"
+                style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#5E5E5E', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {payoutMsg && (
+            <p className="font-data mt-2" style={{ fontSize: '0.625rem', color: payoutMsg.includes('Payout') ? '#5E8B5E' : '#B85450' }}>{payoutMsg}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Payout history */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Payout History</h3>
+        {payoutsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        {!payoutsLoading && payouts.length === 0 && (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No payouts processed yet.</p>
+        )}
+        {!payoutsLoading && payouts.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Period', 'Gross', 'Fee', 'Net', 'Status'].map((h) => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {payouts.map((row: any, i: number) => {
+                  const statusColor = row.status === 'paid' ? '#5E8B5E' : '#C4953A';
+                  return (
+                    <tr key={row.id ?? i} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '10px 10px', color: '#181818', fontFamily: 'Geist Mono', fontSize: '0.625rem', whiteSpace: 'nowrap' as const }}>
+                        {row.periodStart ? new Date(row.periodStart).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }) : '—'}
+                      </td>
+                      <td style={{ padding: '10px 10px', color: '#181818' }}>${Number(row.grossRevenue ?? 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: '#B85450' }}>${Number(row.platformFee ?? 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E8B5E', fontWeight: 500 }}>${Number(row.netPayout ?? 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span style={{ fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px', background: `${statusColor}18`, color: statusColor }}>
+                          {row.status ?? 'pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

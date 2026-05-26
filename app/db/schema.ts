@@ -636,3 +636,55 @@ export const venueTables = pgTable("venue_tables", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ─── Staff Training Tasks ───
+export const staffTrainingTasks = pgTable("staff_training_tasks", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  requiredRole: staffRoleEnum("required_role"),  // null = all roles
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const staffTrainingCompletions = pgTable("staff_training_completions", {
+  id: serial("id").primaryKey(),
+  taskId: bigint("task_id", { mode: "number" }).notNull().references(() => staffTrainingTasks.id),
+  staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  signedOffBy: bigint("signed_off_by", { mode: "number" }).references(() => staffAccounts.id),
+  signedOffAt: timestamp("signed_off_at"),
+  notes: text("notes"),
+});
+
+// ─── Franchisee Accounts ───
+export const franchiseeAccounts = pgTable("franchisee_accounts", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  ownerId: bigint("owner_id", { mode: "number" }).notNull().references(() => venueOwners.id),
+  platformFeePercent: numeric("platform_fee_percent", { precision: 5, scale: 2 }).notNull().default("3.00"),
+  stripeConnectAccountId: varchar("stripe_connect_account_id", { length: 128 }),
+  payoutSchedule: varchar("payout_schedule", { length: 16 }).default("monthly").$type<"weekly" | "fortnightly" | "monthly">(),
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const franchiseePayouts = pgTable("franchisee_payouts", {
+  id: serial("id").primaryKey(),
+  franchiseeId: bigint("franchisee_id", { mode: "number" }).notNull().references(() => franchiseeAccounts.id),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  grossRevenue: numeric("gross_revenue", { precision: 12, scale: 2 }).notNull(),
+  platformFee: numeric("platform_fee", { precision: 12, scale: 2 }).notNull(),
+  netPayout: numeric("net_payout", { precision: 12, scale: 2 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending").$type<"pending" | "processing" | "paid" | "failed">(),
+  stripePayoutId: varchar("stripe_payout_id", { length: 128 }),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

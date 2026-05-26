@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, menuItems, inventory } from "@db/schema";
+import { venues, menuItems, inventory, orders } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
@@ -230,5 +230,79 @@ export const squareRouter = createRouter({
       locationId: venue?.squareLocationId || null,
       tokenExpiresAt: venue?.squareTokenExpiresAt || null,
     };
+  }),
+
+  injectOrder: publicQuery.input(z.object({
+    token: z.string(),
+    squareOrderId: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
+    if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
+
+    const res = await fetch(`${SQUARE_API_BASE}/v2/orders/${input.squareOrderId}`, {
+      headers: { "Authorization": `Bearer ${venue.squareAccessToken}`, "Content-Type": "application/json" },
+    });
+    if (!res.ok) throw new TRPCError({ code: "BAD_REQUEST", message: "Square order not found" });
+    const data = await res.json() as any;
+    const sqOrder = data.order;
+
+    const totalMoney = sqOrder.totalMoney?.amount ? Number(sqOrder.totalMoney.amount) / 100 : 0;
+    const lineItems = (sqOrder.lineItems || []).map((li: any) => ({
+      name: li.name || "Item",
+      quantity: Number(li.quantity || 1),
+      unitPrice: li.basePriceMoney?.amount ? Number(li.basePriceMoney.amount) / 100 : 0,
+    }));
+
+    const [order] = await db.insert(orders).values({
+      venueId,
+      orderNumber: `SQ-${input.squareOrderId.slice(-8).toUpperCase()}`,
+      customerName: "Square Customer",
+      customerPhone: "",
+      pickupTime: "ASAP",
+      status: "completed",
+      paymentMethod: "online",
+      totalAmount: String(totalMoney),
+      orderNote: JSON.stringify(lineItems),
+      orderType: "dine_in",
+      squareOrderId: input.squareOrderId,
+    }).returning({ id: orders.id });
+
+    return { id: order.id, total: totalMoney, items: lineItems.length };
+  }),
+
+  getRecentSquareOrders: publicQuery.input(z.object({
+    token: z.string(),
+    limit: z.number().default(20),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
+    if (!venue?.squareAccessToken || !venue?.squareLocationId) return { orders: [] };
+
+    const body = {
+      location_ids: [venue.squareLocationId],
+      query: { sort: { sort_field: "CREATED_AT", sort_order: "DESC" } },
+      limit: input.limit,
+    };
+
+    const res = await fetch(`${SQUARE_API_BASE}/v2/orders/search`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${venue.squareAccessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return { orders: [] };
+    const data = await res.json() as any;
+    const sqOrders = (data.orders || []).map((o: any) => ({
+      id: o.id,
+      total: o.totalMoney?.amount ? Number(o.totalMoney.amount) / 100 : 0,
+      state: o.state,
+      createdAt: o.createdAt,
+      itemCount: (o.lineItems || []).length,
+    }));
+    return { orders: sqOrders };
   }),
 });

@@ -183,6 +183,14 @@ export default function VenuePublic() {
   // ── Loyalty rewards catalogue ─────────────────────────────────────────────────
   const [showRewardsCatalogue, setShowRewardsCatalogue] = useState(false);
 
+  // ── Split bill ────────────────────────────────────────────────────────────────
+  const [showSplit, setShowSplit] = useState(false);
+  const [splitCount, setSplitCount] = useState(2);
+
+  // ── Add more items (dine-in) ──────────────────────────────────────────────────
+  const [addMoreCart, setAddMoreCart] = useState<CartItem[]>([]);
+  const [showAddMore, setShowAddMore] = useState(false);
+
   // ── Scheduled pickup time ─────────────────────────────────────────────────────
   const [pickupMode, setPickupMode] = useState<'asap' | 'schedule'>('asap');
   const [scheduleDay, setScheduleDay] = useState<'today' | 'tomorrow'>('today');
@@ -340,6 +348,14 @@ export default function VenuePublic() {
   const createGroupSession = trpc.venue.createGroupSession.useMutation({
     onSuccess: (data) => {
       setGroupSessionCode((data as { sessionCode: string }).sessionCode);
+    },
+  });
+
+  const createAddMoreOrder = trpc.venue.createOrder.useMutation({
+    onSuccess: () => {
+      setAddMoreCart([]);
+      setShowAddMore(false);
+      showToast('Additional items added to your table!');
     },
   });
 
@@ -933,6 +949,9 @@ export default function VenuePublic() {
                     setCheckoutGiftCode('');
                     setAppliedGiftDiscount(0);
                     setCheckoutUsePass(false);
+                    setShowSplit(false);
+                    setShowAddMore(false);
+                    setAddMoreCart([]);
                   }}
                   style={{
                     display: 'block', margin: '16px auto 0', background: 'none',
@@ -942,6 +961,134 @@ export default function VenuePublic() {
                 >
                   Dismiss
                 </button>
+
+                {/* ── Split Bill ────────────────────────────────────────────── */}
+                <div style={{ marginTop: 24, borderTop: '1px solid rgba(24,24,24,0.08)', paddingTop: 20 }}>
+                  {!showSplit ? (
+                    <button
+                      onClick={() => setShowSplit(true)}
+                      style={{
+                        width: '100%', padding: '10px 0', borderRadius: 8,
+                        border: '1px solid rgba(24,24,24,0.18)', background: '#fff',
+                        color: '#181818', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      💳 Split Bill
+                    </button>
+                  ) : (
+                    <SplitBillPanel
+                      orderTotal={orderTotal}
+                      splitCount={splitCount}
+                      setSplitCount={setSplitCount}
+                      onClose={() => setShowSplit(false)}
+                      slug={slug || ''}
+                      tableNumber={tableNumber}
+                    />
+                  )}
+                </div>
+
+                {/* ── Add More Items (dine-in only) ─────────────────────────── */}
+                {tableNumber && venue?.id && (
+                  <div style={{ marginTop: 16, borderTop: '1px solid rgba(24,24,24,0.08)', paddingTop: 16 }}>
+                    {!showAddMore ? (
+                      <button
+                        onClick={() => setShowAddMore(true)}
+                        style={{
+                          width: '100%', padding: '10px 0', borderRadius: 8,
+                          border: '1px solid rgba(94,139,139,0.35)', background: 'rgba(94,139,139,0.07)',
+                          color: '#5E8B8B', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        }}
+                      >
+                        <Plus size={15} /> Add More Items to Table {tableNumber}
+                      </button>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>
+                            Add More — Table {tableNumber}
+                          </span>
+                          <button onClick={() => { setShowAddMore(false); setAddMoreCart([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+                            <X size={14} />
+                          </button>
+                        </div>
+                        {/* Mini item picker */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', marginBottom: 12 }}>
+                          {(menuItems || []).map(mi => {
+                            const qty = addMoreCart.find(c => c.menuItemId === mi.id)?.quantity ?? 0;
+                            return (
+                              <div key={mi.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#fff', borderRadius: 8, border: '1px solid rgba(24,24,24,0.08)' }}>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>{mi.name}</div>
+                                  <div style={{ fontSize: 11, color: '#5E8B8B' }}>${Number(mi.price).toFixed(2)}</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  {qty > 0 && (
+                                    <>
+                                      <button
+                                        onClick={() => setAddMoreCart(prev => {
+                                          const ex = prev.find(c => c.menuItemId === mi.id);
+                                          if (!ex) return prev;
+                                          if (ex.quantity <= 1) return prev.filter(c => c.menuItemId !== mi.id);
+                                          return prev.map(c => c.menuItemId === mi.id ? { ...c, quantity: c.quantity - 1 } : c);
+                                        })}
+                                        style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                      >
+                                        <Minus size={12} />
+                                      </button>
+                                      <span style={{ fontSize: 13, fontWeight: 600, minWidth: 16, textAlign: 'center' }}>{qty}</span>
+                                    </>
+                                  )}
+                                  <button
+                                    onClick={() => setAddMoreCart(prev => {
+                                      const ex = prev.find(c => c.menuItemId === mi.id);
+                                      if (ex) return prev.map(c => c.menuItemId === mi.id ? { ...c, quantity: c.quantity + 1 } : c);
+                                      return [...prev, { menuItemId: mi.id, name: mi.name, price: Number(mi.price), quantity: 1 }];
+                                    })}
+                                    style={{ width: 24, height: 24, borderRadius: 6, border: 'none', background: '#181818', color: '#F3F2EE', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  >
+                                    <Plus size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {addMoreCart.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 8 }}>
+                              {addMoreCart.reduce((s, c) => s + c.quantity, 0)} item(s) · ${addMoreCart.reduce((s, c) => s + c.price * c.quantity, 0).toFixed(2)}
+                            </div>
+                            <button
+                              disabled={createAddMoreOrder.isPending}
+                              onClick={() => {
+                                if (!venue?.id || addMoreCart.length === 0) return;
+                                createAddMoreOrder.mutate({
+                                  venueId: venue.id,
+                                  customerName: checkoutName || 'Guest',
+                                  customerPhone: checkoutPhone || '0000000000',
+                                  pickupTime: 'Now',
+                                  items: addMoreCart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
+                                  orderType: 'dine_in',
+                                  tableNumber: tableNumber,
+                                  tipAmount: 0,
+                                });
+                              }}
+                              style={{
+                                width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
+                                background: '#5E8B8B', color: '#fff', fontSize: 13, fontWeight: 600,
+                                cursor: createAddMoreOrder.isPending ? 'not-allowed' : 'pointer',
+                                opacity: createAddMoreOrder.isPending ? 0.7 : 1,
+                              }}
+                            >
+                              {createAddMoreOrder.isPending ? 'Sending…' : 'Send to Kitchen'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : cart.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#5E5E5E' }}>
@@ -2180,6 +2327,103 @@ function ModifierModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── SplitBillPanel ─────────────────────────────────────────────────────────
+function SplitBillPanel({
+  orderTotal,
+  splitCount,
+  setSplitCount,
+  onClose,
+  slug,
+  tableNumber,
+}: {
+  orderTotal: number;
+  splitCount: number;
+  setSplitCount: (n: number) => void;
+  onClose: () => void;
+  slug: string;
+  tableNumber: string | null;
+}) {
+  const shareAmount = orderTotal / splitCount;
+  const splitUrl = `${window.location.origin}/v/${slug}${tableNumber ? `?table=${tableNumber}` : ''}?split=${splitCount}&total=${orderTotal.toFixed(2)}`;
+
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(splitUrl).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    });
+  }
+
+  return (
+    <div style={{ background: 'rgba(94,139,139,0.06)', borderRadius: 10, padding: 16, border: '1px solid rgba(94,139,139,0.2)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#181818' }}>💳 Split Bill</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+          <X size={14} />
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <label style={{ fontSize: 13, color: '#181818', flexShrink: 0 }}>How many people?</label>
+        <input
+          type="number"
+          min={2}
+          max={10}
+          value={splitCount}
+          onChange={e => setSplitCount(Math.min(10, Math.max(2, Number(e.target.value))))}
+          style={{
+            width: 64, padding: '6px 8px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.15)',
+            fontSize: 15, fontWeight: 700, textAlign: 'center', background: '#fff', color: '#181818',
+          }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {Array.from({ length: splitCount }, (_, i) => (
+          <div key={i} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '10px 12px', background: '#fff', borderRadius: 8,
+            border: '1px solid rgba(24,24,24,0.08)',
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>Person {i + 1}</div>
+              <div style={{ fontSize: 12, color: '#5E5E5E' }}>1 / {splitCount} of ${orderTotal.toFixed(2)}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#5E8B8B' }}>${shareAmount.toFixed(2)}</span>
+              <a
+                href={`/v/${slug}?split_pay=1&amount=${shareAmount.toFixed(2)}&person=${i + 1}`}
+                style={{
+                  padding: '6px 12px', borderRadius: 6, border: 'none',
+                  background: '#181818', color: '#F3F2EE', fontSize: 12,
+                  fontWeight: 600, cursor: 'pointer', textDecoration: 'none',
+                }}
+              >
+                Pay My Share
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={handleCopy}
+        style={{
+          width: '100%', padding: '10px 0', borderRadius: 8,
+          border: '1px solid rgba(94,139,139,0.35)', background: copiedLink ? '#f0fdf4' : '#fff',
+          color: copiedLink ? '#16a34a' : '#5E8B8B', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        {copiedLink ? '✓ Link Copied!' : '🔗 Copy Split Link'}
+      </button>
+      <p style={{ fontSize: 11, color: '#5E5E5E', margin: '8px 0 0', textAlign: 'center' }}>
+        Share this link so each person can pay their share of ${shareAmount.toFixed(2)}
+      </p>
     </div>
   );
 }
