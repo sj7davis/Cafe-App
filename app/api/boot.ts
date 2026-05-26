@@ -8,7 +8,7 @@ import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts } from "@db/schema";
+import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections } from "@db/schema";
 import { eq, and, gte, isNull, lte } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -76,6 +76,97 @@ app.get("/api/square/callback", async (c) => {
   } catch (err) {
     console.error("Square OAuth callback error", err);
     return c.redirect("/dashboard?square=error");
+  }
+});
+
+// Xero OAuth callback
+app.get("/api/xero/callback", async (c) => {
+  const code = c.req.query("code");
+  const state = c.req.query("state");
+  if (!code || !state) return c.redirect("/dashboard?xero=error");
+
+  let venueId: number;
+  try {
+    venueId = JSON.parse(Buffer.from(state, "base64").toString("utf8")).venueId;
+  } catch {
+    return c.redirect("/dashboard?xero=error");
+  }
+
+  const xeroClientId = env.xeroClientId;
+  const xeroClientSecret = env.xeroClientSecret;
+  if (!xeroClientId || !xeroClientSecret) return c.redirect("/dashboard?xero=error");
+
+  try {
+    // Exchange code for tokens
+    const tokenRes = await fetch("https://identity.xero.com/connect/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": "Basic " + Buffer.from(`${xeroClientId}:${xeroClientSecret}`).toString("base64"),
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: `${env.appUrl}/api/xero/callback`,
+      }).toString(),
+    });
+
+    if (!tokenRes.ok) {
+      console.error("Xero token exchange failed:", await tokenRes.text());
+      return c.redirect("/dashboard?xero=error");
+    }
+
+    const tokenData = await tokenRes.json() as {
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+    };
+
+    // Get tenant ID (connected org)
+    const connectionsRes = await fetch("https://api.xero.com/connections", {
+      headers: { "Authorization": `Bearer ${tokenData.access_token}` },
+    });
+    const xeroConnsList = await connectionsRes.json() as Array<{ tenantId: string }>;
+    const tenantId = xeroConnsList[0]?.tenantId;
+
+    if (!tenantId) {
+      console.error("Xero connections returned no tenant:", xeroConnsList);
+      return c.redirect("/dashboard?xero=error");
+    }
+
+    const db = getDb();
+    const expiresAt = new Date(Date.now() + (tokenData.expires_in ?? 1800) * 1000);
+
+    // Upsert xeroConnections
+    const existing = await db
+      .select({ id: xeroConnections.id })
+      .from(xeroConnections)
+      .where(eq(xeroConnections.venueId, venueId))
+      .limit(1);
+
+    if (existing[0]) {
+      await db.update(xeroConnections).set({
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tenantId,
+        tokenExpiresAt: expiresAt,
+        isConnected: true,
+      }).where(eq(xeroConnections.venueId, venueId));
+    } else {
+      await db.insert(xeroConnections).values({
+        venueId,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tenantId,
+        tokenExpiresAt: expiresAt,
+        isConnected: true,
+      });
+    }
+
+    return c.redirect("/dashboard?xero=connected");
+  } catch (err) {
+    console.error("Xero OAuth callback error:", err);
+    return c.redirect("/dashboard?xero=error");
   }
 });
 
@@ -193,6 +284,53 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
           }
         }
       }
+    }
+
+    // ── Subscription lifecycle events ────────────────────────────────────
+    if (event.type === "customer.subscription.deleted") {
+      const sub = event.data.object as any;
+      const db = getDb();
+      // Find venue by stripeSubscriptionId
+      const venueRows = await db.select({ id: venues.id }).from(venues)
+        .where(eq(venues.stripeSubscriptionId, sub.id)).limit(1);
+      if (venueRows[0]) {
+        await db.update(venues).set({
+          subscriptionTier: "starter",
+          subscriptionStatus: "cancelled",
+          stripeSubscriptionId: null,
+          updatedAt: new Date(),
+        }).where(eq(venues.id, venueRows[0].id));
+      }
+    }
+
+    if (event.type === "customer.subscription.updated") {
+      const sub = event.data.object as any;
+      if (sub.status === "active") {
+        const priceId: string = sub.items?.data?.[0]?.price?.id ?? "";
+        // Map price ID to tier
+        const { env: appEnv } = await import("./lib/env");
+        let tier: string = "starter";
+        if (priceId === appEnv.stripePriceIdStarter) tier = "starter";
+        else if (priceId === appEnv.stripePriceIdPro) tier = "pro";
+        else if (priceId === appEnv.stripePriceIdGrowth) tier = "pro";
+
+        const db = getDb();
+        const venueRows = await db.select({ id: venues.id }).from(venues)
+          .where(eq(venues.stripeSubscriptionId, sub.id)).limit(1);
+        if (venueRows[0]) {
+          await db.update(venues).set({
+            subscriptionTier: tier as "starter" | "pro" | "enterprise",
+            subscriptionStatus: "active",
+            updatedAt: new Date(),
+          }).where(eq(venues.id, venueRows[0].id));
+        }
+      }
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as any;
+      console.warn(`[Stripe] Payment failed for subscription ${invoice.subscription} — customer ${invoice.customer}`);
+      // Optionally: update subscriptionStatus to 'past_due' here
     }
 
     res.writeHead(200);

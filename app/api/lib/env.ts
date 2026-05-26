@@ -24,4 +24,9 @@ export const env = {
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "BPpmlYOB1TcR2ipSZiGyr-cyaq2KHXPcZnzT8K_ubb6Z6PSCsppjyPM-Zb7AZg0ol6qS1yqzTLB8dPx-G5edN_M",
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
   vapidEmail: process.env.VAPID_EMAIL ?? "mailto:admin@example.com",
+  stripePriceIdStarter: process.env.STRIPE_PRICE_STARTER ?? "",
+  stripePriceIdGrowth: process.env.STRIPE_PRICE_GROWTH ?? "",
+  stripePriceIdPro: process.env.STRIPE_PRICE_PRO ?? "",
+  xeroClientId: process.env.XERO_CLIENT_ID ?? "",
+  xeroClientSecret: process.env.XERO_CLIENT_SECRET ?? "",
 };
