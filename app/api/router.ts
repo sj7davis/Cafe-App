@@ -17,6 +17,12 @@ import { waitlistRouter } from "./waitlist-router";
 import { webhooksRouter } from "./webhooks-router";
 import { xeroRouter } from "./xero-router";
 import { reservationsRouter } from "./reservations-router";
+import { lightspeedRouter } from "./lightspeed-router";
+import { tyroRouter } from "./tyro-router";
+import { imposRouter } from "./impos-router";
+import { deliveryRouter } from "./delivery-router";
+import { clockRouter } from "./clock-router";
+import { auditRouter } from "./audit-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -40,6 +46,12 @@ export const appRouter = createRouter({
   webhooks: webhooksRouter,
   xero: xeroRouter,
   reservations: reservationsRouter,
+  lightspeed: lightspeedRouter,
+  tyro: tyroRouter,
+  impos: imposRouter,
+  delivery: deliveryRouter,
+  clock: clockRouter,
+  audit: auditRouter,
 });
 
 export type AppRouter = typeof appRouter;

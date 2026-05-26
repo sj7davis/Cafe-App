@@ -16,6 +16,7 @@ import MenuCardPage from './pages/MenuCardPage'
 import CustomerPortal from './pages/CustomerPortal'
 import VenueApp from './pages/VenueApp'
 import GroupOrder from './pages/GroupOrder'
+import BookingPage from './pages/BookingPage'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/account" element={<CustomerPortal />} />
       <Route path="/app/:slug" element={<VenueApp />} />
       <Route path="/group/:code" element={<GroupOrder />} />
+      <Route path="/book/:slug" element={<BookingPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

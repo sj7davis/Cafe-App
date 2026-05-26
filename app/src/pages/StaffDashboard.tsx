@@ -41,6 +41,11 @@ export default function StaffDashboard() {
   const { staff, venue, token, venueId: _venueId, isAdmin, isManager, logout, loading } = useStaffAuth();
   const [activeTab, setActiveTab] = useState('orders');
 
+  const clockStatus = trpc.clock.getMyStatus.useQuery({ token }, { refetchInterval: 60000 });
+  const clockIn = trpc.clock.clockIn.useMutation({ onSuccess: () => clockStatus.refetch() });
+  const clockOut = trpc.clock.clockOut.useMutation({ onSuccess: () => clockStatus.refetch() });
+  const isClockedIn = clockStatus.data?.isClockedIn ?? false;
+
   const { data: pendingOrdersData } = trpc.venue.listOrders.useQuery(
     { venueId: venue?.id ?? 0, status: 'pending', limit: 99 },
     { enabled: !!venue, refetchInterval: 15_000 }
@@ -162,6 +167,28 @@ export default function StaffDashboard() {
               {staff.role}
             </span>
           </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+            <button
+              onClick={() => isClockedIn ? clockOut.mutate({ token }) : clockIn.mutate({ token })}
+              style={{
+                padding: '6px 14px',
+                background: isClockedIn ? '#dc2626' : '#16a34a',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {isClockedIn ? '🔴 Clock Out' : '🟢 Clock In'}
+            </button>
+            {clockStatus.data?.lastEvent && (
+              <div style={{ fontSize: '10px', color: '#a8a29e', textAlign: 'center' }}>
+                {isClockedIn ? 'Clocked in' : 'Clocked out'} {new Date(clockStatus.data.lastEvent.clockedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+          </div>
           <button
             onClick={logout}
             style={{
@@ -207,6 +234,8 @@ export default function StaffDashboard() {
             <SidebarItem icon={<Trash2 size={18} />} label="Waste Log" tab="waste" activeTab={activeTab} setActiveTab={setActiveTab} />
             <SidebarItem icon={<ListOrdered size={18} />} label="Waitlist" tab="waitlist" activeTab={activeTab} setActiveTab={setActiveTab} />
             <SidebarItem icon={<BookOpen size={18} />} label="Reservations" tab="reservations" activeTab={activeTab} setActiveTab={setActiveTab} />
+            <SidebarItem icon={<Clock size={18} />} label="Clock History" tab="clock" activeTab={activeTab} setActiveTab={setActiveTab} />
+            <SidebarItem icon={<Truck size={18} />} label="Delivery" tab="delivery" activeTab={activeTab} setActiveTab={setActiveTab} />
 
             {(isAdmin || isManager) && (
               <>
@@ -245,6 +274,8 @@ export default function StaffDashboard() {
           {activeTab === 'waste' && <WasteLogTab venueId={venue.id} />}
           {activeTab === 'waitlist' && <WaitlistTab venueId={venue.id} />}
           {activeTab === 'reservations' && <ReservationsTab venueId={venue.id} token={token} />}
+          {activeTab === 'clock' && <ClockHistoryTab token={token} />}
+          {activeTab === 'delivery' && <DeliveryTab venueId={venue.id} />}
           {activeTab === 'staff' && (isAdmin || isManager) && <StaffManagementTab venueId={venue.id} isAdmin={isAdmin} />}
           {activeTab === 'settings' && (isAdmin || isManager) && <SettingsTab venueId={venue.id} />}
         </main>
@@ -422,8 +453,16 @@ function OrdersTab({ venueId, token }: { venueId: number; token: string }) {
     knownIds.current = incoming;
   }, [ordersList]);
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: holidayInfo } = trpc.venue.isPublicHoliday.useQuery({ venueId, date: todayStr });
+
   return (
     <div>
+      {holidayInfo?.isHoliday && (
+        <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '10px 16px', marginBottom: '16px', fontSize: '13px', color: '#92400e' }}>
+          🎉 Today is a public holiday. Check your surcharge settings are configured.
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: 0 }}>Orders</h2>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -3339,6 +3378,10 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
   const [selectedDate, setSelectedDate] = useState(today);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showWalkInForm, setShowWalkInForm] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'floor'>('list');
+  const [selectedFloorTable, setSelectedFloorTable] = useState<number | null>(null);
+  const [showTableEditor, setShowTableEditor] = useState(false);
+  const [newTable, setNewTable] = useState({ tableNumber: '', capacity: '', shape: 'rect', section: '' });
   const [walkIn, setWalkIn] = useState({
     customerName: '',
     customerPhone: '',
@@ -3353,8 +3396,25 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
     { refetchInterval: 30000 }
   );
 
+  const { data: tablesList } = trpc.venue.listTables.useQuery({ token });
+
   const updateStatus = trpc.reservations.updateStatus.useMutation({
     onSuccess: () => utils.reservations.list.invalidate(),
+  });
+
+  const assignTable = trpc.venue.assignReservationTable.useMutation({
+    onSuccess: () => utils.reservations.list.invalidate(),
+  });
+
+  const saveTable = trpc.venue.saveTable.useMutation({
+    onSuccess: () => {
+      utils.venue.listTables.invalidate();
+      setNewTable({ tableNumber: '', capacity: '', shape: 'rect', section: '' });
+    },
+  });
+
+  const deleteTable = trpc.venue.deleteTable.useMutation({
+    onSuccess: () => utils.venue.listTables.invalidate(),
   });
 
   const createReservation = trpc.reservations.create.useMutation({
@@ -3372,6 +3432,26 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
   const pendingCount = list.filter((r: any) => r.status === 'pending').length;
   const confirmedCount = list.filter((r: any) => r.status === 'confirmed').length;
   const seatedCount = list.filter((r: any) => r.status === 'seated').length;
+  const tables = tablesList ?? [];
+
+  // Build map of tableId -> today's reservation
+  const tableReservationMap = React.useMemo(() => {
+    const map: Record<number, any> = {};
+    const todayResv = list.filter((r: any) => r.reservationDate === today || !r.reservationDate);
+    for (const r of todayResv) {
+      if (r.tableId) map[r.tableId] = r;
+    }
+    return map;
+  }, [list, today]);
+
+  function getTableColor(table: any) {
+    const resv = tableReservationMap[table.id];
+    if (!resv) return '#d6d3d1';
+    if (resv.status === 'seated') return '#dc2626';
+    if (resv.status === 'confirmed') return '#16a34a';
+    if (resv.status === 'pending') return '#d97706';
+    return '#d6d3d1';
+  }
 
   const statusColors: Record<string, { bg: string; color: string }> = {
     pending: { bg: '#fffbeb', color: '#d97706' },
@@ -3385,17 +3465,32 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: 0 }}>Reservations</h2>
-        <button
-          onClick={() => setShowWalkInForm(!showWalkInForm)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '8px 16px', background: showWalkInForm ? '#57534e' : '#1c1917',
-            color: '#fafaf9', border: 'none', borderRadius: '8px',
-            fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          <Plus size={16} /> {showWalkInForm ? 'Cancel' : 'Add Walk-in'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* List/Floor toggle */}
+          <div style={{ display: 'flex', gap: '4px', background: '#e7e5e4', padding: '4px', borderRadius: '8px' }}>
+            {(['list', 'floor'] as const).map(v => (
+              <button key={v} onClick={() => setViewMode(v)}
+                style={{
+                  padding: '5px 12px', borderRadius: '6px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
+                  background: viewMode === v ? '#1c1917' : 'transparent',
+                  color: viewMode === v ? '#fafaf9' : '#57534e',
+                }}>
+                {v === 'list' ? 'List View' : 'Floor Plan'}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowWalkInForm(!showWalkInForm)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '8px 16px', background: showWalkInForm ? '#57534e' : '#1c1917',
+              color: '#fafaf9', border: 'none', borderRadius: '8px',
+              fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            <Plus size={16} /> {showWalkInForm ? 'Cancel' : 'Add Walk-in'}
+          </button>
+        </div>
       </div>
 
       {/* Walk-in form */}
@@ -3496,97 +3591,292 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
         ))}
       </div>
 
-      {/* Reservation cards */}
-      {isLoading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#78716c' }}>Loading…</div>
-      ) : list.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '60px 20px', background: '#fff',
-          borderRadius: '12px', border: '1px solid #e7e5e4', color: '#78716c', fontSize: '14px',
-        }}>
-          No reservations for this date
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {list.map((r: any) => {
-            const sc = statusColors[r.status] ?? statusColors.pending;
-            return (
-              <div key={r.id} style={{
-                background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4',
-                padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px',
-              }}>
-                {/* Time badge */}
-                <div style={{
-                  minWidth: '72px', padding: '10px 8px', borderRadius: '10px',
-                  background: sc.bg, textAlign: 'center', flexShrink: 0,
-                }}>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: sc.color, lineHeight: 1 }}>
-                    {r.reservationTime ?? '—'}
-                  </div>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: sc.color, textTransform: 'uppercase', marginTop: '3px' }}>
-                    {r.status}
-                  </div>
-                </div>
+      {/* Floor Plan View */}
+      {viewMode === 'floor' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#57534e' }}>
+              {[
+                { color: '#d6d3d1', label: 'Available' },
+                { color: '#16a34a', label: 'Confirmed' },
+                { color: '#d97706', label: 'Pending' },
+                { color: '#dc2626', label: 'Occupied' },
+              ].map(l => (
+                <span key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: l.color, display: 'inline-block' }} />
+                  {l.label}
+                </span>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowTableEditor(!showTableEditor)}
+              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #e7e5e4', background: '#fff', color: '#57534e', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              {showTableEditor ? 'Hide Editor' : 'Edit Tables'}
+            </button>
+          </div>
 
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#1c1917', marginBottom: '3px' }}>
-                    {r.customerName ?? 'Unknown'}
-                  </div>
-                  <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: '#78716c', flexWrap: 'wrap' }}>
-                    {r.customerPhone && <span>{r.customerPhone}</span>}
-                    <span>👥 {r.partySize} {r.partySize === 1 ? 'person' : 'people'}</span>
-                  </div>
-                  {r.notes && (
-                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#57534e', fontStyle: 'italic' }}>
-                      {r.notes}
-                    </div>
-                  )}
+          {/* Table Editor */}
+          {showTableEditor && (
+            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '16px', marginBottom: '16px' }}>
+              <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600 }}>Table Editor</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '8px', alignItems: 'end', marginBottom: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Table #</label>
+                  <input value={newTable.tableNumber} onChange={e => setNewTable(t => ({ ...t, tableNumber: e.target.value }))}
+                    placeholder="e.g. T1"
+                    style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '7px 8px', fontSize: '13px', boxSizing: 'border-box' }} />
                 </div>
-
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: '6px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {r.status === 'pending' && (
-                    <button
-                      onClick={() => updateStatus.mutate({ token, id: r.id, status: 'confirmed' })}
-                      disabled={updateStatus.isPending}
-                      style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#f0fdfa', color: '#0d9488', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      Confirm
-                    </button>
-                  )}
-                  {r.status === 'confirmed' && (
-                    <button
-                      onClick={() => updateStatus.mutate({ token, id: r.id, status: 'seated' })}
-                      disabled={updateStatus.isPending}
-                      style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#f0fdf4', color: '#16a34a', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      Seat
-                    </button>
-                  )}
-                  {(r.status === 'pending' || r.status === 'confirmed') && (
-                    <>
-                      <button
-                        onClick={() => updateStatus.mutate({ token, id: r.id, status: 'no_show' })}
-                        disabled={updateStatus.isPending}
-                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#fff7ed', color: '#ea580c', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                      >
-                        No Show
-                      </button>
-                      <button
-                        onClick={() => updateStatus.mutate({ token, id: r.id, status: 'cancelled' })}
-                        disabled={updateStatus.isPending}
-                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
+                <div>
+                  <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Capacity</label>
+                  <input type="number" min="1" value={newTable.capacity} onChange={e => setNewTable(t => ({ ...t, capacity: e.target.value }))}
+                    placeholder="4"
+                    style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '7px 8px', fontSize: '13px', boxSizing: 'border-box' }} />
                 </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Shape</label>
+                  <select value={newTable.shape} onChange={e => setNewTable(t => ({ ...t, shape: e.target.value }))}
+                    style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '7px 8px', fontSize: '13px', background: '#fafaf9', boxSizing: 'border-box' }}>
+                    <option value="rect">Rectangle</option>
+                    <option value="circle">Circle</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px' }}>Section</label>
+                  <input value={newTable.section} onChange={e => setNewTable(t => ({ ...t, section: e.target.value }))}
+                    placeholder="Indoor"
+                    style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '7px 8px', fontSize: '13px', boxSizing: 'border-box' }} />
+                </div>
+                <button
+                  onClick={() => {
+                    if (!newTable.tableNumber || !newTable.capacity) return;
+                    saveTable.mutate({ token, tableNumber: newTable.tableNumber, capacity: Number(newTable.capacity), shape: newTable.shape, section: newTable.section || undefined });
+                  }}
+                  disabled={saveTable.isPending}
+                  style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', background: '#1c1917', color: '#fafaf9', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Add
+                </button>
               </div>
-            );
-          })}
+              {tables.length > 0 && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #e7e5e4' }}>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: '#78716c', fontWeight: 600, fontSize: '11px' }}>Table</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: '#78716c', fontWeight: 600, fontSize: '11px' }}>Capacity</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: '#78716c', fontWeight: 600, fontSize: '11px' }}>Shape</th>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', color: '#78716c', fontWeight: 600, fontSize: '11px' }}>Section</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tables.map((t: any) => (
+                      <tr key={t.id} style={{ borderBottom: '1px solid #f5f5f4' }}>
+                        <td style={{ padding: '6px 8px', fontWeight: 600 }}>{t.tableNumber}</td>
+                        <td style={{ padding: '6px 8px', color: '#78716c' }}>{t.capacity}</td>
+                        <td style={{ padding: '6px 8px', color: '#78716c', textTransform: 'capitalize' }}>{t.shape ?? 'rect'}</td>
+                        <td style={{ padding: '6px 8px', color: '#78716c' }}>{t.section ?? '—'}</td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <button
+                            onClick={() => deleteTable.mutate({ token, tableId: t.id })}
+                            disabled={deleteTable.isPending}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '12px', fontWeight: 600 }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {/* Floor Plan Canvas */}
+          <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', minHeight: '300px', position: 'relative' }}>
+            {tables.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#78716c', padding: '40px', fontSize: '14px' }}>
+                No tables configured. Click "Edit Tables" to add tables.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                {tables.map((t: any) => {
+                  const color = getTableColor(t);
+                  const resv = tableReservationMap[t.id];
+                  const isSelected = selectedFloorTable === t.id;
+                  const isCircle = t.shape === 'circle';
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => setSelectedFloorTable(isSelected ? null : t.id)}
+                      style={{
+                        width: isCircle ? '80px' : '100px',
+                        height: '80px',
+                        borderRadius: isCircle ? '50%' : '10px',
+                        background: color,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        border: isSelected ? '3px solid #1c1917' : '3px solid transparent',
+                        transition: 'all 0.15s',
+                        boxShadow: isSelected ? '0 0 0 2px #1c191744' : 'none',
+                      }}
+                    >
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>{t.tableNumber}</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>{t.capacity} seats</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* Selected table info popup */}
+            {selectedFloorTable && (() => {
+              const t = tables.find((t: any) => t.id === selectedFloorTable);
+              const resv = t ? tableReservationMap[t.id] : null;
+              return t ? (
+                <div style={{ marginTop: '16px', padding: '14px 16px', background: '#f5f5f4', borderRadius: '10px', fontSize: '13px' }}>
+                  <strong>Table {t.tableNumber}</strong> — {t.capacity} seats {t.section ? `(${t.section})` : ''}
+                  {resv ? (
+                    <div style={{ marginTop: '6px', color: '#44403c' }}>
+                      <strong>{resv.customerName}</strong> — {resv.reservationTime} — {resv.partySize} people
+                      <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                        background: statusColors[resv.status]?.bg ?? '#f5f5f4', color: statusColors[resv.status]?.color ?? '#78716c' }}>
+                        {resv.status}
+                      </span>
+                    </div>
+                  ) : (
+                    <span style={{ marginLeft: '8px', color: '#78716c' }}>No reservation today</span>
+                  )}
+                </div>
+              ) : null;
+            })()}
+          </div>
         </div>
+      )}
+
+      {/* List View */}
+      {viewMode === 'list' && (
+        <>
+          {/* Reservation cards */}
+          {isLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#78716c' }}>Loading…</div>
+          ) : list.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: '60px 20px', background: '#fff',
+              borderRadius: '12px', border: '1px solid #e7e5e4', color: '#78716c', fontSize: '14px',
+            }}>
+              No reservations for this date
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {list.map((r: any) => {
+                const sc = statusColors[r.status] ?? statusColors.pending;
+                return (
+                  <div key={r.id} style={{
+                    background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4',
+                    padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px',
+                  }}>
+                    {/* Time badge */}
+                    <div style={{
+                      minWidth: '72px', padding: '10px 8px', borderRadius: '10px',
+                      background: sc.bg, textAlign: 'center', flexShrink: 0,
+                    }}>
+                      <div style={{ fontSize: '18px', fontWeight: 800, color: sc.color, lineHeight: 1 }}>
+                        {r.reservationTime ?? '—'}
+                      </div>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: sc.color, textTransform: 'uppercase', marginTop: '3px' }}>
+                        {r.status}
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: '#1c1917', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {r.customerName ?? 'Unknown'}
+                        {r.tableId && tables.find((t: any) => t.id === r.tableId) && (
+                          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, background: '#dcfce7', color: '#16a34a' }}>
+                            Table {tables.find((t: any) => t.id === r.tableId)?.tableNumber}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: '#78716c', flexWrap: 'wrap' }}>
+                        {r.customerPhone && <span>{r.customerPhone}</span>}
+                        <span>👥 {r.partySize} {r.partySize === 1 ? 'person' : 'people'}</span>
+                      </div>
+                      {r.notes && (
+                        <div style={{ marginTop: '4px', fontSize: '12px', color: '#57534e', fontStyle: 'italic' }}>
+                          {r.notes}
+                        </div>
+                      )}
+                      {/* Table assignment */}
+                      {tables.length > 0 && (
+                        <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <label style={{ fontSize: '11px', color: '#78716c', fontWeight: 600 }}>Assign Table:</label>
+                          <select
+                            value={r.tableId ?? ''}
+                            onChange={e => {
+                              const tableId = e.target.value ? Number(e.target.value) : null;
+                              assignTable.mutate({ token, reservationId: r.id, tableId });
+                            }}
+                            style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '12px', background: '#fafaf9', cursor: 'pointer' }}
+                          >
+                            <option value="">Unassigned</option>
+                            {tables.map((t: any) => (
+                              <option key={t.id} value={t.id}>Table {t.tableNumber} ({t.capacity} seats)</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      {r.status === 'pending' && (
+                        <button
+                          onClick={() => updateStatus.mutate({ token, id: r.id, status: 'confirmed' })}
+                          disabled={updateStatus.isPending}
+                          style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#f0fdfa', color: '#0d9488', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Confirm
+                        </button>
+                      )}
+                      {r.status === 'confirmed' && (
+                        <button
+                          onClick={() => updateStatus.mutate({ token, id: r.id, status: 'seated' })}
+                          disabled={updateStatus.isPending}
+                          style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#f0fdf4', color: '#16a34a', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Seat
+                        </button>
+                      )}
+                      {(r.status === 'pending' || r.status === 'confirmed') && (
+                        <>
+                          <button
+                            onClick={() => updateStatus.mutate({ token, id: r.id, status: 'no_show' })}
+                            disabled={updateStatus.isPending}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#fff7ed', color: '#ea580c', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            No Show
+                          </button>
+                          <button
+                            onClick={() => updateStatus.mutate({ token, id: r.id, status: 'cancelled' })}
+                            disabled={updateStatus.isPending}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -3836,6 +4126,304 @@ function WaitlistTab({ venueId }: { venueId: number }) {
                         </button>
                       )}
                     </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Clock History Tab ───
+function ClockHistoryTab({ token }: { token: string }) {
+  const [days, setDays] = useState(14);
+
+  const { data: shiftHistory, isLoading: historyLoading } = trpc.clock.getShiftHistory.useQuery({ token, days });
+  const { data: hoursSummary, isLoading: summaryLoading } = trpc.clock.getHoursSummary.useQuery({ token, days });
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: 0 }}>Clock History</h2>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {[7, 14, 30].map(d => (
+            <button key={d} onClick={() => setDays(d)}
+              style={{
+                background: days === d ? '#1c1917' : '#fff',
+                color: days === d ? '#fff' : '#78716c',
+                border: '1px solid #e7e5e4', borderRadius: '6px',
+                padding: '5px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: 500,
+              }}>
+              {d}d
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Hours Summary Cards */}
+      {summaryLoading ? (
+        <div style={{ color: '#78716c', padding: '16px', fontSize: '14px' }}>Loading summary…</div>
+      ) : (hoursSummary ?? []).length === 0 ? (
+        <div style={{ color: '#78716c', padding: '16px', fontSize: '14px' }}>No clock data for this period.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+          {(hoursSummary ?? []).map((s: any) => (
+            <div key={s.staffId} style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '16px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#1c1917', marginBottom: '8px' }}>{s.name}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#57534e', marginBottom: '4px' }}>
+                <span>Total Hours</span>
+                <span style={{ fontWeight: 700, color: '#1c1917' }}>{Number(s.totalHours ?? 0).toFixed(1)}h</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#57534e', marginBottom: '4px' }}>
+                <span>Shifts</span>
+                <span style={{ fontWeight: 600 }}>{s.shiftCount}</span>
+              </div>
+              {s.penaltyFlags && s.penaltyFlags.length > 0 && (
+                <div style={{ marginTop: '8px' }}>
+                  {s.penaltyFlags.map((flag: string, i: number) => (
+                    <span key={i} style={{
+                      display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
+                      fontSize: '11px', fontWeight: 600, background: '#fef3c7', color: '#d97706', marginRight: '4px', marginBottom: '4px',
+                    }}>
+                      {flag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Event Log Table */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e7e5e4' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Event Log</h3>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <thead>
+            <tr style={{ background: '#fafaf9', borderBottom: '1px solid #e7e5e4' }}>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Time</th>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Staff</th>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Event</th>
+              <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {historyLoading ? (
+              <tr><td colSpan={4} style={{ padding: '28px', textAlign: 'center', color: '#78716c' }}>Loading…</td></tr>
+            ) : (shiftHistory ?? []).length === 0 ? (
+              <tr><td colSpan={4} style={{ padding: '28px', textAlign: 'center', color: '#78716c' }}>No clock events in this period</td></tr>
+            ) : (shiftHistory ?? []).map((ev: any) => (
+              <tr key={ev.id} style={{ borderBottom: '1px solid #f5f5f4' }}>
+                <td style={{ padding: '12px 16px', color: '#44403c', fontSize: '12px' }}>
+                  {new Date(ev.clockedAt).toLocaleString('en-AU', { dateStyle: 'short', timeStyle: 'short' })}
+                </td>
+                <td style={{ padding: '12px 16px', fontWeight: 500, color: '#1c1917' }}>{ev.staffName ?? ev.staffId}</td>
+                <td style={{ padding: '12px 16px' }}>
+                  <span style={{
+                    padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                    background: ev.type === 'clock_in' ? '#dcfce7' : '#fee2e2',
+                    color: ev.type === 'clock_in' ? '#16a34a' : '#dc2626',
+                  }}>
+                    {ev.type === 'clock_in' ? 'Clock In' : 'Clock Out'}
+                  </span>
+                </td>
+                <td style={{ padding: '12px 16px', color: '#78716c', fontSize: '12px' }}>{ev.note ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Delivery Tab ───
+function DeliveryTab({ venueId: _venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
+  const utils = trpc.useUtils();
+  const [platformFilter, setPlatformFilter] = useState('');
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logForm, setLogForm] = useState({ platform: 'uber_eats', customerName: '', items: '', subtotal: '', fee: '' });
+  const [logMsg, setLogMsg] = useState('');
+
+  const { data: orders, isLoading } = trpc.delivery.list.useQuery(
+    { token: localStorage.getItem('b1-staff-token') || '', platform: platformFilter || undefined, days: 30 }
+  );
+
+  const updateStatus = trpc.delivery.updateStatus.useMutation({
+    onSuccess: () => utils.delivery.list.invalidate(),
+  });
+
+  const createOrder = trpc.delivery.create.useMutation({
+    onSuccess: () => {
+      utils.delivery.list.invalidate();
+      setShowLogForm(false);
+      setLogForm({ platform: 'uber_eats', customerName: '', items: '', subtotal: '', fee: '' });
+      setLogMsg('Order logged!');
+      setTimeout(() => setLogMsg(''), 3000);
+    },
+    onError: (e) => setLogMsg(e.message),
+  });
+
+  const list = orders ?? [];
+  const totalOrders = list.length;
+  const totalRevenue = list.reduce((s: number, o: any) => s + Number(o.subtotal ?? 0), 0);
+  const totalFees = list.reduce((s: number, o: any) => s + Number(o.fee ?? 0), 0);
+
+  const platformColors: Record<string, { bg: string; color: string }> = {
+    uber_eats: { bg: '#fef3c7', color: '#d97706' },
+    doordash: { bg: '#fee2e2', color: '#dc2626' },
+    menulog: { bg: '#dbeafe', color: '#2563eb' },
+    manual: { bg: '#f0fdf4', color: '#16a34a' },
+  };
+
+  const platformLabel: Record<string, string> = {
+    uber_eats: 'Uber Eats',
+    doordash: 'DoorDash',
+    menulog: 'Menulog',
+    manual: 'Manual',
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: 0 }}>Delivery Orders</h2>
+        <button
+          onClick={() => setShowLogForm(!showLogForm)}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: showLogForm ? '#57534e' : '#1c1917', color: '#fafaf9', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+        >
+          <Plus size={16} /> {showLogForm ? 'Cancel' : 'Log Order'}
+        </button>
+      </div>
+
+      {/* Log Order Form */}
+      {showLogForm && (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginBottom: '20px' }}>
+          <h3 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 600 }}>Log Delivery Order</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Platform</label>
+              <select value={logForm.platform} onChange={e => setLogForm(f => ({ ...f, platform: e.target.value }))}
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', background: '#fafaf9', boxSizing: 'border-box' }}>
+                <option value="uber_eats">Uber Eats</option>
+                <option value="doordash">DoorDash</option>
+                <option value="menulog">Menulog</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Customer Name</label>
+              <input value={logForm.customerName} onChange={e => setLogForm(f => ({ ...f, customerName: e.target.value }))}
+                placeholder="Customer"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Subtotal ($)</label>
+              <input type="number" min="0" step="0.01" value={logForm.subtotal} onChange={e => setLogForm(f => ({ ...f, subtotal: e.target.value }))}
+                placeholder="0.00"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Fee ($)</label>
+              <input type="number" min="0" step="0.01" value={logForm.fee} onChange={e => setLogForm(f => ({ ...f, fee: e.target.value }))}
+                placeholder="0.00"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: '10px' }}>
+            <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Items</label>
+            <textarea value={logForm.items} onChange={e => setLogForm(f => ({ ...f, items: e.target.value }))}
+              placeholder="List items here…"
+              rows={2}
+              style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical' }} />
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                setLogMsg('');
+                if (!logForm.customerName || !logForm.subtotal) { setLogMsg('Customer name and subtotal required'); return; }
+                createOrder.mutate({ token, platform: logForm.platform, customerName: logForm.customerName, items: logForm.items, subtotal: Number(logForm.subtotal), fee: logForm.fee ? Number(logForm.fee) : 0 });
+              }}
+              disabled={createOrder.isPending}
+              style={{ padding: '8px 20px', background: '#1c1917', color: '#fafaf9', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              {createOrder.isPending ? '…' : 'Log Order'}
+            </button>
+            {logMsg && <span style={{ fontSize: '13px', color: logMsg.includes('!') ? '#16a34a' : '#dc2626' }}>{logMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Platform Filter Pills */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {[{ value: '', label: 'All' }, { value: 'uber_eats', label: 'Uber Eats' }, { value: 'doordash', label: 'DoorDash' }, { value: 'menulog', label: 'Menulog' }, { value: 'manual', label: 'Manual' }].map(p => (
+          <button key={p.value} onClick={() => setPlatformFilter(p.value)}
+            style={{
+              padding: '6px 14px', borderRadius: '20px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+              background: platformFilter === p.value ? '#1c1917' : '#e7e5e4',
+              color: platformFilter === p.value ? '#fafaf9' : '#57534e',
+            }}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <StatCard icon={<Truck size={20} />} label="Total Orders" value={String(totalOrders)} color="#1c1917" />
+        <StatCard icon={<TrendingUp size={20} />} label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} color="#16a34a" />
+        <StatCard icon={<CreditCard size={20} />} label="Total Fees Paid" value={`$${totalFees.toFixed(2)}`} color="#dc2626" />
+      </div>
+
+      {/* Orders Table */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <thead>
+            <tr style={{ background: '#fafaf9', borderBottom: '1px solid #e7e5e4' }}>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Platform</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Customer</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Net $</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={5} style={{ padding: '28px', textAlign: 'center', color: '#78716c' }}>Loading…</td></tr>
+            ) : list.length === 0 ? (
+              <tr><td colSpan={5} style={{ padding: '28px', textAlign: 'center', color: '#78716c' }}>No delivery orders found</td></tr>
+            ) : list.map((o: any) => {
+              const pc = platformColors[o.platform] ?? { bg: '#f5f5f4', color: '#57534e' };
+              const net = Number(o.subtotal ?? 0) - Number(o.fee ?? 0);
+              return (
+                <tr key={o.id} style={{ borderBottom: '1px solid #f5f5f4' }}>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span style={{ padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: pc.bg, color: pc.color }}>
+                      {platformLabel[o.platform] ?? o.platform}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#1c1917', fontWeight: 500 }}>{o.customerName}</td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <select
+                      value={o.status ?? 'pending'}
+                      onChange={e => updateStatus.mutate({ token, orderId: o.id, status: e.target.value })}
+                      style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '12px', background: '#fafaf9', cursor: 'pointer' }}
+                    >
+                      {['pending', 'confirmed', 'picked_up', 'delivered', 'cancelled'].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td style={{ padding: '12px 16px', fontWeight: 600, color: net >= 0 ? '#16a34a' : '#dc2626' }}>
+                    ${net.toFixed(2)}
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#78716c', fontSize: '12px' }}>
+                    {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-AU') : '—'}
                   </td>
                 </tr>
               );

@@ -521,6 +521,8 @@ export const reservations = pgTable("reservations", {
   status: varchar("status", { length: 16 }).notNull().default("pending")
     .$type<"pending" | "confirmed" | "seated" | "cancelled" | "no_show">(),
   confirmationSentAt: timestamp("confirmation_sent_at"),
+  tableId: bigint("table_id", { mode: "number" }).references(() => venueTables.id),
+  smsReminderSentAt: timestamp("sms_reminder_sent_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -560,4 +562,77 @@ export const groupOrderParticipants = pgTable("group_order_participants", {
   itemsJson: text("items_json").notNull(),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   addedAt: timestamp("added_at").defaultNow().notNull(),
+});
+
+// ─── POS Integrations (Lightspeed, Tyro, Impos, etc.) ───
+export const posIntegrations = pgTable("pos_integrations", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  provider: varchar("provider", { length: 32 }).notNull().$type<"lightspeed" | "tyro" | "impos" | "revel">(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  accountId: varchar("account_id", { length: 128 }),
+  locationId: varchar("location_id", { length: 128 }),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  isActive: boolean("is_active").default(false),
+  lastSyncAt: timestamp("last_sync_at"),
+  settingsJson: json("settings_json"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Staff Clock Events (in/out tracking) ───
+export const staffClockEvents = pgTable("staff_clock_events", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
+  eventType: varchar("event_type", { length: 8 }).notNull().$type<"in" | "out">(),
+  clockedAt: timestamp("clocked_at").defaultNow().notNull(),
+  note: text("note"),
+});
+
+// ─── Audit Log ───
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).references(() => venues.id),
+  actorId: bigint("actor_id", { mode: "number" }),
+  actorType: varchar("actor_type", { length: 16 }).$type<"owner" | "staff" | "system">(),
+  actorName: varchar("actor_name", { length: 255 }),
+  action: varchar("action", { length: 64 }).notNull(),
+  entityType: varchar("entity_type", { length: 64 }),
+  entityId: bigint("entity_id", { mode: "number" }),
+  details: json("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Delivery Orders (Uber Eats / DoorDash / Menulog) ───
+export const deliveryOrders = pgTable("delivery_orders", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  platform: varchar("platform", { length: 32 }).notNull().$type<"uber_eats" | "doordash" | "menulog" | "manual">(),
+  externalId: varchar("external_id", { length: 128 }),
+  customerName: varchar("customer_name", { length: 255 }),
+  itemsJson: text("items_json").notNull(),
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+  platformFee: numeric("platform_fee", { precision: 10, scale: 2 }).default("0"),
+  netRevenue: numeric("net_revenue", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("received").$type<"received" | "preparing" | "ready" | "picked_up" | "cancelled">(),
+  notes: text("notes"),
+  orderedAt: timestamp("ordered_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Venue Tables (floor plan) ───
+export const venueTables = pgTable("venue_tables", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  tableNumber: varchar("table_number", { length: 16 }).notNull(),
+  capacity: integer("capacity").notNull().default(4),
+  x: integer("x").default(0),       // floor plan position
+  y: integer("y").default(0),
+  width: integer("width").default(80),
+  height: integer("height").default(80),
+  shape: varchar("shape", { length: 8 }).default("rect").$type<"rect" | "round">(),
+  section: varchar("section", { length: 64 }),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

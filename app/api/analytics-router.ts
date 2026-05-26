@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { orders, orderItems, menuItems, loyaltyAccounts, inventory } from "@db/schema";
+import { orders, orderItems, menuItems, loyaltyAccounts, inventory, staffClockEvents, staffAccounts } from "@db/schema";
 import { eq, and, gte, lte, desc, sql, count, sum, isNotNull } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
@@ -356,6 +356,275 @@ export const analyticsRouter = createRouter({
       orderType: r.orderType,
       count: Number(r.count),
       revenue: Number(r.revenue).toFixed(2),
+    }));
+  }),
+
+  // Period comparison: current N days vs previous N days
+  getPeriodComparison: publicQuery.input(z.object({
+    token: z.string(),
+    days: z.number().int().min(1).max(365).default(30),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const now = Date.now();
+    const currentStart = new Date(now - input.days * 86400000);
+    const previousStart = new Date(now - input.days * 2 * 86400000);
+
+    async function getPeriodStats(from: Date, to: Date) {
+      const [result] = await db
+        .select({
+          revenue: sql<string>`COALESCE(SUM(total_amount::numeric), 0)`,
+          orderCount: count(orders.id),
+          avgOrder: sql<string>`COALESCE(AVG(total_amount::numeric), 0)`,
+        })
+        .from(orders)
+        .where(and(
+          eq(orders.venueId, venueId),
+          gte(orders.createdAt, from),
+          lte(orders.createdAt, to),
+          sql`${orders.status} != 'cancelled'`,
+        ));
+      return {
+        revenue: Number(result.revenue).toFixed(2),
+        orders: Number(result.orderCount),
+        avgOrder: Number(result.avgOrder).toFixed(2),
+      };
+    }
+
+    const current = await getPeriodStats(currentStart, new Date(now));
+    const previous = await getPeriodStats(previousStart, currentStart);
+
+    function pctChange(cur: string, prev: string): string {
+      const c = Number(cur);
+      const p = Number(prev);
+      if (p === 0) return c > 0 ? "+100.0" : "0.0";
+      return ((c - p) / p * 100).toFixed(1);
+    }
+
+    return {
+      current,
+      previous,
+      changes: {
+        revenueChange: pctChange(current.revenue, previous.revenue),
+        ordersChange: pctChange(String(current.orders), String(previous.orders)),
+        avgOrderChange: pctChange(current.avgOrder, previous.avgOrder),
+      },
+    };
+  }),
+
+  // Revenue forecast for the next 7 days based on 8-week DOW averages
+  getRevenueForecast: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const since = new Date(Date.now() - 56 * 86400000); // 8 weeks
+
+    const rows = await db
+      .select({
+        dow: sql<number>`EXTRACT(DOW FROM created_at)::int`,
+        revenue: sql<string>`COALESCE(SUM(total_amount::numeric), 0)`,
+        dayCount: sql<number>`COUNT(DISTINCT DATE(created_at))::int`,
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.venueId, venueId),
+        gte(orders.createdAt, since),
+        sql`${orders.status} != 'cancelled'`,
+      ))
+      .groupBy(sql`EXTRACT(DOW FROM created_at)::int`);
+
+    const avgByDow: Record<number, { avg: number; weeks: number }> = {};
+    for (const r of rows) {
+      avgByDow[r.dow] = {
+        avg: r.dayCount > 0 ? Number(r.revenue) / r.dayCount : 0,
+        weeks: r.dayCount,
+      };
+    }
+
+    const forecast: { date: string; predictedRevenue: string; basedOnWeeks: number }[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(Date.now() + i * 86400000);
+      const dow = d.getDay();
+      const dateStr = d.toISOString().slice(0, 10);
+      const entry = avgByDow[dow];
+      forecast.push({
+        date: dateStr,
+        predictedRevenue: entry ? entry.avg.toFixed(2) : "0.00",
+        basedOnWeeks: entry ? entry.weeks : 0,
+      });
+    }
+
+    return forecast;
+  }),
+
+  // Menu scorecard: performance of each item over the period
+  getMenuScorecard: publicQuery.input(z.object({
+    token: z.string(),
+    days: z.number().int().min(1).max(365).default(30),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const since = new Date(Date.now() - input.days * 86400000);
+    const midpoint = new Date(Date.now() - (input.days / 2) * 86400000);
+
+    // First half stats
+    const firstHalf = await db
+      .select({
+        itemName: orderItems.itemName,
+        qty: sql<number>`SUM(${orderItems.quantity})::int`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(and(
+        eq(orders.venueId, venueId),
+        gte(orders.createdAt, since),
+        lte(orders.createdAt, midpoint),
+        sql`${orders.status} != 'cancelled'`,
+      ))
+      .groupBy(orderItems.itemName);
+
+    // Full period stats
+    const fullPeriod = await db
+      .select({
+        itemName: orderItems.itemName,
+        totalQty: sql<number>`SUM(${orderItems.quantity})::int`,
+        totalRevenue: sql<string>`SUM(${orderItems.quantity}::numeric * ${orderItems.unitPrice}::numeric)`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(and(
+        eq(orders.venueId, venueId),
+        gte(orders.createdAt, since),
+        sql`${orders.status} != 'cancelled'`,
+      ))
+      .groupBy(orderItems.itemName)
+      .orderBy(sql`SUM(${orderItems.quantity}::numeric * ${orderItems.unitPrice}::numeric) DESC`)
+      .limit(20);
+
+    const totalRevenue = fullPeriod.reduce((s, r) => s + Number(r.totalRevenue), 0);
+    const firstHalfMap: Record<string, number> = {};
+    for (const r of firstHalf) firstHalfMap[r.itemName] = r.qty;
+
+    return fullPeriod.map(r => {
+      const firstQty = firstHalfMap[r.itemName] ?? 0;
+      const secondQty = r.totalQty - firstQty;
+      let trend = "0.0";
+      if (firstQty > 0) trend = (((secondQty - firstQty) / firstQty) * 100).toFixed(1);
+      else if (secondQty > 0) trend = "+100.0";
+      return {
+        name: r.itemName,
+        totalQty: r.totalQty,
+        totalRevenue: Number(r.totalRevenue).toFixed(2),
+        avgDailyQty: (r.totalQty / input.days).toFixed(2),
+        revenueShare: totalRevenue > 0 ? ((Number(r.totalRevenue) / totalRevenue) * 100).toFixed(1) : "0.0",
+        trend,
+      };
+    });
+  }),
+
+  // GST summary for Australian tax reporting
+  getGSTSummary: publicQuery.input(z.object({
+    token: z.string(),
+    fromDate: z.string(),
+    toDate: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const rows = await db
+      .select({
+        paymentMethod: orders.paymentMethod,
+        total: sql<string>`COALESCE(SUM(total_amount::numeric), 0)`,
+        orderCount: count(orders.id),
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.venueId, venueId),
+        gte(orders.createdAt, new Date(input.fromDate)),
+        lte(orders.createdAt, new Date(input.toDate + "T23:59:59")),
+        sql`${orders.status} != 'cancelled'`,
+      ))
+      .groupBy(orders.paymentMethod);
+
+    const totalRevenue = rows.reduce((s, r) => s + Number(r.total), 0);
+    const gst = totalRevenue / 11; // AU GST: 10%, so GST component = total / 11
+    const netExGst = totalRevenue - gst;
+
+    return {
+      fromDate: input.fromDate,
+      toDate: input.toDate,
+      totalRevenue: totalRevenue.toFixed(2),
+      gst: gst.toFixed(2),
+      netExGst: netExGst.toFixed(2),
+      byPaymentMethod: rows.map(r => ({
+        paymentMethod: r.paymentMethod,
+        total: Number(r.total).toFixed(2),
+        orderCount: Number(r.orderCount),
+        gst: (Number(r.total) / 11).toFixed(2),
+        netExGst: (Number(r.total) - Number(r.total) / 11).toFixed(2),
+      })),
+    };
+  }),
+
+  // Staff hours summary (from clock events)
+  getStaffHoursSummary: publicQuery.input(z.object({
+    token: z.string(),
+    days: z.number().int().min(1).max(90).default(14),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const since = new Date(Date.now() - input.days * 86400000);
+
+    function getPenaltyFlag(clockedAt: Date): string | null {
+      const day = clockedAt.getDay();
+      const hour = clockedAt.getHours();
+      if (day === 0) return "Sunday penalty (200%)";
+      if (day === 6) return "Saturday penalty (125%)";
+      if (hour >= 21 || hour < 6) return "Late night / early morning (125%)";
+      return null;
+    }
+
+    const events = await db.select({
+      staffId: staffClockEvents.staffId,
+      staffName: staffAccounts.name,
+      eventType: staffClockEvents.eventType,
+      clockedAt: staffClockEvents.clockedAt,
+    })
+      .from(staffClockEvents)
+      .innerJoin(staffAccounts, eq(staffClockEvents.staffId, staffAccounts.id))
+      .where(and(eq(staffClockEvents.venueId, venueId), gte(staffClockEvents.clockedAt, since)))
+      .orderBy(staffClockEvents.staffId, staffClockEvents.clockedAt);
+
+    const staffMap: Record<number, { name: string; totalMinutes: number; shifts: number; penaltyFlags: string[] }> = {};
+    const inEvents: Record<number, Date> = {};
+    for (const e of events) {
+      if (!staffMap[e.staffId]) staffMap[e.staffId] = { name: e.staffName ?? "Unknown", totalMinutes: 0, shifts: 0, penaltyFlags: [] };
+      if (e.eventType === "in") {
+        inEvents[e.staffId] = e.clockedAt;
+        const flag = getPenaltyFlag(e.clockedAt);
+        if (flag && !staffMap[e.staffId].penaltyFlags.includes(flag)) staffMap[e.staffId].penaltyFlags.push(flag);
+      } else if (e.eventType === "out" && inEvents[e.staffId]) {
+        const mins = Math.round((e.clockedAt.getTime() - inEvents[e.staffId].getTime()) / 60000);
+        staffMap[e.staffId].totalMinutes += mins;
+        staffMap[e.staffId].shifts++;
+        delete inEvents[e.staffId];
+      }
+    }
+
+    return Object.entries(staffMap).map(([id, data]) => ({
+      staffId: Number(id),
+      ...data,
+      totalHours: (data.totalMinutes / 60).toFixed(1),
     }));
   }),
 });

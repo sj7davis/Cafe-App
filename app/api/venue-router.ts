@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables } from "@db/schema";
 import { eq, and, desc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -15,6 +15,81 @@ const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 function generateGiftCardCode(): string {
   return randomBytes(8).toString('base64url').toUpperCase().slice(0, 12);
+}
+
+// ─── AU Public Holidays ───────────────────────────────────────────────────────
+// Hardcoded 2025 and 2026 — national + per-state extras (VIC default)
+const AU_HOLIDAY_NAMES: Record<string, string> = {
+  // National
+  "2025-01-01": "New Year's Day",
+  "2025-01-27": "Australia Day (substitute)",
+  "2025-04-18": "Good Friday",
+  "2025-04-19": "Easter Saturday",
+  "2025-04-20": "Easter Sunday",
+  "2025-04-21": "Easter Monday",
+  "2025-04-25": "ANZAC Day",
+  "2025-06-09": "King's Birthday",
+  "2025-12-25": "Christmas Day",
+  "2025-12-26": "Boxing Day",
+  "2026-01-01": "New Year's Day",
+  "2026-01-26": "Australia Day",
+  "2026-04-03": "Good Friday",
+  "2026-04-04": "Easter Saturday",
+  "2026-04-05": "Easter Sunday",
+  "2026-04-06": "Easter Monday",
+  "2026-04-25": "ANZAC Day",
+  "2026-06-08": "King's Birthday",
+  "2026-12-25": "Christmas Day",
+  "2026-12-28": "Boxing Day (substitute)",
+  // VIC
+  "2025-03-10": "Labour Day",
+  "2025-11-04": "Melbourne Cup Day",
+  "2026-03-09": "Labour Day",
+  "2026-11-03": "Melbourne Cup Day",
+  // NSW
+  "2025-08-04": "Bank Holiday",
+  "2026-08-03": "Bank Holiday",
+  // QLD
+  "2025-05-05": "Labour Day (QLD)",
+  "2025-08-13": "Royal Queensland Show",
+  "2026-05-04": "Labour Day (QLD)",
+  "2026-08-12": "Royal Queensland Show",
+  // SA
+  "2025-10-06": "Adelaide Cup Race Day",
+  "2026-10-05": "Adelaide Cup Race Day",
+  // WA
+  "2025-03-03": "Labour Day (WA)",
+  "2025-09-22": "Queen's Birthday (WA)",
+  "2026-03-02": "Labour Day (WA)",
+  "2026-09-28": "Queen's Birthday (WA)",
+  // TAS
+  "2025-02-10": "Royal Hobart Regatta",
+  "2026-02-09": "Royal Hobart Regatta",
+  // ACT
+  "2025-05-26": "Reconciliation Day",
+  "2026-05-25": "Reconciliation Day",
+  // NT
+  // (Bank Holiday shared with NSW entries above)
+};
+
+function getAUPublicHolidays(state: string = "VIC"): Set<string> {
+  const national = [
+    "2025-01-01", "2025-01-27", "2025-04-18", "2025-04-19", "2025-04-20", "2025-04-21",
+    "2025-04-25", "2025-06-09", "2025-12-25", "2025-12-26",
+    "2026-01-01", "2026-01-26", "2026-04-03", "2026-04-04", "2026-04-05", "2026-04-06",
+    "2026-04-25", "2026-06-08", "2026-12-25", "2026-12-28",
+  ];
+  const stateHolidays: Record<string, string[]> = {
+    VIC: ["2025-03-10", "2025-11-04", "2026-03-09", "2026-11-03"],
+    NSW: ["2025-08-04", "2026-08-03"],
+    QLD: ["2025-05-05", "2025-08-13", "2026-05-04", "2026-08-12"],
+    SA:  ["2025-06-09", "2025-10-06", "2026-06-08", "2026-10-05"],
+    WA:  ["2025-03-03", "2025-09-22", "2026-03-02", "2026-09-28"],
+    TAS: ["2025-02-10", "2025-03-10", "2026-02-09", "2026-03-09"],
+    ACT: ["2025-03-10", "2025-05-26", "2026-03-09", "2026-05-25"],
+    NT:  ["2025-08-04", "2026-08-03"],
+  };
+  return new Set([...national, ...(stateHolidays[state.toUpperCase()] ?? [])]);
 }
 
 export const venueRouter = createRouter({
@@ -2145,6 +2220,240 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     const updatedSession = await db.select().from(groupOrders).where(eq(groupOrders.id, session.id)).limit(1);
 
     return { session: updatedSession[0], participants };
+  }),
+
+  // ─── Table Management ─────────────────────────────────────────────────────
+
+  listTables: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    return db.select().from(venueTables)
+      .where(eq(venueTables.venueId, venueId))
+      .orderBy(venueTables.tableNumber);
+  }),
+
+  saveTable: publicQuery.input(z.object({
+    token: z.string(),
+    id: z.number().int().positive().optional(),
+    tableNumber: z.string().min(1),
+    capacity: z.number().int().min(1),
+    x: z.number().optional(),
+    y: z.number().optional(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    shape: z.string().optional(),
+    section: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const { token: _t, id, ...fields } = input;
+    const values = { venueId, ...fields };
+
+    if (id) {
+      await db.update(venueTables).set(values).where(and(eq(venueTables.id, id), eq(venueTables.venueId, venueId)));
+      return { id };
+    } else {
+      const [result] = await db.insert(venueTables).values(values).returning({ id: venueTables.id });
+      return { id: result.id };
+    }
+  }),
+
+  deleteTable: publicQuery.input(z.object({
+    token: z.string(),
+    id: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    await db.delete(venueTables).where(and(eq(venueTables.id, input.id), eq(venueTables.venueId, venueId)));
+    return { ok: true };
+  }),
+
+  assignReservationTable: publicQuery.input(z.object({
+    token: z.string(),
+    reservationId: z.number().int().positive(),
+    tableId: z.number().int().positive().nullable(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    await db.update(reservations)
+      .set({ tableId: input.tableId })
+      .where(and(eq(reservations.id, input.reservationId), eq(reservations.venueId, venueId)));
+    return { ok: true };
+  }),
+
+  // ─── Australian Public Holidays ────────────────────────────────────────────
+
+  isPublicHoliday: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    const state = (venueRows[0]?.settingsJson as any)?.state ?? "VIC";
+    const holidays = getAUPublicHolidays(state);
+    const isHoliday = holidays.has(input.date);
+    return {
+      date: input.date,
+      isHoliday,
+      holidayName: isHoliday ? (AU_HOLIDAY_NAMES[input.date] ?? "Public Holiday") : null,
+    };
+  }),
+
+  getPublicHolidays: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    const state = (venueRows[0]?.settingsJson as any)?.state ?? "VIC";
+    const holidays = getAUPublicHolidays(state);
+    return Array.from(holidays).sort().map(date => ({
+      date,
+      name: AU_HOLIDAY_NAMES[date] ?? "Public Holiday",
+    }));
+  }),
+
+  // ─── Google My Business ────────────────────────────────────────────────────
+
+  gmbGetAuthUrl: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) return { url: null, configured: false };
+    const state = Buffer.from(JSON.stringify({ venueId })).toString("base64");
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: `${env.appUrl}/api/gmb/callback`,
+      scope: "https://www.googleapis.com/auth/business.manage",
+      response_type: "code",
+      access_type: "offline",
+      state,
+    });
+    return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`, configured: true };
+  }),
+
+  gmbGetConnection: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const settings = venueRows[0]?.settingsJson as any;
+    const connected = !!(settings?.gmbAccessToken);
+    return {
+      connected,
+      accountId: settings?.gmbAccountId ?? null,
+      locationId: settings?.gmbLocationId ?? null,
+      connectedAt: settings?.gmbConnectedAt ?? null,
+    };
+  }),
+
+  gmbSyncHours: publicQuery.input(z.object({
+    token: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const settings = venueRows[0]?.settingsJson as any;
+    if (!settings?.gmbAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB not connected" });
+    if (!settings?.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB location ID not set" });
+
+    // Build GMB regularHours periods from settingsJson.hours (Mon-Sun open/close)
+    const dayMap: Record<string, string> = {
+      monday: "MONDAY", tuesday: "TUESDAY", wednesday: "WEDNESDAY",
+      thursday: "THURSDAY", friday: "FRIDAY", saturday: "SATURDAY", sunday: "SUNDAY",
+    };
+    const hours = settings.hours ?? {};
+    const periods = Object.entries(dayMap)
+      .filter(([day]) => hours[day]?.open && hours[day]?.close)
+      .map(([day, gmbDay]) => ({
+        openDay: gmbDay,
+        openTime: { hours: parseInt(hours[day].open.split(":")[0]), minutes: parseInt(hours[day].open.split(":")[1]) },
+        closeDay: gmbDay,
+        closeTime: { hours: parseInt(hours[day].close.split(":")[0]), minutes: parseInt(hours[day].close.split(":")[1]) },
+      }));
+
+    const res = await fetch(
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${settings.gmbLocationId}?updateMask=regularHours`,
+      {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${settings.gmbAccessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ regularHours: { periods } }),
+      }
+    );
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `GMB API error: ${errText}` });
+    }
+    return { ok: true };
+  }),
+
+  gmbSyncMenu: publicQuery.input(z.object({
+    token: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const settings = venueRows[0]?.settingsJson as any;
+    if (!settings?.gmbAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB not connected" });
+    if (!settings?.gmbAccountId || !settings?.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB account/location ID not set" });
+
+    const items = await db.select().from(menuItems)
+      .where(and(eq(menuItems.venueId, venueId), eq(menuItems.isAvailable, true)));
+
+    // Build GMB food menu structure
+    // NOTE: The GMB Food Menus API endpoint may change — verify against
+    // https://developers.google.com/my-business/reference/rest/v4/accounts.locations.foodMenus
+    const sections: Record<string, typeof items> = {};
+    for (const item of items) {
+      const cat = item.category ?? "Menu";
+      if (!sections[cat]) sections[cat] = [];
+      sections[cat].push(item);
+    }
+
+    const menuSections = Object.entries(sections).map(([sectionName, sectionItems]) => ({
+      labels: [{ displayName: sectionName, languageCode: "en" }],
+      items: sectionItems.map(item => ({
+        labels: [{ displayName: item.name, description: item.description ?? "", languageCode: "en" }],
+        attributes: {
+          price: { currencyCode: "AUD", units: Math.floor(Number(item.price)), nanos: Math.round((Number(item.price) % 1) * 1e9) },
+        },
+      })),
+    }));
+
+    const res = await fetch(
+      `https://mybusiness.googleapis.com/v4/accounts/${settings.gmbAccountId}/locations/${settings.gmbLocationId}/foodMenus`,
+      {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${settings.gmbAccessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: `accounts/${settings.gmbAccountId}/locations/${settings.gmbLocationId}/foodMenus`,
+          menus: [{ labels: [{ displayName: "Menu", languageCode: "en" }], sections: menuSections }],
+        }),
+      }
+    );
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `GMB menu sync error: ${errText}` });
+    }
+    return { synced: items.length };
   }),
 
   // ─── Review Reply ───

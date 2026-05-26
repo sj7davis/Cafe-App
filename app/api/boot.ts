@@ -8,7 +8,7 @@ import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections } from "@db/schema";
+import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations } from "@db/schema";
 import { eq, and, gte, isNull, lte } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -483,6 +483,44 @@ cron.schedule("0 9 * * *", async () => {
     }
   } catch (err) {
     console.error("Birthday cron error:", err);
+  }
+});
+
+// ─── Reservation SMS reminders — every hour ───────────────────────────────────
+cron.schedule("0 * * * *", async () => {
+  try {
+    const db = getDb();
+    const now = new Date();
+    // Target: reservations 1.75h to 2.25h from now (±15min window around 2hr mark)
+    const windowStart = new Date(now.getTime() + 105 * 60000); // +1h45m
+    const windowEnd   = new Date(now.getTime() + 135 * 60000); // +2h15m
+
+    // Find reservations that haven't been reminded yet and are still pending/confirmed
+    const candidates = await db.select().from(reservations)
+      .where(
+        and(
+          sql`${reservations.status} IN ('pending', 'confirmed')`,
+          isNull(reservations.smsReminderSentAt),
+        )
+      )
+      .limit(100);
+
+    for (const res of candidates) {
+      try {
+        const resDateTime = new Date(`${res.reservationDate}T${res.reservationTime}:00`);
+        if (resDateTime >= windowStart && resDateTime <= windowEnd) {
+          await sendSms(
+            res.customerPhone,
+            `Reminder: Your reservation on ${res.reservationDate} at ${res.reservationTime} is in about 2 hours. Reply CANCEL to cancel.`
+          );
+          await db.update(reservations)
+            .set({ smsReminderSentAt: new Date() })
+            .where(eq(reservations.id, res.id));
+        }
+      } catch { /* per-reservation errors are non-blocking */ }
+    }
+  } catch (err) {
+    console.error("Reservation reminder cron error:", err);
   }
 });
 

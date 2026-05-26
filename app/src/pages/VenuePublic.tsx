@@ -242,6 +242,14 @@ export default function VenuePublic() {
     { enabled: !!venue?.id }
   );
 
+  // ── Public holiday surcharge ──────────────────────────────────────────────────
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: holidayData } = trpc.venue.isPublicHoliday.useQuery(
+    { venueId: venue?.id || 0, date: todayStr },
+    { enabled: !!venue?.id }
+  );
+  const isPublicHoliday = holidayData?.isHoliday ?? false;
+
   const { data: customerMe } = trpc.customerAuth.me.useQuery(undefined, {
     enabled: !!venue?.id,
   });
@@ -551,7 +559,14 @@ export default function VenuePublic() {
   const happyHourDiscountAmount = happyHourDiscount > 0 ? (cartSubtotal * happyHourDiscount) / 100 : 0;
   const effectivePromo = promoDiscountAmount > 0 ? promoDiscountAmount : happyHourDiscountAmount;
   const totalAfterDiscounts = Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount);
-  const orderTotal = totalAfterDiscounts + tipAmount;
+
+  // Public holiday surcharge
+  const surchargePercent = isPublicHoliday
+    ? (((venue as { settingsJson?: unknown })?.settingsJson as { publicHolidaySurcharge?: number } | null)?.publicHolidaySurcharge ?? 10)
+    : 0;
+  const surchargeAmount = isPublicHoliday ? (cartSubtotal * surchargePercent / 100) : 0;
+
+  const orderTotal = totalAfterDiscounts + tipAmount + surchargeAmount;
 
   async function handleApplyDiscountCode() {
     setDiscountError('');
@@ -574,6 +589,7 @@ export default function VenuePublic() {
     const notesParts: string[] = [];
     if (appliedGiftDiscount > 0) notesParts.push(`Gift card: -$${appliedGiftDiscount.toFixed(2)}`);
     if (tableNumber) notesParts.push(`Table: ${tableNumber}`);
+    if (isPublicHoliday && surchargeAmount > 0) notesParts.push(`Public holiday surcharge (${surchargePercent}%): +$${surchargeAmount.toFixed(2)}`);
     const resolvedPickupTime = orderType === 'dine-in'
       ? 'Now'
       : pickupMode === 'asap'
@@ -591,7 +607,7 @@ export default function VenuePublic() {
       customerEmail: checkoutEmail || undefined,
       orderNote: notesParts.join('; ') || undefined,
       items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity, note: c.note, modifiers: c.modifiers })),
-      tipAmount,
+      tipAmount: tipAmount + surchargeAmount,
       discountCode: appliedDiscount?.code,
       discountAmount: effectivePromo + appliedGiftDiscount,
       earnLoyalty: true,
@@ -1358,6 +1374,12 @@ export default function VenuePublic() {
                       <span>-${appliedGiftDiscount.toFixed(2)}</span>
                     </div>
                   )}
+                  {isPublicHoliday && surchargeAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#92400e', fontSize: '13px', marginBottom: 6 }}>
+                      <span>🎉 Public Holiday Surcharge ({surchargePercent}%)</span>
+                      <span>+${surchargeAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   {tipAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#5E5E5E', fontSize: 13 }}>
                       <span>Tip 🙏</span>
@@ -1455,6 +1477,13 @@ export default function VenuePublic() {
         </div>
       )}
 
+      {/* Public Holiday Banner */}
+      {isPublicHoliday && (
+        <div style={{ background: '#fef3c7', borderBottom: '1px solid #f59e0b', padding: '8px 16px', textAlign: 'center', fontSize: '13px', color: '#92400e' }}>
+          🎉 Public Holiday — a {surchargePercent}% surcharge applies today as required by Fair Work Australia
+        </div>
+      )}
+
       {/* Info Bar */}
       <div className="border-b" style={{ borderColor: `${primaryColor}15`, background: '#E8E4DD' }}>
         <div className="content-container py-4 flex flex-wrap items-center justify-center gap-6">
@@ -1493,6 +1522,20 @@ export default function VenuePublic() {
           borderBottom: `1px solid ${openStatus.isOpen ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.12)'}`,
         }}>
           {openStatus.isOpen ? '🟢' : '🔴'} {openStatus.label}
+        </div>
+      )}
+
+      {/* Book a Table button */}
+      {(venue?.settingsJson as { reservationsEnabled?: boolean } | null)?.reservationsEnabled !== false && (
+        <div style={{ textAlign: 'center', padding: '10px 16px' }}>
+          <a
+            href={`/book/${slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#5E8B8B', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontSize: '13px', fontWeight: 500 }}
+          >
+            📅 Book a Table
+          </a>
         </div>
       )}
 

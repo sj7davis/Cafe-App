@@ -10,7 +10,7 @@ export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -104,6 +104,8 @@ export default function OwnerDashboard() {
             { id: 'bundles' as const, label: 'Bundles', icon: Gift },
             { id: 'campaigns' as const, label: 'Campaigns', icon: Send },
             { id: 'loyalty' as const, label: 'Loyalty', icon: Star },
+            { id: 'delivery' as const, label: 'Delivery', icon: Globe },
+            { id: 'audit' as const, label: 'Audit', icon: Shield },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
               <tab.icon size={14} /> {tab.label}
@@ -130,12 +132,14 @@ export default function OwnerDashboard() {
         {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
         {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
         {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
+        {activeTab === 'delivery' && <DeliveryTab />}
+        {activeTab === 'audit' && <AuditTab />}
       </div>
     </div>
   );
 }
 
-function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty') => void }) {
+function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit') => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
@@ -520,6 +524,8 @@ function AnalyticsTab() {
           </div>
         )}
       </div>
+
+      <AnalyticsExtras analyticsRange={selectedDays} />
     </div>
   );
 }
@@ -1195,6 +1201,21 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
           </div>
         </div>
       </div>
+
+      {/* Lightspeed */}
+      <LightspeedCard token={token} />
+
+      {/* Tyro EFTPOS */}
+      <TyroCard token={token} />
+
+      {/* Impos POS */}
+      <ImposCard token={token} />
+
+      {/* Delivery Platforms Overview */}
+      <DeliveryOverviewCard token={token} />
+
+      {/* Google My Business */}
+      <GMBCard token={token} />
     </div>
   );
 }
@@ -3125,6 +3146,946 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
             </tbody>
           </table>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Analytics Extras (Period Comparison, Forecast, Menu Scorecard, GST) ─────
+function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+
+  const { data: periodComparison } = trpc.analytics.getPeriodComparison.useQuery(
+    { token, days: analyticsRange }, { enabled: !!token }
+  );
+  const { data: revenueForecast } = trpc.analytics.getRevenueForecast.useQuery(
+    { token }, { enabled: !!token }
+  );
+  const { data: menuScorecard } = trpc.analytics.getMenuScorecard.useQuery(
+    { token, days: analyticsRange }, { enabled: !!token }
+  );
+
+  const [gstFromDate, setGstFromDate] = useState('');
+  const [gstToDate, setGstToDate] = useState('');
+  const [showGST, setShowGST] = useState(false);
+  const { data: gstSummary, isFetching: gstFetching } = trpc.analytics.getGSTSummary.useQuery(
+    { token, fromDate: gstFromDate, toDate: gstToDate },
+    { enabled: showGST && !!gstFromDate && !!gstToDate }
+  );
+
+  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+
+  function downloadGSTCsv() {
+    if (!(gstSummary as any)?.csv) return;
+    const blob = new Blob([(gstSummary as any).csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'gst-report.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const pc = periodComparison as any;
+
+  return (
+    <>
+      {/* Period Comparison */}
+      {pc && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Period Comparison</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: 'Revenue', cur: pc.revenue?.current, prev: pc.revenue?.previous, prefix: '$' },
+              { label: 'Orders', cur: pc.orders?.current, prev: pc.orders?.previous, prefix: '' },
+              { label: 'Avg Order', cur: pc.avgOrder?.current, prev: pc.avgOrder?.previous, prefix: '$' },
+            ].map((card) => {
+              const change = card.prev && card.prev !== 0
+                ? ((card.cur - card.prev) / card.prev) * 100
+                : null;
+              const up = change !== null && change >= 0;
+              return (
+                <div key={card.label} className="border p-5" style={statCardStyle}>
+                  <span style={monoLabel}>{card.label}</span>
+                  <span style={bigNum}>{card.prefix}{typeof card.cur === 'number' ? card.cur.toFixed(2) : '—'}</span>
+                  {card.prev !== undefined && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>
+                        prev: {card.prefix}{typeof card.prev === 'number' ? card.prev.toFixed(2) : '—'}
+                      </span>
+                      {change !== null && (
+                        <span className="font-data" style={{ fontSize: '0.5625rem', color: up ? '#5E8B5E' : '#B85450' }}>
+                          {up ? '↑' : '↓'}{Math.abs(change).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Revenue Forecast */}
+      {revenueForecast && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Predicted Revenue — Next 7 Days</h2>
+          {(revenueForecast as any).days && (revenueForecast as any).days.length > 0 && (
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart data={(revenueForecast as any).days} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
+                <XAxis dataKey="date" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v}`} />
+                <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Predicted']} labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
+                <Area type="monotone" dataKey="predicted" stroke="#C4953A" fill="rgba(196,149,58,0.15)" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+          {(revenueForecast as any).total !== undefined && (
+            <p className="font-data mt-3" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>
+              Predicted total: <span style={{ color: '#181818', fontWeight: 600 }}>${Number((revenueForecast as any).total).toFixed(2)}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Menu Scorecard */}
+      {menuScorecard && (menuScorecard as any[]).length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Menu Scorecard</h2>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Rank', 'Item', 'Units Sold', 'Revenue', 'Rev Share %', 'Trend'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(menuScorecard as { name: string; unitsSold: number; revenue: number; revenueShare: number; trendPct: number }[]).map((row, idx) => {
+                  const trendColor = row.trendPct > 5 ? '#5E8B5E' : row.trendPct < -5 ? '#B85450' : '#5E5E5E';
+                  const trendArrow = row.trendPct > 5 ? '↑' : row.trendPct < -5 ? '↓' : '→';
+                  return (
+                    <tr key={row.name} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: '#5E5E5E' }}>{idx + 1}</td>
+                      <td style={{ padding: '10px 10px', fontWeight: 500, color: '#181818' }}>{row.name}</td>
+                      <td style={{ padding: '10px 10px' }}>{row.unitsSold}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E8B5E' }}>${Number(row.revenue).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px' }}>{Number(row.revenueShare).toFixed(1)}%</td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span className="font-data" style={{ fontSize: '0.625rem', color: trendColor }}>
+                          {trendArrow} {Math.abs(row.trendPct).toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* GST Summary */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>GST Summary</h2>
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>From</label>
+            <input type="date" value={gstFromDate} onChange={e => { setGstFromDate(e.target.value); setShowGST(false); }}
+              className="border px-3 py-2 focus:outline-none bg-transparent"
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>To</label>
+            <input type="date" value={gstToDate} onChange={e => { setGstToDate(e.target.value); setShowGST(false); }}
+              className="border px-3 py-2 focus:outline-none bg-transparent"
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+          </div>
+          <button
+            disabled={!gstFromDate || !gstToDate || gstFetching}
+            onClick={() => setShowGST(true)}
+            className="px-4 py-2 font-button flex items-center gap-2"
+            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!gstFromDate || !gstToDate) ? 0.5 : 1 }}
+          >
+            {gstFetching ? <Loader2 size={14} className="animate-spin" /> : <PieChartIcon size={14} />}
+            Generate
+          </button>
+        </div>
+        {gstSummary && (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {[
+                { label: 'Total Revenue', value: `$${Number((gstSummary as any).totalRevenue ?? 0).toFixed(2)}` },
+                { label: 'GST (1/11th)', value: `$${Number((gstSummary as any).gstComponent ?? 0).toFixed(2)}` },
+                { label: 'Net Ex-GST', value: `$${Number((gstSummary as any).netExGST ?? 0).toFixed(2)}` },
+              ].map(s => (
+                <div key={s.label} className="border p-4" style={statCardStyle}>
+                  <span style={monoLabel}>{s.label}</span>
+                  <span style={bigNum}>{s.value}</span>
+                </div>
+              ))}
+            </div>
+            {(gstSummary as any).byPaymentMethod && (gstSummary as any).byPaymentMethod.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
+                    {['Payment Method', 'Revenue', 'GST', 'Net Ex-GST'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(gstSummary as any).byPaymentMethod.map((row: any) => (
+                    <tr key={row.method} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: '#181818' }}>{row.method || 'Other'}</td>
+                      <td style={{ padding: '8px 10px' }}>${Number(row.revenue).toFixed(2)}</td>
+                      <td style={{ padding: '8px 10px', color: '#C4953A' }}>${Number(row.gst).toFixed(2)}</td>
+                      <td style={{ padding: '8px 10px', color: '#5E8B5E' }}>${Number(row.net).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <button
+              onClick={downloadGSTCsv}
+              className="px-4 py-2 font-button flex items-center gap-2"
+              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+            >
+              <Download size={14} /> Download GST Report
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Delivery Tab ─────────────────────────────────────────────────────────────
+type DeliveryPlatform = 'all' | 'uber_eats' | 'doordash' | 'menulog' | 'manual';
+
+function DeliveryTab() {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [platformFilter, setPlatformFilter] = useState<DeliveryPlatform>('all');
+  const [days, setDays] = useState(30);
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logForm, setLogForm] = useState({ platform: 'uber_eats', customerName: '', items: '', subtotal: '', platformFee: '', notes: '' });
+  const [logMsg, setLogMsg] = useState('');
+
+  const { data: deliveryOrders, refetch: refetchDelivery } = trpc.delivery.list.useQuery(
+    { token, platform: platformFilter === 'all' ? undefined : platformFilter, days },
+    { enabled: !!token }
+  );
+  const { data: deliverySummary } = trpc.delivery.getSummary.useQuery(
+    { token, days },
+    { enabled: !!token }
+  );
+  const logManual = trpc.delivery.logManualOrder.useMutation({
+    onSuccess: () => {
+      setLogMsg('Order logged!');
+      setLogForm({ platform: 'uber_eats', customerName: '', items: '', subtotal: '', platformFee: '', notes: '' });
+      refetchDelivery();
+    },
+    onError: (e) => setLogMsg(e.message),
+  });
+
+  const platformBadgeColor = (p: string) => {
+    if (p === 'uber_eats') return { bg: 'rgba(255,102,0,0.12)', color: '#FF6600' };
+    if (p === 'doordash') return { bg: 'rgba(255,59,48,0.12)', color: '#FF3B30' };
+    if (p === 'menulog') return { bg: 'rgba(94,139,94,0.12)', color: '#5E8B5E' };
+    return { bg: 'rgba(24,24,24,0.08)', color: '#5E5E5E' };
+  };
+  const platformLabel = (p: string) => ({ uber_eats: 'Uber Eats', doordash: 'DoorDash', menulog: 'Menulog', manual: 'Manual' } as Record<string, string>)[p] ?? p;
+
+  const orders = (deliveryOrders as any[] | undefined) ?? [];
+  const summary = deliverySummary as any;
+  const totalOrders = summary?.totalOrders ?? orders.length;
+  const totalNet = summary?.totalNet ?? orders.reduce((s: number, o: any) => s + Number(o.net ?? 0), 0);
+  const totalFees = summary?.totalFees ?? orders.reduce((s: number, o: any) => s + Number(o.platformFee ?? 0), 0);
+
+  const inputCls = "w-full bg-transparent border px-3 py-2 focus:outline-none";
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
+  const labelStyle = { fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.375rem' };
+
+  return (
+    <div className="space-y-6">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PLATFORM:</span>
+          {(['all', 'uber_eats', 'doordash', 'menulog', 'manual'] as DeliveryPlatform[]).map((p) => (
+            <button key={p} onClick={() => setPlatformFilter(p)}
+              className="px-3 py-1 font-data"
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: platformFilter === p ? '#181818' : 'transparent', color: platformFilter === p ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              {platformLabel(p)}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>DAYS:</span>
+          {[7, 30, 90].map((d) => (
+            <button key={d} onClick={() => setDays(d)}
+              className="px-3 py-1 font-data"
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              {d}D
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto">
+          <button onClick={() => { setShowLogForm(!showLogForm); setLogMsg(''); }}
+            className="px-4 py-2 font-button flex items-center gap-2"
+            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+            <Plus size={14} /> Log Manual Order
+          </button>
+        </div>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+          { label: 'Total Orders', value: String(totalOrders) },
+          { label: 'Net Revenue', value: `$${Number(totalNet).toFixed(2)}` },
+          { label: 'Platform Fees', value: `$${Number(totalFees).toFixed(2)}` },
+        ].map(s => (
+          <div key={s.label} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+            <span style={{ fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>{s.label}</span>
+            <span style={{ fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' }}>{s.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Log Manual Order form */}
+      {showLogForm && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Log Manual Order</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label style={labelStyle}>Platform</label>
+              <select value={logForm.platform} onChange={e => setLogForm({ ...logForm, platform: e.target.value })}
+                className={inputCls} style={inputStyle}>
+                <option value="uber_eats">Uber Eats</option>
+                <option value="doordash">DoorDash</option>
+                <option value="menulog">Menulog</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Customer Name</label>
+              <input type="text" value={logForm.customerName} onChange={e => setLogForm({ ...logForm, customerName: e.target.value })}
+                className={inputCls} style={inputStyle} placeholder="Customer name" />
+            </div>
+            <div className="md:col-span-2">
+              <label style={labelStyle}>Items</label>
+              <textarea value={logForm.items} onChange={e => setLogForm({ ...logForm, items: e.target.value })}
+                rows={2} className={inputCls} style={inputStyle} placeholder="e.g. 2x Flat White, 1x Croissant" />
+            </div>
+            <div>
+              <label style={labelStyle}>Subtotal ($)</label>
+              <input type="number" step="0.01" value={logForm.subtotal} onChange={e => setLogForm({ ...logForm, subtotal: e.target.value })}
+                className={inputCls} style={inputStyle} placeholder="0.00" />
+            </div>
+            <div>
+              <label style={labelStyle}>Platform Fee ($)</label>
+              <input type="number" step="0.01" value={logForm.platformFee} onChange={e => setLogForm({ ...logForm, platformFee: e.target.value })}
+                className={inputCls} style={inputStyle} placeholder="0.00" />
+            </div>
+            <div className="md:col-span-2">
+              <label style={labelStyle}>Notes</label>
+              <input type="text" value={logForm.notes} onChange={e => setLogForm({ ...logForm, notes: e.target.value })}
+                className={inputCls} style={inputStyle} placeholder="Optional notes" />
+            </div>
+          </div>
+          {logMsg && <p className="font-data mb-3" style={{ fontSize: '0.625rem', color: logMsg === 'Order logged!' ? '#5E8B5E' : '#B85450' }}>{logMsg}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              disabled={logManual.isPending}
+              onClick={() => {
+                setLogMsg('');
+                logManual.mutate({
+                  token,
+                  platform: logForm.platform,
+                  customerName: logForm.customerName,
+                  items: logForm.items,
+                  subtotal: Number(logForm.subtotal) || 0,
+                  platformFee: Number(logForm.platformFee) || 0,
+                  notes: logForm.notes,
+                });
+              }}
+              className="px-6 py-3 font-button flex items-center gap-2"
+              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+              {logManual.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              Save Order
+            </button>
+            <button onClick={() => setShowLogForm(false)}
+              className="px-4 py-2 font-data border"
+              style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#5E5E5E', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Orders table */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Orders</h2>
+        {orders.length === 0 ? (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No delivery orders for this period.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Platform', 'Customer', 'Items', 'Subtotal', 'Fee', 'Net', 'Status', 'Date'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order: any) => {
+                  const badge = platformBadgeColor(order.platform);
+                  return (
+                    <tr key={order.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span style={{ fontSize: 11, fontFamily: 'Geist Mono', padding: '2px 8px', background: badge.bg, color: badge.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          {platformLabel(order.platform)}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 10px', color: '#181818' }}>{order.customerName || '—'}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E5E5E', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.items}>
+                        {order.items ? (order.items.length > 40 ? order.items.slice(0, 40) + '…' : order.items) : '—'}
+                      </td>
+                      <td style={{ padding: '10px 10px' }}>${Number(order.subtotal ?? 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: '#B85450' }}>${Number(order.platformFee ?? 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E8B5E', fontWeight: 500 }}>${Number(order.net ?? 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span style={{ fontSize: 11, fontFamily: 'Geist Mono', padding: '2px 8px', background: 'rgba(94,139,94,0.1)', color: '#5E8B5E', textTransform: 'uppercase' }}>
+                          {order.status || 'delivered'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 10px', color: '#5E5E5E', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Audit Tab ────────────────────────────────────────────────────────────────
+function AuditTab() {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [days, setDays] = useState(30);
+  const [entityFilter, setEntityFilter] = useState<string>('all');
+  const [exportFromDate, setExportFromDate] = useState('');
+  const [exportToDate, setExportToDate] = useState('');
+  const [triggerOrderExport, setTriggerOrderExport] = useState(false);
+  const [triggerCustomerExport, setTriggerCustomerExport] = useState(false);
+
+  const { data: auditRows, isLoading: auditLoading } = trpc.audit.list.useQuery(
+    { token, days, entityType: entityFilter === 'all' ? undefined : entityFilter },
+    { enabled: !!token }
+  );
+  const { data: ordersExport } = trpc.audit.exportOrders.useQuery(
+    { token, fromDate: exportFromDate, toDate: exportToDate },
+    { enabled: triggerOrderExport && !!exportFromDate && !!exportToDate }
+  );
+  const { data: customersExport } = trpc.audit.exportCustomers.useQuery(
+    { token },
+    { enabled: triggerCustomerExport }
+  );
+
+  useEffect(() => {
+    if (ordersExport && (ordersExport as any).csv) {
+      setTriggerOrderExport(false);
+      const blob = new Blob([(ordersExport as any).csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'orders.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, [ordersExport]);
+
+  useEffect(() => {
+    if (customersExport && (customersExport as any).csv) {
+      setTriggerCustomerExport(false);
+      const blob = new Blob([(customersExport as any).csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'customers.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, [customersExport]);
+
+  const rows = (auditRows as any[] | undefined) ?? [];
+  const entityTypes = ['all', 'orders', 'menu', 'staff', 'settings'];
+
+  return (
+    <div className="space-y-6">
+      {/* Export buttons */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Exports</h2>
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Orders From</label>
+            <input type="date" value={exportFromDate} onChange={e => { setExportFromDate(e.target.value); setTriggerOrderExport(false); }}
+              className="border px-3 py-2 focus:outline-none bg-transparent"
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>To</label>
+            <input type="date" value={exportToDate} onChange={e => { setExportToDate(e.target.value); setTriggerOrderExport(false); }}
+              className="border px-3 py-2 focus:outline-none bg-transparent"
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+          </div>
+          <button
+            disabled={!exportFromDate || !exportToDate}
+            onClick={() => setTriggerOrderExport(true)}
+            className="px-4 py-2 font-button flex items-center gap-2"
+            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!exportFromDate || !exportToDate) ? 0.5 : 1 }}
+          >
+            <Download size={14} /> Export Orders CSV
+          </button>
+          <button
+            onClick={() => setTriggerCustomerExport(true)}
+            className="px-4 py-2 font-button flex items-center gap-2"
+            style={{ background: '#5E8B8B', color: '#fff', fontSize: '0.75rem' }}
+          >
+            <Download size={14} /> Export Customers CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>ENTITY:</span>
+          {entityTypes.map((e) => (
+            <button key={e} onClick={() => setEntityFilter(e)}
+              className="px-3 py-1 font-data"
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: entityFilter === e ? '#181818' : 'transparent', color: entityFilter === e ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              {e}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>DAYS:</span>
+          {[7, 30, 90].map((d) => (
+            <button key={d} onClick={() => setDays(d)}
+              className="px-3 py-1 font-data"
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              {d}D
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Audit log table */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Audit Log</h2>
+        {auditLoading && (
+          <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+        )}
+        {!auditLoading && rows.length === 0 && (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No audit entries for this period.</p>
+        )}
+        {!auditLoading && rows.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Time', 'Actor', 'Action', 'Entity', 'Details'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row: any, idx: number) => {
+                  let detailStr = '';
+                  try { detailStr = typeof row.details === 'string' ? row.details : JSON.stringify(row.details); } catch { detailStr = ''; }
+                  return (
+                    <tr key={row.id ?? idx} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '10px 10px', whiteSpace: 'nowrap', fontFamily: 'Geist Mono', fontSize: 11, color: '#5E5E5E' }}>
+                        {row.createdAt ? new Date(row.createdAt).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </td>
+                      <td style={{ padding: '10px 10px', color: '#181818' }}>{row.actor || row.actorEmail || '—'}</td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span style={{ fontSize: 11, fontFamily: 'Geist Mono', padding: '2px 8px', background: 'rgba(94,139,139,0.1)', color: '#5E8B8B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          {row.action || '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 10px', color: '#5E5E5E', textTransform: 'capitalize' }}>{row.entityType || '—'}{row.entityId ? ` #${row.entityId}` : ''}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E5E5E', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={detailStr}>
+                        {detailStr.length > 60 ? detailStr.slice(0, 60) + '…' : detailStr}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Integration sub-cards ────────────────────────────────────────────────────
+function LightspeedCard({ token }: { token: string }) {
+  const { data: conn, refetch } = trpc.lightspeed.getConnection.useQuery({ token }, { enabled: !!token });
+  const { refetch: fetchAuthUrl, isFetching: authFetching } = trpc.lightspeed.getAuthUrl.useQuery(
+    { token }, { enabled: false }
+  );
+  const syncMenuLS = trpc.lightspeed.syncMenu.useMutation();
+  const [syncMsg, setSyncMsg] = useState('');
+  const c = conn as any;
+
+  async function handleConnect() {
+    const result = await fetchAuthUrl();
+    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
+  }
+
+  return (
+    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#FF6600' }}>
+          <Zap size={20} style={{ color: '#fff' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Lightspeed Restaurant</h3>
+          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
+            Sync your Lightspeed Restaurant menu and inventory
+          </p>
+          {c?.connected ? (
+            <div>
+              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
+                <Check size={10} className="inline mr-1" /> Connected
+                {c.lastSyncAt && <span style={{ color: '#5E5E5E', marginLeft: 8 }}>Last sync: {new Date(c.lastSyncAt).toLocaleDateString()}</span>}
+              </p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  onClick={() => { setSyncMsg(''); syncMenuLS.mutate({ token }, { onSuccess: () => setSyncMsg('Menu synced!'), onError: (e) => setSyncMsg(e.message) }); }}
+                  disabled={syncMenuLS.isPending}
+                  className="px-4 py-2 font-button flex items-center gap-2"
+                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncMenuLS.isPending ? 0.6 : 1 }}>
+                  {syncMenuLS.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
+                  Sync Menu
+                </button>
+                <button
+                  onClick={() => { if (window.confirm('Disconnect Lightspeed?')) refetch(); }}
+                  className="px-4 py-2 font-data border"
+                  style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
+                  Disconnect
+                </button>
+                {syncMsg && <span className="font-data" style={{ fontSize: '0.5625rem', color: syncMsg === 'Menu synced!' ? '#5E8B5E' : '#B85450' }}>{syncMsg}</span>}
+              </div>
+            </div>
+          ) : (
+            <button onClick={handleConnect} disabled={authFetching}
+              className="px-4 py-2 font-button flex items-center gap-2"
+              style={{ background: '#FF6600', color: '#fff', fontSize: '0.75rem', opacity: authFetching ? 0.6 : 1 }}>
+              {authFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+              Connect Lightspeed
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TyroCard({ token }: { token: string }) {
+  const { data: conn } = trpc.tyro.getConnection.useQuery({ token }, { enabled: !!token });
+  const connect = trpc.tyro.connect.useMutation();
+  const [form, setForm] = useState({ apiKey: '', merchantId: '', terminalId: '' });
+  const [connectMsg, setConnectMsg] = useState('');
+  const [settlementDate, setSettlementDate] = useState('');
+  const [fetchSettlement, setFetchSettlement] = useState(false);
+  const { data: settlement, isFetching: settleFetching } = trpc.tyro.getSettlement.useQuery(
+    { token, date: settlementDate },
+    { enabled: fetchSettlement && !!settlementDate }
+  );
+  const c = conn as any;
+
+  return (
+    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#003087' }}>
+          <CreditCard size={20} style={{ color: '#fff' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Tyro EFTPOS</h3>
+          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
+            Connect your Tyro EFTPOS terminal for transaction reconciliation
+          </p>
+          {c?.connected ? (
+            <div>
+              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
+                <Check size={10} className="inline mr-1" /> Connected — Terminal: {c.terminalId}
+              </p>
+              <div className="flex flex-wrap items-end gap-3 mb-3">
+                <div>
+                  <label className="font-data block mb-1" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Settlement Date</label>
+                  <input type="date" value={settlementDate} onChange={e => { setSettlementDate(e.target.value); setFetchSettlement(false); }}
+                    className="border px-3 py-2 focus:outline-none bg-transparent"
+                    style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+                </div>
+                <button disabled={!settlementDate || settleFetching} onClick={() => setFetchSettlement(true)}
+                  className="px-4 py-2 font-button flex items-center gap-2"
+                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: !settlementDate ? 0.5 : 1 }}>
+                  {settleFetching ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
+                  View Settlement
+                </button>
+              </div>
+              {settlement && (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 8 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
+                        {['Type', 'Count', 'Amount'].map(h => (
+                          <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {((settlement as any).totals ?? []).map((row: any) => (
+                        <tr key={row.type} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                          <td style={{ padding: '6px 8px', textTransform: 'capitalize', color: '#181818' }}>{row.type}</td>
+                          <td style={{ padding: '6px 8px' }}>{row.count}</td>
+                          <td style={{ padding: '6px 8px', color: '#5E8B5E', fontWeight: 500 }}>${Number(row.amount).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                {[
+                  { label: 'API Key', key: 'apiKey', placeholder: 'tyro-api-key' },
+                  { label: 'Merchant ID', key: 'merchantId', placeholder: 'MID-123456' },
+                  { label: 'Terminal ID', key: 'terminalId', placeholder: 'TID-001' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+                    <input type="text" placeholder={f.placeholder} value={(form as any)[f.key]}
+                      onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                      className="w-full bg-transparent border px-3 py-2 focus:outline-none"
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+                  </div>
+                ))}
+              </div>
+              {connectMsg && <p className="font-data mb-2" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{connectMsg}</p>}
+              <button
+                disabled={connect.isPending || !form.apiKey || !form.merchantId || !form.terminalId}
+                onClick={() => { setConnectMsg(''); connect.mutate({ token, ...form }, { onError: (e) => setConnectMsg(e.message) }); }}
+                className="px-4 py-2 font-button flex items-center gap-2"
+                style={{ background: '#003087', color: '#fff', fontSize: '0.75rem', opacity: (!form.apiKey || !form.merchantId || !form.terminalId) ? 0.5 : 1 }}>
+                {connect.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                Connect Tyro
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImposCard({ token }: { token: string }) {
+  const { data: conn, refetch } = trpc.impos.getConnection.useQuery({ token }, { enabled: !!token });
+  const connect = trpc.impos.connect.useMutation({ onSuccess: () => refetch() });
+  const syncMenuImpos = trpc.impos.syncMenu.useMutation();
+  const [form, setForm] = useState({ apiKey: '', siteId: '' });
+  const [connectMsg, setConnectMsg] = useState('');
+  const [syncMsg, setSyncMsg] = useState('');
+  const c = conn as any;
+
+  return (
+    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#181818' }}>
+          <Coffee size={20} style={{ color: '#F3F2EE' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Impos POS</h3>
+          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
+            Sync your Impos POS menu and sales data
+          </p>
+          {c?.connected ? (
+            <div>
+              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
+                <Check size={10} className="inline mr-1" /> Connected
+                {c.lastSyncAt && <span style={{ color: '#5E5E5E', marginLeft: 8 }}>Last sync: {new Date(c.lastSyncAt).toLocaleDateString()}</span>}
+              </p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  onClick={() => { setSyncMsg(''); syncMenuImpos.mutate({ token }, { onSuccess: () => setSyncMsg('Menu synced!'), onError: (e) => setSyncMsg(e.message) }); }}
+                  disabled={syncMenuImpos.isPending}
+                  className="px-4 py-2 font-button flex items-center gap-2"
+                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncMenuImpos.isPending ? 0.6 : 1 }}>
+                  {syncMenuImpos.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
+                  Sync Menu
+                </button>
+                <button
+                  onClick={() => { if (window.confirm('Disconnect Impos?')) connect.mutate({ token, apiKey: '', siteId: '' }); }}
+                  className="px-4 py-2 font-data border"
+                  style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
+                  Disconnect
+                </button>
+                {syncMsg && <span className="font-data" style={{ fontSize: '0.5625rem', color: syncMsg === 'Menu synced!' ? '#5E8B5E' : '#B85450' }}>{syncMsg}</span>}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                {[
+                  { label: 'API Key', key: 'apiKey', placeholder: 'impos-api-key' },
+                  { label: 'Site ID', key: 'siteId', placeholder: 'SITE-001' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+                    <input type="text" placeholder={f.placeholder} value={(form as any)[f.key]}
+                      onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                      className="w-full bg-transparent border px-3 py-2 focus:outline-none"
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+                  </div>
+                ))}
+              </div>
+              {connectMsg && <p className="font-data mb-2" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{connectMsg}</p>}
+              <button
+                disabled={connect.isPending || !form.apiKey || !form.siteId}
+                onClick={() => { setConnectMsg(''); connect.mutate({ token, ...form }, { onError: (e) => setConnectMsg(e.message) }); }}
+                className="px-4 py-2 font-button flex items-center gap-2"
+                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!form.apiKey || !form.siteId) ? 0.5 : 1 }}>
+                {connect.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                Connect Impos
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeliveryOverviewCard({ token }: { token: string }) {
+  const { data: summary } = trpc.delivery.getSummary.useQuery({ token, days: 30 }, { enabled: !!token });
+  const s = summary as any;
+
+  return (
+    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#181818' }}>
+          <Globe size={20} style={{ color: '#F3F2EE' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Delivery Platforms</h3>
+          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
+            Track delivery platform orders and fees in one place (last 30 days)
+          </p>
+          {s?.byPlatform && s.byPlatform.length > 0 ? (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
+                    {['Platform', 'Orders', 'Net Revenue', 'Fees'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.byPlatform.map((row: any) => (
+                    <tr key={row.platform} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '8px 8px', textTransform: 'capitalize', color: '#181818', fontWeight: 500 }}>
+                        {row.platform === 'uber_eats' ? 'Uber Eats' : row.platform === 'doordash' ? 'DoorDash' : row.platform === 'menulog' ? 'Menulog' : row.platform}
+                      </td>
+                      <td style={{ padding: '8px 8px' }}>{row.orders}</td>
+                      <td style={{ padding: '8px 8px', color: '#5E8B5E', fontWeight: 500 }}>${Number(row.net).toFixed(2)}</td>
+                      <td style={{ padding: '8px 8px', color: '#B85450' }}>${Number(row.fees).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>No delivery data yet. Log orders in the Delivery tab.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GMBCard({ token }: { token: string }) {
+  const { data: conn } = trpc.venue.gmbGetConnection.useQuery({ token }, { enabled: !!token });
+  const { refetch: fetchAuthUrl, isFetching: authFetching } = trpc.venue.gmbGetAuthUrl.useQuery(
+    { token }, { enabled: false }
+  );
+  const syncHoursGMB = trpc.venue.gmbSyncHours.useMutation();
+  const syncMenuGMB = trpc.venue.gmbSyncMenu.useMutation();
+  const [syncMsg, setSyncMsg] = useState('');
+  const c = conn as any;
+
+  async function handleConnect() {
+    const result = await fetchAuthUrl();
+    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
+  }
+
+  return (
+    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#4285F4' }}>
+          <Globe size={20} style={{ color: '#fff' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Google My Business</h3>
+          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
+            Keep your Google listing up to date with your live hours and menu
+          </p>
+          {c?.connected ? (
+            <div>
+              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
+                <Check size={10} className="inline mr-1" /> Connected
+              </p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  onClick={() => { setSyncMsg(''); syncHoursGMB.mutate({ token }, { onSuccess: () => setSyncMsg('Hours synced!'), onError: (e) => setSyncMsg(e.message) }); }}
+                  disabled={syncHoursGMB.isPending}
+                  className="px-4 py-2 font-button flex items-center gap-2"
+                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncHoursGMB.isPending ? 0.6 : 1 }}>
+                  {syncHoursGMB.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Sync Hours
+                </button>
+                <button
+                  onClick={() => { setSyncMsg(''); syncMenuGMB.mutate({ token }, { onSuccess: () => setSyncMsg('Menu synced!'), onError: (e) => setSyncMsg(e.message) }); }}
+                  disabled={syncMenuGMB.isPending}
+                  className="px-4 py-2 font-button flex items-center gap-2"
+                  style={{ background: '#4285F4', color: '#fff', fontSize: '0.75rem', opacity: syncMenuGMB.isPending ? 0.6 : 1 }}>
+                  {syncMenuGMB.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
+                  Sync Menu
+                </button>
+                {syncMsg && <span className="font-data" style={{ fontSize: '0.5625rem', color: syncMsg.includes('synced') ? '#5E8B5E' : '#B85450' }}>{syncMsg}</span>}
+              </div>
+            </div>
+          ) : (
+            <button onClick={handleConnect} disabled={authFetching}
+              className="px-4 py-2 font-button flex items-center gap-2"
+              style={{ background: '#4285F4', color: '#fff', fontSize: '0.75rem', opacity: authFetching ? 0.6 : 1 }}>
+              {authFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+              Connect Google My Business
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
