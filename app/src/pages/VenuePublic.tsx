@@ -1,11 +1,11 @@
-import { useParams, useSearchParams, Link } from 'react-router';
+import { useParams, useSearchParams, Link, useNavigate } from 'react-router';
 import { trpc } from '@/providers/trpc';
 import { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import {
   Coffee, MapPin, Phone, Clock, Globe, Loader2,
   ShoppingBag, Plus, Minus, X, ChevronRight, Star,
-  Package, CheckCircle, QrCode, Download, Gift, AlertTriangle,
+  Package, CheckCircle, QrCode, Download, Gift, AlertTriangle, Bell, Users,
 } from 'lucide-react';
 
 // ─── Hours parsing helpers ───────────────────────────────────────────────────
@@ -128,6 +128,7 @@ function isWithinHappyHour(startTime: string, endTime: string): boolean {
 export default function VenuePublic() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // ── Table mode ──────────────────────────────────────────────────────────────
   const tableParam = searchParams.get('table');
@@ -181,6 +182,26 @@ export default function VenuePublic() {
 
   // ── Loyalty rewards catalogue ─────────────────────────────────────────────────
   const [showRewardsCatalogue, setShowRewardsCatalogue] = useState(false);
+
+  // ── Scheduled pickup time ─────────────────────────────────────────────────────
+  const [pickupMode, setPickupMode] = useState<'asap' | 'schedule'>('asap');
+  const [scheduleDay, setScheduleDay] = useState<'today' | 'tomorrow'>('today');
+  const [scheduleSlot, setScheduleSlot] = useState('');
+
+  // ── Favourite orders ──────────────────────────────────────────────────────────
+  const [showSaveFav, setShowSaveFav] = useState(false);
+  const [favLabel, setFavLabel] = useState('');
+  const saveFavTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Group order ───────────────────────────────────────────────────────────────
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [groupModalTab, setGroupModalTab] = useState<'start' | 'join'>('start');
+  const [groupHostName, setGroupHostName] = useState('');
+  const [groupJoinCode, setGroupJoinCode] = useState('');
+  const [groupSessionCode, setGroupSessionCode] = useState<string | null>(null);
+
+  // ── Push notifications ────────────────────────────────────────────────────────
+  const [wantsPushNotify, setWantsPushNotify] = useState(false);
 
   // ── Abandoned cart debounce ───────────────────────────────────────────────────
   const abandonedCartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -293,8 +314,31 @@ export default function VenuePublic() {
   const saveAbandonedCartMutation = trpc.venue.saveAbandonedCart.useMutation();
   const clearAbandonedCartMutation = trpc.venue.clearAbandonedCart.useMutation();
 
+  // ── Favourite orders queries/mutations ────────────────────────────────────────
+  const favouriteOrdersQuery = trpc.venue.listFavouriteOrders.useQuery(
+    { venueId: venue?.id ?? 0, phone: checkoutPhone },
+    { enabled: !!venue?.id && checkoutPhone.length >= 8 }
+  );
+  const saveFavouriteMutation = trpc.venue.saveFavouriteOrder.useMutation({
+    onSuccess: () => {
+      setShowSaveFav(false);
+      showToast('⭐ Saved to favourites!');
+      favouriteOrdersQuery.refetch();
+    },
+  });
+  const incrementFavUsage = trpc.venue.incrementFavouriteUsage.useMutation();
+
+  // ── Group order mutations ──────────────────────────────────────────────────────
+  const createGroupSession = trpc.venue.createGroupSession.useMutation({
+    onSuccess: (data) => {
+      setGroupSessionCode((data as { sessionCode: string }).sessionCode);
+    },
+  });
+
   const createOrder = trpc.venue.createOrder.useMutation({
     onSuccess: (data) => {
+      // capture cart before clearing for save-favourite
+      const savedCart = [...cart];
       setCart([]);
       setPlacedOrderNumber(data.orderNumber);
       setShowCart(true);
@@ -312,6 +356,19 @@ export default function VenuePublic() {
       }
       if (checkoutUsePass && passInfo?.id && venue?.id) {
         usePassCreditMutation.mutate({ passId: passInfo.id, venueId: venue.id });
+      }
+      // Push notification subscription if opted in
+      if (wantsPushNotify && checkoutPhone && 'serviceWorker' in navigator && 'PushManager' in window) {
+        import('@/hooks/usePushSubscription').then(({ subscribePush }) => {
+          subscribePush(checkoutPhone).catch(() => {});
+        }).catch(() => {});
+      }
+      // Show save-favourite prompt if phone filled and has items
+      if (checkoutPhone && savedCart.length > 0) {
+        setFavLabel(savedCart[0].name + (savedCart.length > 1 ? ` + ${savedCart.length - 1} more` : ''));
+        setShowSaveFav(true);
+        if (saveFavTimer.current) clearTimeout(saveFavTimer.current);
+        saveFavTimer.current = setTimeout(() => setShowSaveFav(false), 10000);
       }
     },
   });
@@ -517,11 +574,19 @@ export default function VenuePublic() {
     const notesParts: string[] = [];
     if (appliedGiftDiscount > 0) notesParts.push(`Gift card: -$${appliedGiftDiscount.toFixed(2)}`);
     if (tableNumber) notesParts.push(`Table: ${tableNumber}`);
+    const resolvedPickupTime = orderType === 'dine-in'
+      ? 'Now'
+      : pickupMode === 'asap'
+        ? 'ASAP'
+        : scheduleSlot
+          ? `${scheduleDay === 'today' ? 'Today' : 'Tomorrow'} at ${scheduleSlot}`
+          : (checkoutPickupTime || 'ASAP');
+
     createOrder.mutate({
       venueId: venue.id,
       customerName: checkoutName || 'Guest',
       customerPhone: checkoutPhone || '0000000000',
-      pickupTime: orderType === 'dine-in' ? 'Now' : (checkoutPickupTime || 'ASAP'),
+      pickupTime: resolvedPickupTime,
       locationId: selectedLocationId ?? undefined,
       customerEmail: checkoutEmail || undefined,
       orderNote: notesParts.join('; ') || undefined,
@@ -665,6 +730,140 @@ export default function VenuePublic() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Save Favourite Prompt */}
+      {showSaveFav && (
+        <div style={{
+          position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 200, background: '#fff', borderRadius: 12, padding: '16px 20px',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.18)', maxWidth: 380, width: 'calc(100% - 32px)',
+          border: '1px solid rgba(94,139,139,0.25)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>⭐ Save as favourite order?</span>
+            <button onClick={() => { setShowSaveFav(false); if (saveFavTimer.current) clearTimeout(saveFavTimer.current); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+              <X size={14} />
+            </button>
+          </div>
+          <input
+            value={favLabel}
+            onChange={e => setFavLabel(e.target.value)}
+            placeholder="Label for this order"
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 13, color: '#181818', boxSizing: 'border-box', marginBottom: 10 }}
+          />
+          <button
+            onClick={() => {
+              if (!venue?.id || !checkoutPhone || !favLabel.trim()) return;
+              const total = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+              saveFavouriteMutation.mutate({
+                venueId: venue.id,
+                phone: checkoutPhone,
+                label: favLabel.trim(),
+                itemsJson: JSON.stringify(cart),
+                totalAmount: total,
+              });
+            }}
+            disabled={saveFavouriteMutation.isPending || !favLabel.trim()}
+            style={{
+              width: '100%', padding: '8px 0', borderRadius: 8, border: 'none',
+              background: '#5E8B8B', color: '#fff', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', opacity: !favLabel.trim() ? 0.5 : 1,
+            }}
+          >
+            {saveFavouriteMutation.isPending ? 'Saving…' : 'Save Favourite'}
+          </button>
+        </div>
+      )}
+
+      {/* Group Order Modal */}
+      {showGroupModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => { setShowGroupModal(false); setGroupSessionCode(null); }}
+        >
+          <div
+            style={{ background: '#F3F2EE', borderRadius: '12px 12px 0 0', width: '100%', maxWidth: 480, padding: 24 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: '#181818', margin: 0 }}>👥 Group Order</h2>
+              <button onClick={() => { setShowGroupModal(false); setGroupSessionCode(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X size={20} color="#5E5E5E" />
+              </button>
+            </div>
+            {groupSessionCode ? (
+              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                <div style={{ fontSize: 32, fontWeight: 700, color: '#181818', letterSpacing: 4, marginBottom: 8 }}>{groupSessionCode}</div>
+                <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 12 }}>Share this code with your group</p>
+                <div style={{
+                  background: '#fff', borderRadius: 8, padding: '10px 14px', fontSize: 12,
+                  color: '#5E8B8B', border: '1px solid rgba(94,139,139,0.2)', wordBreak: 'break-all', marginBottom: 16,
+                }}>
+                  {window.location.origin}/group/{groupSessionCode}?v={venue?.id}
+                </div>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/group/${groupSessionCode}?v=${venue?.id}`); showToast('Link copied!'); }}
+                  style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#181818', color: '#F3F2EE', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Copy Link
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                  {(['start', 'join'] as const).map(tab => (
+                    <button key={tab} onClick={() => setGroupModalTab(tab)} style={{
+                      flex: 1, padding: '8px 0', borderRadius: 8, border: 'none',
+                      background: groupModalTab === tab ? '#181818' : '#fff',
+                      color: groupModalTab === tab ? '#F3F2EE' : '#181818',
+                      fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                    }}>
+                      {tab === 'start' ? 'Start Group Order' : 'Join Group Order'}
+                    </button>
+                  ))}
+                </div>
+                {groupModalTab === 'start' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <input
+                      placeholder="Your name"
+                      value={groupHostName}
+                      onChange={e => setGroupHostName(e.target.value)}
+                      style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (!venue?.id || !groupHostName.trim()) return;
+                        createGroupSession.mutate({ venueId: venue.id, hostPhone: checkoutPhone || '', hostName: groupHostName.trim() });
+                      }}
+                      disabled={createGroupSession.isPending || !groupHostName.trim()}
+                      style={{ padding: '12px 0', borderRadius: 8, border: 'none', background: '#5E8B8B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: !groupHostName.trim() ? 0.5 : 1 }}
+                    >
+                      {createGroupSession.isPending ? 'Creating…' : 'Create Group Session'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <input
+                      placeholder="Enter session code"
+                      value={groupJoinCode}
+                      onChange={e => setGroupJoinCode(e.target.value.toUpperCase())}
+                      style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818', letterSpacing: 2 }}
+                    />
+                    <button
+                      onClick={() => { if (groupJoinCode.trim()) navigate(`/group/${groupJoinCode.trim()}?v=${venue?.id}`); }}
+                      disabled={!groupJoinCode.trim()}
+                      style={{ padding: '12px 0', borderRadius: 8, border: 'none', background: '#5E8B8B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: !groupJoinCode.trim() ? 0.5 : 1 }}
+                    >
+                      Join Group
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -841,6 +1040,18 @@ export default function VenuePublic() {
                     onBlur={handlePhoneBlur}
                     style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
                   />
+                  {typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#181818', cursor: 'pointer', padding: '4px 0' }}>
+                      <input
+                        type="checkbox"
+                        checked={wantsPushNotify}
+                        onChange={e => setWantsPushNotify(e.target.checked)}
+                        style={{ width: 14, height: 14, accentColor: '#5E8B8B' }}
+                      />
+                      <Bell size={13} style={{ color: '#5E8B8B' }} />
+                      Notify me when my order is ready
+                    </label>
+                  )}
                   {loyaltyBalance !== null && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, flexWrap: 'wrap' }}>
                       <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
@@ -870,13 +1081,78 @@ export default function VenuePublic() {
                   </div>
                   {/* Pickup time — hidden for dine-in */}
                   {orderType !== 'dine-in' ? (
-                    <input
-                      type="text"
-                      placeholder="Pickup time (e.g. ASAP, 10:30am)"
-                      value={checkoutPickupTime}
-                      onChange={e => setCheckoutPickupTime(e.target.value)}
-                      style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
-                    />
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 500, color: '#181818', display: 'block', marginBottom: 6 }}>
+                        Pickup time
+                      </label>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: pickupMode === 'schedule' ? 10 : 0 }}>
+                        {(['asap', 'schedule'] as const).map(mode => (
+                          <button
+                            key={mode}
+                            onClick={() => setPickupMode(mode)}
+                            style={{
+                              flex: 1, padding: '8px 0', borderRadius: 8,
+                              border: pickupMode === mode ? 'none' : '1px solid rgba(24,24,24,0.12)',
+                              background: pickupMode === mode ? '#181818' : '#fff',
+                              color: pickupMode === mode ? '#F3F2EE' : '#181818',
+                              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            }}
+                          >
+                            {mode === 'asap' ? 'ASAP' : 'Schedule'}
+                          </button>
+                        ))}
+                      </div>
+                      {pickupMode === 'schedule' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            {(['today', 'tomorrow'] as const).map(day => (
+                              <button
+                                key={day}
+                                onClick={() => setScheduleDay(day)}
+                                style={{
+                                  flex: 1, padding: '6px 0', borderRadius: 8,
+                                  border: scheduleDay === day ? 'none' : '1px solid rgba(24,24,24,0.12)',
+                                  background: scheduleDay === day ? '#5E8B8B' : '#fff',
+                                  color: scheduleDay === day ? '#fff' : '#181818',
+                                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                  textTransform: 'capitalize' as const,
+                                }}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                          <select
+                            value={scheduleSlot}
+                            onChange={e => setScheduleSlot(e.target.value)}
+                            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 13, background: '#fff', color: '#181818' }}
+                          >
+                            <option value="">Select a time…</option>
+                            {(() => {
+                              const slots: string[] = [];
+                              const now = new Date();
+                              let startMin = now.getHours() * 60 + now.getMinutes() + 30;
+                              // round up to next 15-min slot
+                              startMin = Math.ceil(startMin / 15) * 15;
+                              const endMin = startMin + 8 * 60;
+                              for (let m = startMin; m <= endMin; m += 15) {
+                                const h = Math.floor(m / 60) % 24;
+                                const min = m % 60;
+                                const suffix = h >= 12 ? 'pm' : 'am';
+                                const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+                                slots.push(min === 0 ? `${displayH}${suffix}` : `${displayH}:${String(min).padStart(2, '0')}${suffix}`);
+                              }
+                              return slots.map(s => <option key={s} value={s}>{s}</option>);
+                            })()}
+                          </select>
+                          {scheduleSlot && (
+                            <div style={{ fontSize: 12, color: '#5E8B8B', fontWeight: 500 }}>
+                              Pickup: {scheduleDay === 'today' ? 'Today' : 'Tomorrow'} at {scheduleSlot}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(94,139,139,0.3)', fontSize: 14, background: 'rgba(94,139,139,0.05)', color: '#5E8B8B' }}>
                       🍽️ Dine-in · Table {tableNumber} · Now
@@ -1219,6 +1495,60 @@ export default function VenuePublic() {
           {openStatus.isOpen ? '🟢' : '🔴'} {openStatus.label}
         </div>
       )}
+
+      {/* Group Order Entry + Favourite Orders */}
+      <div className="content-container" style={{ paddingTop: 16 }}>
+        {/* Group Order Button */}
+        <div style={{ textAlign: 'center', marginBottom: 12 }}>
+          <button
+            onClick={() => setShowGroupModal(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 18px', borderRadius: 99, border: '1px solid rgba(24,24,24,0.18)',
+              background: '#fff', color: '#181818', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            <Users size={15} />
+            Group Order?
+          </button>
+        </div>
+
+        {/* Favourite Orders */}
+        {checkoutPhone.length >= 8 && favouriteOrdersQuery.data && favouriteOrdersQuery.data.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 8 }}>⭐ Your Favourites</div>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' as const }}>
+              {(favouriteOrdersQuery.data as { id: number; label: string; totalAmount: string | number; itemsJson: string }[]).map(fav => (
+                <div key={fav.id} style={{
+                  flexShrink: 0, background: '#fff', border: '1px solid rgba(94,139,139,0.2)',
+                  borderRadius: 10, padding: '10px 14px', minWidth: 150, maxWidth: 200,
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#181818', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fav.label}</div>
+                  <div style={{ fontSize: 11, color: '#5E8B8B', marginBottom: 8 }}>${Number(fav.totalAmount).toFixed(2)}</div>
+                  <button
+                    onClick={() => {
+                      try {
+                        const items = JSON.parse(fav.itemsJson) as CartItem[];
+                        setCart(items);
+                        incrementFavUsage.mutate({ id: fav.id });
+                        showToast('Favourites loaded to cart');
+                      } catch {
+                        showToast('Could not load this favourite');
+                      }
+                    }}
+                    style={{
+                      width: '100%', padding: '5px 0', borderRadius: 6, border: 'none',
+                      background: '#5E8B8B', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Reorder
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Menu Section */}
       <section className="content-container py-12">

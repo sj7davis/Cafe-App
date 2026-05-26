@@ -13,6 +13,9 @@ import KitchenDisplay from './pages/KitchenDisplay'
 import GiftCardLanding from './pages/GiftCardLanding'
 import KioskMode from './pages/KioskMode'
 import MenuCardPage from './pages/MenuCardPage'
+import CustomerPortal from './pages/CustomerPortal'
+import VenueApp from './pages/VenueApp'
+import GroupOrder from './pages/GroupOrder'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -32,6 +35,9 @@ export default function App() {
       <Route path="/gift/:code" element={<GiftCardLanding />} />
       <Route path="/kiosk/:slug" element={<KioskMode />} />
       <Route path="/menu-card/:slug" element={<MenuCardPage />} />
+      <Route path="/account" element={<CustomerPortal />} />
+      <Route path="/app/:slug" element={<VenueApp />} />
+      <Route path="/group/:code" element={<GroupOrder />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

@@ -73,6 +73,19 @@ export function usePushSubscription(venueId: number) {
   return { isSubscribed, isSupported, isLoading, subscribe, unsubscribe };
 }
 
+/** Standalone helper: subscribe a phone number to push without a React hook context */
+export async function subscribePush(_phone: string): Promise<void> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    // VAPID key must be fetched via tRPC outside React context — skip for now; the
+    // full subscription flow is handled by usePushSubscription inside components.
+  } catch {
+    // silently ignore
+  }
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');

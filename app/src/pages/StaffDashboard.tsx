@@ -34,6 +34,7 @@ import {
   Trash2,
   ListOrdered,
   MessageSquare,
+  BookOpen,
 } from 'lucide-react';
 
 export default function StaffDashboard() {
@@ -205,6 +206,7 @@ export default function StaffDashboard() {
             <SidebarItem icon={<Calendar size={18} />} label="Schedule" tab="schedule" activeTab={activeTab} setActiveTab={setActiveTab} />
             <SidebarItem icon={<Trash2 size={18} />} label="Waste Log" tab="waste" activeTab={activeTab} setActiveTab={setActiveTab} />
             <SidebarItem icon={<ListOrdered size={18} />} label="Waitlist" tab="waitlist" activeTab={activeTab} setActiveTab={setActiveTab} />
+            <SidebarItem icon={<BookOpen size={18} />} label="Reservations" tab="reservations" activeTab={activeTab} setActiveTab={setActiveTab} />
 
             {(isAdmin || isManager) && (
               <>
@@ -242,6 +244,7 @@ export default function StaffDashboard() {
           {activeTab === 'schedule' && <ScheduleTab venueId={venue.id} token={token} />}
           {activeTab === 'waste' && <WasteLogTab venueId={venue.id} />}
           {activeTab === 'waitlist' && <WaitlistTab venueId={venue.id} />}
+          {activeTab === 'reservations' && <ReservationsTab venueId={venue.id} token={token} />}
           {activeTab === 'staff' && (isAdmin || isManager) && <StaffManagementTab venueId={venue.id} isAdmin={isAdmin} />}
           {activeTab === 'settings' && (isAdmin || isManager) && <SettingsTab venueId={venue.id} />}
         </main>
@@ -1804,9 +1807,11 @@ function CorporateTab({ venueId: _venueId }: { venueId: number }) {
 }
 
 const CHART_COLORS = ['#1c1917', '#5E8B8B', '#d97706', '#16a34a', '#2563eb', '#dc2626'];
+const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: string }) {
   const [days, setDays] = useState(30);
+  const analyticsRange = days;
 
   const overviewQuery = trpc.analytics.getOverview.useQuery({ token, days }, { enabled: !!token });
   const revenueQuery = trpc.analytics.getDailyRevenue.useQuery({ token, days }, { enabled: !!token });
@@ -1816,6 +1821,77 @@ function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: st
   const npsQuery = trpc.nps.getStats.useQuery();
   const wasteSummaryQuery = trpc.waste.getSummary.useQuery();
   const invLevelsQuery = trpc.venue.getInventoryLevels.useQuery();
+
+  // Wave 4 new queries
+  const { data: itemsByHour } = trpc.analytics.getItemsByHour.useQuery(
+    { token, days: analyticsRange },
+    { enabled: !!token }
+  );
+  const { data: selloutEvents } = trpc.analytics.getSelloutEvents.useQuery(
+    { token, days: 30 },
+    { enabled: !!token }
+  );
+  const { data: orderTypes } = trpc.analytics.getOrderTypeBreakdown.useQuery(
+    { token, days: analyticsRange },
+    { enabled: !!token }
+  );
+  const { data: repeatRate } = trpc.analytics.getRepeatCustomerRate.useQuery(
+    { token, days: analyticsRange },
+    { enabled: !!token }
+  );
+  const { data: itemsByDow } = trpc.analytics.getItemPopularityByDayOfWeek.useQuery(
+    { token, days: 60 },
+    { enabled: !!token }
+  );
+
+  // Heatmap computation
+  const heatmapData = React.useMemo(() => {
+    if (!itemsByHour) return { items: [] as string[], hours: [] as number[], map: {} as Record<string, Record<number, number>>, maxQty: 1 };
+    const map: Record<string, Record<number, number>> = {};
+    for (const row of itemsByHour) {
+      if (!map[row.itemName]) map[row.itemName] = {};
+      map[row.itemName][row.hour] = (map[row.itemName][row.hour] ?? 0) + row.qty;
+    }
+    const items = Object.entries(map)
+      .map(([name, hours]) => ({ name, total: Object.values(hours).reduce((a, b) => a + b, 0) }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+      .map(x => x.name);
+    const hours = Array.from({ length: 17 }, (_, i) => i + 6);
+    const maxQty = Math.max(...Object.values(map).flatMap(h => Object.values(h)), 1);
+    return { items, hours, map, maxQty };
+  }, [itemsByHour]);
+
+  // Sellout events grouped by item
+  const selloutGrouped = React.useMemo(() => {
+    if (!selloutEvents) return [];
+    const byItem: Record<string, { count: number; events: typeof selloutEvents }> = {};
+    for (const ev of selloutEvents) {
+      if (!byItem[ev.itemName]) byItem[ev.itemName] = { count: 0, events: [] };
+      byItem[ev.itemName].count += 1;
+      byItem[ev.itemName].events.push(ev);
+    }
+    return Object.entries(byItem).map(([name, info]) => ({ name, count: info.count, latest: info.events[0] }));
+  }, [selloutEvents]);
+
+  // Item popularity by day of week — top 5 items with busiest day
+  const dowData = React.useMemo(() => {
+    if (!itemsByDow || itemsByDow.length === 0) return [];
+    const map: Record<string, Record<number, number>> = {};
+    for (const row of itemsByDow) {
+      if (!map[row.itemName]) map[row.itemName] = {};
+      map[row.itemName][row.dow] = (map[row.itemName][row.dow] ?? 0) + row.qty;
+    }
+    return Object.entries(map)
+      .map(([name, dowMap]) => {
+        const total = Object.values(dowMap).reduce((a, b) => a + b, 0);
+        const busiestDow = Object.entries(dowMap).sort((a, b) => b[1] - a[1])[0];
+        const chartData = Array.from({ length: 7 }, (_, i) => ({ day: DOW_LABELS[i], qty: dowMap[i] ?? 0 }));
+        return { name, total, busiestDow: busiestDow ? Number(busiestDow[0]) : 0, chartData };
+      })
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [itemsByDow]);
 
   const overview = overviewQuery.data;
   const revenueData = revenueQuery.data ?? [];
@@ -2063,6 +2139,179 @@ function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: st
 
         {topWastedItems.length === 0 && lowStockItems.length === 0 && (
           <p style={{ color: '#78716c', fontSize: '13px' }}>No supplier suggestions at this time.</p>
+        )}
+      </div>
+
+      {/* ─── Order Type Breakdown ─── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginTop: '20px' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Order Type Breakdown</h3>
+        {!orderTypes || orderTypes.length === 0 ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>No data for this period</p>
+        ) : (
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            {(['pickup', 'dine_in', 'online'] as const).map(type => {
+              const row = orderTypes.find((r: any) => r.orderType === type);
+              const labels: Record<string, string> = { pickup: 'Pickup', dine_in: 'Dine-in', online: 'Online' };
+              const colors: Record<string, string> = { pickup: '#2563eb', dine_in: '#d97706', online: '#16a34a' };
+              return (
+                <div key={type} style={{
+                  flex: 1, minWidth: '140px', padding: '20px', borderRadius: '12px',
+                  background: '#f8f8f8', border: '1px solid #e7e5e4', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: colors[type] ?? '#1c1917' }}>
+                    {row ? row.count : 0}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#44403c', marginTop: '4px' }}>
+                    {labels[type]}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#78716c', marginTop: '2px' }}>
+                    ${row ? Number(row.revenue).toFixed(2) : '0.00'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Repeat Customer Rate ─── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginTop: '20px' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Repeat Customer Rate</h3>
+        {!repeatRate ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>No data for this period</p>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '40px', fontWeight: 800, color: repeatRate.rate >= 50 ? '#16a34a' : repeatRate.rate >= 25 ? '#d97706' : '#dc2626' }}>
+                {repeatRate.rate}%
+              </span>
+              <span style={{ fontSize: '14px', color: '#78716c' }}>repeat customers</span>
+            </div>
+            {/* Progress bar */}
+            <div style={{ background: '#e7e5e4', borderRadius: '4px', height: '8px', marginBottom: '8px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '4px',
+                width: `${repeatRate.rate}%`,
+                background: repeatRate.rate >= 50 ? '#16a34a' : repeatRate.rate >= 25 ? '#d97706' : '#dc2626',
+                transition: 'width 0.5s ease',
+              }} />
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', color: '#78716c' }}>
+              {repeatRate.repeat} of {repeatRate.total} customers came back in the last {analyticsRange} days
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Item Popularity Heatmap ─── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginTop: '20px' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Item Popularity Heatmap (by Hour)</h3>
+        {heatmapData.items.length === 0 ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>No data for this period</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: '11px', minWidth: 'max-content' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '4px 8px', textAlign: 'right', color: '#78716c', fontWeight: 600, minWidth: '120px' }}>Item</th>
+                  {heatmapData.hours.map(h => (
+                    <th key={h} style={{ padding: '4px 4px', textAlign: 'center', color: '#78716c', fontWeight: 500, width: '36px' }}>
+                      {h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {heatmapData.items.map(itemName => (
+                  <tr key={itemName}>
+                    <td style={{ padding: '3px 8px', color: '#1c1917', fontWeight: 500, whiteSpace: 'nowrap', textAlign: 'right', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {itemName}
+                    </td>
+                    {heatmapData.hours.map(h => {
+                      const qty = heatmapData.map[itemName]?.[h] ?? 0;
+                      const intensity = qty / heatmapData.maxQty;
+                      return (
+                        <td key={h} style={{ padding: '3px 4px' }}>
+                          <div style={{
+                            width: '32px', height: '32px', borderRadius: '4px',
+                            background: qty === 0 ? '#f5f5f4' : `rgba(94,139,139,${Math.max(0.15, intensity)})`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '10px', color: intensity > 0.5 ? '#fff' : '#44403c', fontWeight: 600,
+                          }}>
+                            {qty > 0 ? qty : ''}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Sellout Events ─── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginTop: '20px' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>
+          ⚠️ Sellout Events (last 30 days)
+        </h3>
+        {!selloutEvents ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>Loading…</p>
+        ) : selloutGrouped.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#16a34a' }}>
+            <span>✓</span>
+            <span>No sellouts recorded in last 30 days</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {selloutGrouped.map(item => (
+              <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#dc2626', flexShrink: 0 }} />
+                <span style={{ fontSize: '13px', color: '#1c1917', fontWeight: 500 }}>
+                  {item.name}
+                  {item.count > 1 && (
+                    <span style={{ marginLeft: '6px', fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>
+                      — sold out {item.count}× in last 30 days
+                    </span>
+                  )}
+                  {item.count === 1 && item.latest.soldOutAt && (
+                    <span style={{ marginLeft: '6px', fontSize: '12px', color: '#78716c' }}>
+                      — sold out at {new Date(item.latest.soldOutAt).toLocaleString()}
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Item Popularity by Day of Week ─── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginTop: '20px', marginBottom: '8px' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Item Popularity by Day of Week (top 5)</h3>
+        {dowData.length === 0 ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>No data for this period</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {dowData.map(item => (
+              <div key={item.name}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1c1917' }}>{item.name}</span>
+                  <span style={{ fontSize: '12px', color: '#78716c' }}>
+                    — most popular on <strong>{DOW_LABELS[item.busiestDow]}</strong>
+                  </span>
+                </div>
+                <ResponsiveContainer width="100%" height={60}>
+                  <BarChart data={item.chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#78716c' }} axisLine={false} tickLine={false} />
+                    <Tooltip formatter={(v: any) => [v, 'Orders']} />
+                    <Bar dataKey="qty" fill="#5E8B8B" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -3079,6 +3328,266 @@ function WasteLogTab({ venueId }: { venueId: number }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ─── Reservations Tab ───
+function ReservationsTab({ venueId, token }: { venueId: number; token: string }) {
+  const utils = trpc.useUtils();
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showWalkInForm, setShowWalkInForm] = useState(false);
+  const [walkIn, setWalkIn] = useState({
+    customerName: '',
+    customerPhone: '',
+    partySize: 2,
+    reservationTime: new Date().toTimeString().slice(0, 5),
+    notes: '',
+  });
+  const [walkInMsg, setWalkInMsg] = useState('');
+
+  const { data: reservations, isLoading } = trpc.reservations.list.useQuery(
+    { token, date: selectedDate, status: statusFilter !== 'all' ? statusFilter as any : undefined },
+    { refetchInterval: 30000 }
+  );
+
+  const updateStatus = trpc.reservations.updateStatus.useMutation({
+    onSuccess: () => utils.reservations.list.invalidate(),
+  });
+
+  const createReservation = trpc.reservations.create.useMutation({
+    onSuccess: () => {
+      utils.reservations.list.invalidate();
+      setShowWalkInForm(false);
+      setWalkIn({ customerName: '', customerPhone: '', partySize: 2, reservationTime: new Date().toTimeString().slice(0, 5), notes: '' });
+      setWalkInMsg('Walk-in added!');
+      setTimeout(() => setWalkInMsg(''), 3000);
+    },
+    onError: (e) => setWalkInMsg(e.message),
+  });
+
+  const list = reservations ?? [];
+  const pendingCount = list.filter((r: any) => r.status === 'pending').length;
+  const confirmedCount = list.filter((r: any) => r.status === 'confirmed').length;
+  const seatedCount = list.filter((r: any) => r.status === 'seated').length;
+
+  const statusColors: Record<string, { bg: string; color: string }> = {
+    pending: { bg: '#fffbeb', color: '#d97706' },
+    confirmed: { bg: '#f0fdfa', color: '#0d9488' },
+    seated: { bg: '#f0fdf4', color: '#16a34a' },
+    cancelled: { bg: '#f5f5f4', color: '#78716c' },
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: 0 }}>Reservations</h2>
+        <button
+          onClick={() => setShowWalkInForm(!showWalkInForm)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '8px 16px', background: showWalkInForm ? '#57534e' : '#1c1917',
+            color: '#fafaf9', border: 'none', borderRadius: '8px',
+            fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          <Plus size={16} /> {showWalkInForm ? 'Cancel' : 'Add Walk-in'}
+        </button>
+      </div>
+
+      {/* Walk-in form */}
+      {showWalkInForm && (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginBottom: '20px' }}>
+          <h3 style={{ margin: '0 0 14px', fontSize: '15px', fontWeight: 600 }}>Add Walk-in Reservation</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Name</label>
+              <input value={walkIn.customerName} onChange={e => setWalkIn(w => ({ ...w, customerName: e.target.value }))}
+                placeholder="Customer name"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Phone</label>
+              <input value={walkIn.customerPhone} onChange={e => setWalkIn(w => ({ ...w, customerPhone: e.target.value }))}
+                placeholder="+61 4xx xxx xxx"
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Party Size</label>
+              <input type="number" min="1" value={walkIn.partySize} onChange={e => setWalkIn(w => ({ ...w, partySize: Number(e.target.value) }))}
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Time</label>
+              <input type="time" value={walkIn.reservationTime} onChange={e => setWalkIn(w => ({ ...w, reservationTime: e.target.value }))}
+                style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: '10px' }}>
+            <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Notes</label>
+            <input value={walkIn.notes} onChange={e => setWalkIn(w => ({ ...w, notes: e.target.value }))}
+              placeholder="Dietary requirements, special occasions…"
+              style={{ width: '100%', border: '1px solid #e7e5e4', borderRadius: '6px', padding: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                setWalkInMsg('');
+                if (!walkIn.customerName) { setWalkInMsg('Name is required'); return; }
+                createReservation.mutate({
+                  venueId,
+                  customerName: walkIn.customerName,
+                  customerPhone: walkIn.customerPhone || undefined,
+                  partySize: walkIn.partySize,
+                  reservationDate: selectedDate,
+                  reservationTime: walkIn.reservationTime,
+                  notes: walkIn.notes || undefined,
+                });
+              }}
+              disabled={createReservation.isPending}
+              style={{ padding: '8px 20px', background: '#1c1917', color: '#fafaf9', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              {createReservation.isPending ? '…' : 'Add Walk-in'}
+            </button>
+            {walkInMsg && <span style={{ fontSize: '13px', color: walkInMsg.includes('!') ? '#16a34a' : '#dc2626' }}>{walkInMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Filters row */}
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={e => setSelectedDate(e.target.value)}
+          style={{ padding: '7px 10px', borderRadius: '8px', border: '1px solid #e7e5e4', fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer' }}
+        />
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {(['all', 'pending', 'confirmed', 'seated', 'cancelled'] as const).map(s => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              style={{
+                padding: '6px 12px', borderRadius: '6px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
+                background: statusFilter === s ? '#1c1917' : '#e7e5e4',
+                color: statusFilter === s ? '#fafaf9' : '#57534e',
+              }}>
+              {s === 'all' ? 'All' : s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary bar */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { label: 'Pending', count: pendingCount, color: '#d97706', bg: '#fffbeb' },
+          { label: 'Confirmed', count: confirmedCount, color: '#0d9488', bg: '#f0fdfa' },
+          { label: 'Seated', count: seatedCount, color: '#16a34a', bg: '#f0fdf4' },
+        ].map(stat => (
+          <div key={stat.label} style={{
+            padding: '10px 18px', borderRadius: '10px', background: stat.bg,
+            border: `1px solid ${stat.color}33`, display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <span style={{ fontSize: '20px', fontWeight: 700, color: stat.color }}>{stat.count}</span>
+            <span style={{ fontSize: '13px', color: stat.color, fontWeight: 500 }}>{stat.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Reservation cards */}
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#78716c' }}>Loading…</div>
+      ) : list.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '60px 20px', background: '#fff',
+          borderRadius: '12px', border: '1px solid #e7e5e4', color: '#78716c', fontSize: '14px',
+        }}>
+          No reservations for this date
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {list.map((r: any) => {
+            const sc = statusColors[r.status] ?? statusColors.pending;
+            return (
+              <div key={r.id} style={{
+                background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4',
+                padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px',
+              }}>
+                {/* Time badge */}
+                <div style={{
+                  minWidth: '72px', padding: '10px 8px', borderRadius: '10px',
+                  background: sc.bg, textAlign: 'center', flexShrink: 0,
+                }}>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: sc.color, lineHeight: 1 }}>
+                    {r.reservationTime ?? '—'}
+                  </div>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: sc.color, textTransform: 'uppercase', marginTop: '3px' }}>
+                    {r.status}
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#1c1917', marginBottom: '3px' }}>
+                    {r.customerName ?? 'Unknown'}
+                  </div>
+                  <div style={{ display: 'flex', gap: '14px', fontSize: '13px', color: '#78716c', flexWrap: 'wrap' }}>
+                    {r.customerPhone && <span>{r.customerPhone}</span>}
+                    <span>👥 {r.partySize} {r.partySize === 1 ? 'person' : 'people'}</span>
+                  </div>
+                  {r.notes && (
+                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#57534e', fontStyle: 'italic' }}>
+                      {r.notes}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {r.status === 'pending' && (
+                    <button
+                      onClick={() => updateStatus.mutate({ token, id: r.id, status: 'confirmed' })}
+                      disabled={updateStatus.isPending}
+                      style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#f0fdfa', color: '#0d9488', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Confirm
+                    </button>
+                  )}
+                  {r.status === 'confirmed' && (
+                    <button
+                      onClick={() => updateStatus.mutate({ token, id: r.id, status: 'seated' })}
+                      disabled={updateStatus.isPending}
+                      style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#f0fdf4', color: '#16a34a', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Seat
+                    </button>
+                  )}
+                  {(r.status === 'pending' || r.status === 'confirmed') && (
+                    <>
+                      <button
+                        onClick={() => updateStatus.mutate({ token, id: r.id, status: 'no_show' })}
+                        disabled={updateStatus.isPending}
+                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#fff7ed', color: '#ea580c', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        No Show
+                      </button>
+                      <button
+                        onClick={() => updateStatus.mutate({ token, id: r.id, status: 'cancelled' })}
+                        disabled={updateStatus.isPending}
+                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

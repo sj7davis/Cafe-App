@@ -16,6 +16,7 @@ import { wasteRouter } from "./waste-router";
 import { waitlistRouter } from "./waitlist-router";
 import { webhooksRouter } from "./webhooks-router";
 import { xeroRouter } from "./xero-router";
+import { reservationsRouter } from "./reservations-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -38,6 +39,7 @@ export const appRouter = createRouter({
   waitlist: waitlistRouter,
   webhooks: webhooksRouter,
   xero: xeroRouter,
+  reservations: reservationsRouter,
 });
 
 export type AppRouter = typeof appRouter;

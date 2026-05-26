@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { customerAccounts, loyaltyAccounts } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { customerAccounts, loyaltyAccounts, favouriteOrders } from "@db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
@@ -140,5 +140,46 @@ export const customerAuthRouter = createRouter({
 
     await db.update(customerAccounts).set(updateData).where(eq(customerAccounts.id, customerId));
     return { success: true };
+  }),
+
+  getFavourites: publicQuery.input(z.object({
+    token: z.string(),
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const db = getDb();
+    const customerId = payload.payload.customerId as number;
+
+    // Get the customer's phone to look up favourites
+    const accountRows = await db.select({ phone: customerAccounts.phone })
+      .from(customerAccounts)
+      .where(eq(customerAccounts.id, customerId))
+      .limit(1);
+    const phone = accountRows[0]?.phone;
+    if (!phone) return [];
+
+    return db.select()
+      .from(favouriteOrders)
+      .where(and(
+        eq(favouriteOrders.venueId, input.venueId),
+        eq(favouriteOrders.customerPhone, phone),
+      ))
+      .orderBy(desc(favouriteOrders.lastUsedAt))
+      .limit(10);
+  }),
+
+  updatePushPreferences: publicQuery.input(z.object({
+    token: z.string(),
+    pushEnabled: z.boolean(),
+  })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const customerId = payload.payload.customerId as number;
+    const db = getDb();
+
+    await db.update(customerAccounts)
+      .set({ marketingOptIn: input.pushEnabled })
+      .where(eq(customerAccounts.id, customerId));
+
+    return { ok: true };
   }),
 });

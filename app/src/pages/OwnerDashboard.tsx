@@ -2,13 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import QRCode from 'qrcode';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty'>('overview');
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty'>('overview');
+
+  const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
+  const switchVenue = trpc.venue.getVenueToken.useMutation({
+    onSuccess: (data) => {
+      localStorage.setItem('b1-token', data.token);
+      window.location.reload();
+    },
+  });
 
   if (loading) {
     return (
@@ -41,7 +51,25 @@ export default function OwnerDashboard() {
               <ArrowLeft size={16} />
             </button>
             <div>
-              <h1 style={{ fontWeight: 400, fontSize: '1.25rem', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#181818' }}>{venue.name}</h1>
+              <div className="flex items-center gap-3">
+                <h1 style={{ fontWeight: 400, fontSize: '1.25rem', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#181818' }}>{venue.name}</h1>
+                {myVenues && myVenues.length > 1 && (
+                  <select
+                    defaultValue={venue.id}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      if (selectedId && Number(selectedId) !== venue.id) {
+                        switchVenue.mutate({ token, venueId: Number(selectedId) });
+                      }
+                    }}
+                    style={{ background: '#292524', color: '#fafaf9', border: '1px solid #44403c', borderRadius: '6px', padding: '4px 8px', fontSize: '13px' }}
+                  >
+                    {myVenues.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <span className="font-data" style={{ color: '#5E5E5E' }}>OWNER DASHBOARD</span>
             </div>
           </div>
@@ -61,6 +89,8 @@ export default function OwnerDashboard() {
         <div className="content-container flex gap-6">
           {[
             { id: 'overview' as const, label: 'Overview', icon: BarChart3 },
+            { id: 'analytics' as const, label: 'Analytics', icon: TrendingUp },
+            { id: 'pl' as const, label: 'P&L', icon: DollarSign },
             { id: 'menu' as const, label: 'Menu', icon: Coffee },
             { id: 'settings' as const, label: 'Settings', icon: Settings },
             { id: 'billing' as const, label: 'Billing', icon: CreditCard },
@@ -85,6 +115,8 @@ export default function OwnerDashboard() {
       {/* Content */}
       <div className="content-container py-8">
         {activeTab === 'overview' && <OverviewTab venue={venue} setActiveTab={setActiveTab} />}
+        {activeTab === 'analytics' && <AnalyticsTab />}
+        {activeTab === 'pl' && venue && <PLTab venue={venue} />}
         {activeTab === 'menu' && <MenuTab venue={venue} />}
         {activeTab === 'settings' && <SettingsTab venue={venue} />}
         {activeTab === 'billing' && <BillingTab />}
@@ -103,7 +135,7 @@ export default function OwnerDashboard() {
   );
 }
 
-function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty') => void }) {
+function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty') => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
@@ -238,6 +270,443 @@ function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 
           <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>Could not load today's summary.</p>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Analytics Tab ────────────────────────────────────────────────────────────
+const CHART_COLORS = ['#5E8B8B', '#C4953A', '#5E8B5E', '#B85450', '#8B7355', '#5E5E8B'];
+
+function AnalyticsTab() {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [selectedDays, setSelectedDays] = useState(30);
+
+  const { data: overview, isLoading: overviewLoading } = trpc.analytics.getOverview.useQuery(
+    { token, days: selectedDays }, { enabled: !!token }
+  );
+  const { data: dailyRevenue, isLoading: dailyLoading } = trpc.analytics.getDailyRevenue.useQuery(
+    { token, days: selectedDays as 7 | 30 | 90 }, { enabled: !!token }
+  );
+  const { data: topItems } = trpc.analytics.getTopItems.useQuery(
+    { token, days: selectedDays, limit: 10 }, { enabled: !!token }
+  );
+  const { data: hourlyDist } = trpc.analytics.getHourlyDistribution.useQuery(
+    { token, days: selectedDays as 7 | 30 | 90 }, { enabled: !!token }
+  );
+  const { data: orderTypeBreakdown } = trpc.analytics.getOrderTypeBreakdown.useQuery(
+    { token, days: selectedDays }, { enabled: !!token }
+  );
+  const { data: itemsByHour } = trpc.analytics.getItemsByHour.useQuery(
+    { token, days: selectedDays }, { enabled: !!token }
+  );
+  const { data: selloutEvents } = trpc.analytics.getSelloutEvents.useQuery(
+    { token, days: 30 }, { enabled: !!token }
+  );
+
+  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+
+  // Build heatmap data
+  const heatmapHours = Array.from({ length: 17 }, (_, i) => i + 6); // 6–22
+  const heatmapItems: Record<string, Record<number, number>> = {};
+  if (itemsByHour) {
+    for (const row of itemsByHour as { itemName: string; hour: number; qty: number }[]) {
+      if (!heatmapItems[row.itemName]) heatmapItems[row.itemName] = {};
+      heatmapItems[row.itemName][row.hour] = row.qty;
+    }
+  }
+  // Get top 8 items by total qty
+  const heatmapTopItems = Object.entries(heatmapItems)
+    .map(([name, hours]) => ({ name, total: Object.values(hours).reduce((s, v) => s + v, 0) }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8)
+    .map(x => x.name);
+  const heatmapMax = heatmapTopItems.length > 0
+    ? Math.max(...heatmapTopItems.flatMap(item => heatmapHours.map(h => heatmapItems[item]?.[h] ?? 0)))
+    : 1;
+
+  const hourLabel = (h: number) => h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+
+  const pieData = orderTypeBreakdown
+    ? (orderTypeBreakdown as { orderType: string | null; count: number; revenue: string }[]).map(r => ({
+        name: r.orderType ?? 'Unknown',
+        value: r.count,
+      }))
+    : [];
+
+  return (
+    <div className="space-y-6">
+      {/* Days selector */}
+      <div className="flex items-center gap-2">
+        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PERIOD:</span>
+        {[7, 30, 90].map((d) => (
+          <button key={d} onClick={() => setSelectedDays(d)}
+            className="px-3 py-1 font-data"
+            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: selectedDays === d ? '#181818' : 'transparent', color: selectedDays === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+            {d}D
+          </button>
+        ))}
+      </div>
+
+      {/* Overview stats */}
+      {overviewLoading && <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+      {overview && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Revenue', value: `$${overview.totalRevenue}` },
+            { label: 'Orders', value: String(overview.orderCount) },
+            { label: 'Avg Order', value: `$${overview.avgOrder}` },
+            { label: 'Loyalty Members', value: String(overview.loyaltyMembers) },
+          ].map((s) => (
+            <div key={s.label} className="border p-5" style={statCardStyle}>
+              <span style={monoLabel}>{s.label}</span>
+              <span style={bigNum}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Daily revenue chart */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Daily Revenue</h2>
+        {dailyLoading && <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        {!dailyLoading && dailyRevenue && dailyRevenue.length > 0 && (
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={dailyRevenue as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
+              <XAxis dataKey="date" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+              <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v}`} />
+              <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Revenue']} labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
+              <Area type="monotone" dataKey="revenue" stroke="#5E8B8B" fill="rgba(94,139,139,0.15)" strokeWidth={2} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+        {!dailyLoading && (!dailyRevenue || dailyRevenue.length === 0) && (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No data for this period.</p>
+        )}
+      </div>
+
+      {/* Top items */}
+      {topItems && topItems.length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Top Selling Items</h2>
+          <div className="space-y-2">
+            {(topItems as { name: string; quantity: number; revenue: string }[]).map((item, idx) => {
+              const maxQty = Math.max(...(topItems as { name: string; quantity: number }[]).map(i => i.quantity));
+              return (
+                <div key={item.name} className="flex items-center gap-3">
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', width: '1.25rem', textAlign: 'right' }}>{idx + 1}.</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span style={{ fontSize: '0.875rem', color: '#181818' }}>{item.name}</span>
+                      <div className="flex items-center gap-4">
+                        <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>{item.quantity} sold</span>
+                        <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>${item.revenue}</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 4, background: 'rgba(24,24,24,0.08)', borderRadius: 2 }}>
+                      <div style={{ height: 4, background: '#5E8B8B', borderRadius: 2, width: `${(item.quantity / maxQty) * 100}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Hourly distribution */}
+      {hourlyDist && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Orders by Hour</h2>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={hourlyDist as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
+              <XAxis dataKey="label" tick={{ fontFamily: 'Geist Mono', fontSize: 9 }} interval={1} />
+              <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} allowDecimals={false} />
+              <Tooltip labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
+              <Bar dataKey="orders" fill="#5E8B8B" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Order type breakdown */}
+      {pieData.length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Order Type Breakdown</h2>
+          <div className="flex items-center gap-8">
+            <ResponsiveContainer width={200} height={200}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>
+                  {pieData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => [v, 'Orders']} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-2">
+              {pieData.map((entry, i) => (
+                <div key={entry.name} className="flex items-center gap-2">
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.875rem', color: '#181818' }}>{entry.name || 'Unknown'}</span>
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>{entry.value} orders</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Item-by-hour heatmap */}
+      {heatmapTopItems.length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Item Popularity by Hour</h2>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 11, whiteSpace: 'nowrap' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '4px 8px', fontFamily: 'Geist Mono', fontSize: 9, textAlign: 'left', color: '#5E5E5E', minWidth: 120 }}>Item</th>
+                  {heatmapHours.map(h => (
+                    <th key={h} style={{ padding: '4px 6px', fontFamily: 'Geist Mono', fontSize: 9, color: '#5E5E5E', textAlign: 'center', minWidth: 36 }}>{hourLabel(h)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {heatmapTopItems.map(itemName => (
+                  <tr key={itemName}>
+                    <td style={{ padding: '3px 8px', fontSize: 12, color: '#181818', fontWeight: 500 }}>{itemName}</td>
+                    {heatmapHours.map(h => {
+                      const qty = heatmapItems[itemName]?.[h] ?? 0;
+                      const intensity = heatmapMax > 0 ? qty / heatmapMax : 0;
+                      const bg = intensity === 0
+                        ? '#F3F2EE'
+                        : `rgba(94,139,139,${0.15 + intensity * 0.85})`;
+                      return (
+                        <td key={h} title={qty > 0 ? `${qty} orders` : undefined}
+                          style={{ padding: '3px 6px', textAlign: 'center', background: bg, fontSize: 11, color: intensity > 0.5 ? '#fff' : '#5E5E5E', border: '1px solid rgba(24,24,24,0.04)' }}>
+                          {qty > 0 ? qty : ''}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="font-data mt-3" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Darker cells = more orders at that hour. Based on last {selectedDays} days.</p>
+        </div>
+      )}
+
+      {/* Sellout events */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Sellout Events (Last 30 Days)</h2>
+        {!selloutEvents || (selloutEvents as any[]).length === 0 ? (
+          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No sellout events recorded in the last 30 days.</p>
+        ) : (
+          <div className="space-y-2">
+            {(selloutEvents as { itemName: string; soldOutAt: Date | string; hour: number }[]).map((ev, i) => {
+              const d = new Date(ev.soldOutAt);
+              return (
+                <div key={i} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'rgba(24,24,24,0.06)' }}>
+                  <AlertCircle size={12} style={{ color: '#B85450', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.875rem', color: '#181818' }}>{ev.itemName}</span>
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>
+                    sold out at {hourLabel(ev.hour)} on {d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── P&L Tab ──────────────────────────────────────────────────────────────────
+function PLTab({ venue }: { venue: any }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [selectedDays, setSelectedDays] = useState(30);
+
+  const { data: overview } = trpc.analytics.getOverview.useQuery(
+    { token, days: selectedDays }, { enabled: !!token }
+  );
+  const { data: revenueByCategory } = trpc.analytics.getRevenueByCategory.useQuery(
+    { token, days: selectedDays }, { enabled: !!token }
+  );
+  const { data: orderTypeBreakdown } = trpc.analytics.getOrderTypeBreakdown.useQuery(
+    { token, days: selectedDays }, { enabled: !!token }
+  );
+  const { data: repeatRate } = trpc.analytics.getRepeatCustomerRate.useQuery(
+    { token, days: selectedDays }, { enabled: !!token }
+  );
+
+  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+
+  const catData = revenueByCategory
+    ? (revenueByCategory as { category: string; revenue: string; quantity: number }[]).map(r => ({
+        category: r.category || 'Other',
+        revenue: Number(r.revenue),
+      })).sort((a, b) => b.revenue - a.revenue)
+    : [];
+
+  const typeData = orderTypeBreakdown
+    ? (orderTypeBreakdown as { orderType: string | null; count: number; revenue: string }[]).map(r => ({
+        name: r.orderType || 'Unknown',
+        value: r.count,
+      }))
+    : [];
+
+  const CHART_COLORS_PL = ['#5E8B8B', '#C4953A', '#5E8B5E', '#B85450', '#8B7355'];
+
+  const totalRevenue = overview ? Number(overview.totalRevenue) : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Days selector */}
+      <div className="flex items-center gap-2">
+        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PERIOD:</span>
+        {[7, 30, 90].map((d) => (
+          <button key={d} onClick={() => setSelectedDays(d)}
+            className="px-3 py-1 font-data"
+            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: selectedDays === d ? '#181818' : 'transparent', color: selectedDays === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+            {d}D
+          </button>
+        ))}
+      </div>
+
+      {/* Revenue card */}
+      {overview && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="border p-5" style={statCardStyle}>
+            <span style={monoLabel}>Total Revenue</span>
+            <span style={bigNum}>${overview.totalRevenue}</span>
+          </div>
+          <div className="border p-5" style={statCardStyle}>
+            <span style={monoLabel}>Orders</span>
+            <span style={bigNum}>{overview.orderCount}</span>
+          </div>
+          <div className="border p-5" style={statCardStyle}>
+            <span style={monoLabel}>Avg Order Value</span>
+            <span style={bigNum}>${overview.avgOrder}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Revenue by category — horizontal bar chart */}
+      {catData.length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Revenue by Category</h2>
+          <ResponsiveContainer width="100%" height={Math.max(120, catData.length * 48)}>
+            <BarChart data={catData} layout="vertical" margin={{ top: 4, right: 40, left: 60, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" horizontal={false} />
+              <XAxis type="number" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v.toFixed(0)}`} />
+              <YAxis type="category" dataKey="category" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} width={55} />
+              <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Revenue']} />
+              <Bar dataKey="revenue" fill="#5E8B8B" radius={[0, 3, 3, 0]}>
+                {catData.map((_, i) => <Cell key={i} fill={CHART_COLORS_PL[i % CHART_COLORS_PL.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Revenue by order type — pie chart */}
+      {typeData.length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Revenue by Order Type</h2>
+          <div className="flex items-center gap-8">
+            <ResponsiveContainer width={200} height={200}>
+              <PieChart>
+                <Pie data={typeData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>
+                  {typeData.map((_, i) => <Cell key={i} fill={CHART_COLORS_PL[i % CHART_COLORS_PL.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-2">
+              {typeData.map((entry, i) => (
+                <div key={entry.name} className="flex items-center gap-2">
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: CHART_COLORS_PL[i % CHART_COLORS_PL.length], flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.875rem', color: '#181818' }}>{entry.name}</span>
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>{entry.value} orders</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Estimated margins table */}
+      {catData.length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.5rem' }}>Estimated Margins</h2>
+          <p className="font-data mb-4" style={{ fontSize: '0.625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
+            Cost estimates are based on typical cafe margins. Set actual costs per item in Menu settings.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Category', 'Revenue', 'Est. Cost (40%)', 'Est. Profit', 'Margin %'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {catData.map((row) => {
+                  const estCost = row.revenue * 0.4;
+                  const estProfit = row.revenue - estCost;
+                  const margin = row.revenue > 0 ? Math.round((estProfit / row.revenue) * 100) : 0;
+                  const rowColor = margin < 35 ? 'rgba(184,84,80,0.08)' : margin < 50 ? 'rgba(196,149,58,0.08)' : 'transparent';
+                  const marginColor = margin < 35 ? '#B85450' : margin < 50 ? '#C4953A' : '#5E8B5E';
+                  return (
+                    <tr key={row.category} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)', background: rowColor }}>
+                      <td style={{ padding: '10px 10px', fontWeight: 500, color: '#181818', textTransform: 'capitalize' }}>{row.category}</td>
+                      <td style={{ padding: '10px 10px' }}>${row.revenue.toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>${estCost.toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E8B5E', fontWeight: 500 }}>${estProfit.toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span style={{ fontFamily: 'Geist Mono', fontSize: 11, padding: '2px 8px', background: `${marginColor}18`, color: marginColor }}>{margin}%</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {totalRevenue > 0 && (
+                  <tr style={{ borderTop: '2px solid rgba(24,24,24,0.1)', background: '#E8E4DD' }}>
+                    <td style={{ padding: '10px 10px', fontWeight: 700, color: '#181818' }}>Total</td>
+                    <td style={{ padding: '10px 10px', fontWeight: 700 }}>${totalRevenue.toFixed(2)}</td>
+                    <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>${(totalRevenue * 0.4).toFixed(2)}</td>
+                    <td style={{ padding: '10px 10px', fontWeight: 700, color: '#5E8B5E' }}>${(totalRevenue * 0.6).toFixed(2)}</td>
+                    <td style={{ padding: '10px 10px' }}>
+                      <span style={{ fontFamily: 'Geist Mono', fontSize: 11, padding: '2px 8px', background: 'rgba(94,139,94,0.12)', color: '#5E8B5E' }}>60%</span>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Repeat customers */}
+      {repeatRate && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Repeat Customers</h2>
+          <div className="flex items-center gap-6">
+            <div className="border p-5" style={{ ...statCardStyle, minWidth: 120 }}>
+              <span style={monoLabel}>Repeat Rate</span>
+              <span style={{ ...bigNum, fontSize: '2rem', color: '#5E8B8B' }}>{repeatRate.rate}%</span>
+            </div>
+            <p style={{ fontSize: '0.9375rem', color: '#5E5E5E', lineHeight: 1.6 }}>
+              <strong style={{ color: '#181818' }}>{repeatRate.repeat}</strong> of <strong style={{ color: '#181818' }}>{repeatRate.total}</strong> customers ordered more than once in the last {selectedDays} days.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -506,3 +506,58 @@ export const xeroConnections = pgTable("xero_connections", {
   isConnected: boolean("is_connected").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ─── Reservations (per-venue) ───
+export const reservations = pgTable("reservations", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 32 }).notNull(),
+  customerEmail: varchar("customer_email", { length: 320 }),
+  partySize: integer("party_size").notNull().default(2),
+  reservationDate: varchar("reservation_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  reservationTime: varchar("reservation_time", { length: 5 }).notNull(),  // HH:MM
+  notes: text("notes"),
+  status: varchar("status", { length: 16 }).notNull().default("pending")
+    .$type<"pending" | "confirmed" | "seated" | "cancelled" | "no_show">(),
+  confirmationSentAt: timestamp("confirmation_sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Favourite Orders (per-venue) ───
+export const favouriteOrders = pgTable("favourite_orders", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  customerPhone: varchar("customer_phone", { length: 32 }).notNull(),
+  label: varchar("label", { length: 128 }).notNull(), // e.g. "My usual"
+  itemsJson: text("items_json").notNull(), // JSON array of cart items
+  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }),
+  orderCount: integer("order_count").default(1), // how many times reordered
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastUsedAt: timestamp("last_used_at").defaultNow(),
+});
+
+// ─── Group Orders (per-venue) ───
+export const groupOrders = pgTable("group_orders", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  sessionCode: varchar("session_code", { length: 8 }).notNull(), // e.g. "CAFE4821"
+  hostPhone: varchar("host_phone", { length: 32 }).notNull(),
+  hostName: varchar("host_name", { length: 255 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("open")
+    .$type<"open" | "locked" | "paid" | "cancelled">(),
+  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).default("0"),
+  expiresAt: timestamp("expires_at").notNull(),
+  orderId: bigint("order_id", { mode: "number" }).references(() => orders.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const groupOrderParticipants = pgTable("group_order_participants", {
+  id: serial("id").primaryKey(),
+  groupOrderId: bigint("group_order_id", { mode: "number" }).notNull().references(() => groupOrders.id),
+  participantName: varchar("participant_name", { length: 255 }).notNull(),
+  participantPhone: varchar("participant_phone", { length: 32 }),
+  itemsJson: text("items_json").notNull(),
+  subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+});

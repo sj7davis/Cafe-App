@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants } from "@db/schema";
 import { eq, and, desc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -281,6 +281,30 @@ export const venueRouter = createRouter({
           }
         } catch { /* non-blocking */ }
       }
+      // Also push to the customer's own device if they subscribed
+      if (ro?.customerPhone) {
+        try {
+          const customerSubs = await db.select()
+            .from(pushSubscriptions)
+            .where(and(
+              eq(pushSubscriptions.venueId, ro.venueId),
+              eq(pushSubscriptions.phone, ro.customerPhone)
+            ));
+          const { sendPush } = await import("./lib/push");
+          for (const sub of customerSubs) {
+            try {
+              await sendPush(
+                { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+                { title: "Your order is ready! ☕", body: `Order ${ro.orderNumber} is ready for pickup. Come grab it!`, tag: `customer-order-${input.orderId}` }
+              );
+            } catch (e: any) {
+              if (e?.statusCode === 410) {
+                await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
+              }
+            }
+          }
+        } catch { /* non-blocking */ }
+      }
     }
 
     // SMS: notify customer when status → confirmed
@@ -351,6 +375,7 @@ export const venueRouter = createRouter({
     earnLoyalty: z.boolean().default(true),
     tableNumber: z.string().optional(),
     orderType: z.string().optional(),
+    scheduledFor: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
 
@@ -395,7 +420,7 @@ export const venueRouter = createRouter({
       orderNumber,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
-      pickupTime: input.pickupTime,
+      pickupTime: input.scheduledFor ?? input.pickupTime,
       orderNote: input.orderNote,
       paymentMethod: input.paymentMethod as any,
       totalAmount: finalTotal.toFixed(2),
@@ -1875,6 +1900,251 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.venueId, venueId));
     return { count: Number(row?.count ?? 0) };
+  }),
+
+  // ─── Multi-Venue ───
+  listMyVenues: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    // JWT has venueId but not email — look up owner email from venueOwners
+    const ownerRow = await db.select({ email: venueOwners.email })
+      .from(venueOwners)
+      .where(eq(venueOwners.venueId, venueId))
+      .limit(1);
+    const ownerEmail = ownerRow[0]?.email;
+    if (!ownerEmail) throw new TRPCError({ code: "UNAUTHORIZED", message: "Owner not found" });
+
+    // Find all venues for this email
+    const rows = await db
+      .select({
+        id: venues.id,
+        name: venues.name,
+        slug: venues.slug,
+        isActive: venues.isPublic,
+      })
+      .from(venueOwners)
+      .innerJoin(venues, eq(venues.id, venueOwners.venueId))
+      .where(and(eq(venueOwners.email, ownerEmail), eq(venueOwners.isActive, true)));
+
+    return rows;
+  }),
+
+  getVenueToken: publicQuery.input(z.object({
+    token: z.string(),
+    venueId: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const currentVenueId = payload.payload.venueId as number;
+
+    // Look up email from current venue owner record
+    const ownerRow = await db.select({ email: venueOwners.email, id: venueOwners.id, name: venueOwners.name, role: venueOwners.role })
+      .from(venueOwners)
+      .where(eq(venueOwners.venueId, currentVenueId))
+      .limit(1);
+    const owner = ownerRow[0];
+    if (!owner) throw new TRPCError({ code: "UNAUTHORIZED", message: "Owner not found" });
+
+    // Verify this email has access to the requested venueId
+    const targetOwnerRow = await db.select({ id: venueOwners.id, role: venueOwners.role })
+      .from(venueOwners)
+      .where(and(
+        eq(venueOwners.email, owner.email),
+        eq(venueOwners.venueId, input.venueId),
+        eq(venueOwners.isActive, true),
+      ))
+      .limit(1);
+    const targetOwner = targetOwnerRow[0];
+    if (!targetOwner) throw new TRPCError({ code: "FORBIDDEN", message: "No access to this venue" });
+
+    const newToken = await new SignJWT({ ownerId: targetOwner.id, venueId: input.venueId, email: owner.email, role: targetOwner.role })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("7d")
+      .sign(JWT_SECRET);
+
+    return { token: newToken };
+  }),
+
+  // ─── Favourite Orders ───
+  saveFavouriteOrder: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().min(1),
+    label: z.string().min(1),
+    itemsJson: z.string().min(1),
+    totalAmount: z.number().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const existing = await db.select({ id: favouriteOrders.id })
+      .from(favouriteOrders)
+      .where(and(
+        eq(favouriteOrders.venueId, input.venueId),
+        eq(favouriteOrders.customerPhone, input.phone),
+        eq(favouriteOrders.label, input.label),
+      ))
+      .limit(1);
+
+    if (existing[0]) {
+      await db.update(favouriteOrders).set({
+        itemsJson: input.itemsJson,
+        ...(input.totalAmount !== undefined ? { totalAmount: input.totalAmount.toFixed(2) } : {}),
+        lastUsedAt: new Date(),
+      }).where(eq(favouriteOrders.id, existing[0].id));
+      return { id: existing[0].id };
+    } else {
+      const [inserted] = await db.insert(favouriteOrders).values({
+        venueId: input.venueId,
+        customerPhone: input.phone,
+        label: input.label,
+        itemsJson: input.itemsJson,
+        totalAmount: input.totalAmount !== undefined ? input.totalAmount.toFixed(2) : null,
+      }).returning({ id: favouriteOrders.id });
+      return { id: inserted.id };
+    }
+  }),
+
+  listFavouriteOrders: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().min(1),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select()
+      .from(favouriteOrders)
+      .where(and(
+        eq(favouriteOrders.venueId, input.venueId),
+        eq(favouriteOrders.customerPhone, input.phone),
+      ))
+      .orderBy(desc(favouriteOrders.lastUsedAt))
+      .limit(10);
+  }),
+
+  deleteFavouriteOrder: publicQuery.input(z.object({
+    id: z.number().int().positive(),
+    phone: z.string().min(1),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.delete(favouriteOrders).where(and(
+      eq(favouriteOrders.id, input.id),
+      eq(favouriteOrders.customerPhone, input.phone),
+    ));
+    return { ok: true };
+  }),
+
+  incrementFavouriteUsage: publicQuery.input(z.object({
+    id: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(favouriteOrders).set({
+      orderCount: sql`order_count + 1`,
+      lastUsedAt: new Date(),
+    }).where(eq(favouriteOrders.id, input.id));
+    return { ok: true };
+  }),
+
+  // ─── Group Orders ───
+  createGroupSession: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    hostPhone: z.string().min(1),
+    hostName: z.string().min(1),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let sessionCode = "";
+    for (let i = 0; i < 6; i++) {
+      sessionCode += chars[Math.floor(Math.random() * chars.length)];
+    }
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const [inserted] = await db.insert(groupOrders).values({
+      venueId: input.venueId,
+      sessionCode,
+      hostPhone: input.hostPhone,
+      hostName: input.hostName,
+      expiresAt,
+    }).returning({ id: groupOrders.id });
+    return { id: inserted.id, sessionCode, expiresAt };
+  }),
+
+  getGroupSession: publicQuery.input(z.object({
+    sessionCode: z.string().min(1),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const now = new Date();
+    const sessionRows = await db.select()
+      .from(groupOrders)
+      .where(and(
+        eq(groupOrders.sessionCode, input.sessionCode),
+        eq(groupOrders.status, "open"),
+        sql`${groupOrders.expiresAt} > ${now}`,
+      ))
+      .limit(1);
+    const session = sessionRows[0];
+    if (!session) return null;
+    const participants = await db.select()
+      .from(groupOrderParticipants)
+      .where(eq(groupOrderParticipants.groupOrderId, session.id));
+    return { session, participants };
+  }),
+
+  joinGroupSession: publicQuery.input(z.object({
+    sessionCode: z.string().min(1),
+    participantName: z.string().min(1),
+    participantPhone: z.string().optional(),
+    itemsJson: z.string().min(1),
+    subtotal: z.number().min(0),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const now = new Date();
+    const sessionRows = await db.select()
+      .from(groupOrders)
+      .where(and(
+        eq(groupOrders.sessionCode, input.sessionCode),
+        eq(groupOrders.status, "open"),
+        sql`${groupOrders.expiresAt} > ${now}`,
+      ))
+      .limit(1);
+    const session = sessionRows[0];
+    if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Group session not found or expired" });
+
+    await db.insert(groupOrderParticipants).values({
+      groupOrderId: session.id,
+      participantName: input.participantName,
+      participantPhone: input.participantPhone ?? null,
+      itemsJson: input.itemsJson,
+      subtotal: input.subtotal.toFixed(2),
+    });
+
+    await db.update(groupOrders).set({
+      totalAmount: sql`total_amount + ${input.subtotal.toFixed(2)}`,
+    }).where(eq(groupOrders.id, session.id));
+
+    return { ok: true, sessionCode: input.sessionCode };
+  }),
+
+  lockGroupSession: publicQuery.input(z.object({
+    sessionCode: z.string().min(1),
+    hostPhone: z.string().min(1),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const sessionRows = await db.select()
+      .from(groupOrders)
+      .where(eq(groupOrders.sessionCode, input.sessionCode))
+      .limit(1);
+    const session = sessionRows[0];
+    if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Group session not found" });
+    if (session.hostPhone !== input.hostPhone) throw new TRPCError({ code: "FORBIDDEN", message: "Only the host can lock the session" });
+
+    await db.update(groupOrders).set({ status: "locked" }).where(eq(groupOrders.id, session.id));
+
+    const participants = await db.select()
+      .from(groupOrderParticipants)
+      .where(eq(groupOrderParticipants.groupOrderId, session.id));
+
+    const updatedSession = await db.select().from(groupOrders).where(eq(groupOrders.id, session.id)).limit(1);
+
+    return { session: updatedSession[0], participants };
   }),
 
   // ─── Review Reply ───

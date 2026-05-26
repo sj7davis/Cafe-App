@@ -60,7 +60,7 @@ Plans:
 - [x] **Phase 3: Customer Engagement** - Saved preferences at checkout and post-order review/rating flow (completed 2026-05-25)
 - [x] **Phase 4: Monetisation** - Gift card purchase/redemption and subscription coffee pass (completed 2026-05-25)
 - [x] **Phase 5: Venue Expansion** - Multi-location management and public catering enquiry form (completed 2026-05-25)
-- [ ] **Phase 6: Marketing & Notifications** - QR code generator and transactional email via Resend
+- [x] **Phase 6: Marketing & Notifications** - QR code generator and transactional email via Resend (completed 2026-05-25)
 
 ## Phase Details
 
@@ -187,4 +187,4 @@ Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be p
 | 3. Customer Engagement | v1.1 | 3/3 | Complete    | 2026-05-25 |
 | 4. Monetisation | v1.1 | 3/3 | Complete    | 2026-05-25 |
 | 5. Venue Expansion | v1.1 | 3/3 | Complete    | 2026-05-25 |
-| 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
+| 6. Marketing & Notifications | v1.1 | 3/3 | Complete    | 2026-05-25 |
