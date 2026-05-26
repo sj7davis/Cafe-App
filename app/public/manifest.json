@@ -1,0 +1,38 @@
+{
+  "name": "B1 Cafe",
+  "short_name": "B1 Cafe",
+  "description": "Order ahead, earn loyalty points, and skip the queue.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#5E8B8B",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Order Now",
+      "url": "/",
+      "description": "Place a new order"
+    },
+    {
+      "name": "Kitchen Display",
+      "url": "/kitchen",
+      "description": "Staff kitchen view"
+    }
+  ],
+  "categories": ["food", "shopping"],
+  "screenshots": []
+}

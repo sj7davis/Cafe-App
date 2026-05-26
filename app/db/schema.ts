@@ -119,6 +119,10 @@ export const menuItems = pgTable("menu_items", {
   originTastingNotes: text("origin_tasting_notes"),
   originStory: text("origin_story"),
   squareCatalogId: varchar("square_catalog_id", { length: 50 }),
+  activeFrom: timestamp("active_from"),
+  activeTo: timestamp("active_to"),
+  isLimitedTime: boolean("is_limited_time").default(false),
+  limitedTimeLabel: varchar("limited_time_label", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type MenuItem = typeof menuItems.$inferSelect;
@@ -132,6 +136,9 @@ export const inventory = pgTable("inventory", {
   soldOutAt: timestamp("sold_out_at"),
   restockedAt: timestamp("restocked_at"),
   staffNote: text("staff_note"),
+  quantity: integer("quantity"),
+  quantityAlert: integer("quantity_alert"),
+  lastRestockedAt: timestamp("last_restocked_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
@@ -177,6 +184,12 @@ export const orders = pgTable("orders", {
   locationId: bigint("location_id", { mode: "number" }),
   squareOrderId: varchar("square_order_id", { length: 50 }),
   customerEmail: varchar("customer_email", { length: 320 }),
+  tipAmount: numeric("tip_amount", { precision: 10, scale: 2 }).default("0"),
+  discountCode: varchar("discount_code", { length: 32 }),
+  discountAmount: numeric("discount_amount", { precision: 10, scale: 2 }).default("0"),
+  stripeSessionId: varchar("stripe_session_id", { length: 100 }),
+  tableNumber: varchar("table_number", { length: 16 }),
+  orderType: varchar("order_type", { length: 16 }).default("pickup"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
 });
@@ -270,6 +283,7 @@ export const giftCards = pgTable("gift_cards", {
   balance: numeric("balance", { precision: 10, scale: 2 }).notNull(),
   senderName: varchar("sender_name", { length: 255 }),
   recipientName: varchar("recipient_name", { length: 255 }),
+  recipientEmail: varchar("recipient_email", { length: 320 }),
   recipientPhone: varchar("recipient_phone", { length: 32 }),
   message: text("message"),
   isRedeemed: boolean("is_redeemed").default(false),
@@ -284,6 +298,8 @@ export const reviews = pgTable("reviews", {
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   rating: integer("rating").notNull(),
   comment: text("comment"),
+  ownerReply: text("owner_reply"),
+  ownerRepliedAt: timestamp("owner_replied_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -315,6 +331,22 @@ export const cateringRequests = pgTable("catering_requests", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Discount Codes (per-venue) ───
+export const discountCodes = pgTable("discount_codes", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  code: varchar("code", { length: 32 }).notNull(),
+  type: varchar("type", { length: 16 }).notNull().$type<"percentage" | "fixed">(),
+  value: numeric("value", { precision: 10, scale: 2 }).notNull(),
+  minOrderAmount: numeric("min_order_amount", { precision: 10, scale: 2 }),
+  maxUses: integer("max_uses"),
+  usedCount: integer("used_count").notNull().default(0),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type DiscountCode = typeof discountCodes.$inferSelect;
+
 // ─── Menu Item Modifiers (per-venue, per-item) ───
 // Modifier groups — e.g. "Milk Type" with options [Oat, Almond, Regular]
 export const menuItemModifiers = pgTable("menu_item_modifiers", {
@@ -337,5 +369,140 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   p256dh: text("p256dh").notNull(),
   auth: text("auth").notNull(),
   phone: varchar("phone", { length: 32 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Customer Accounts (cross-device loyalty login) ───
+export const customerAccounts = pgTable("customer_accounts", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  email: varchar("email", { length: 320 }).notNull(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }),
+  phone: varchar("phone", { length: 32 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastLoginAt: timestamp("last_login_at"),
+  birthday: varchar("birthday", { length: 5 }),
+  allergies: text("allergies"),
+  marketingOptIn: boolean("marketing_opt_in").default(false),
+});
+
+// ─── Abandoned Carts (per-venue) ───
+export const abandonedCarts = pgTable("abandoned_carts", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  phone: varchar("phone", { length: 32 }),
+  email: varchar("email", { length: 320 }),
+  customerName: varchar("customer_name", { length: 255 }),
+  itemsJson: text("items_json").notNull(),
+  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
+  isRecovered: boolean("is_recovered").default(false),
+  recoverySentAt: timestamp("recovery_sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+// ─── Staff Shifts (scheduling) ───
+export const staffShifts = pgTable("staff_shifts", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
+  shiftDate: varchar("shift_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  startTime: varchar("start_time", { length: 5 }).notNull(),  // HH:MM
+  endTime: varchar("end_time", { length: 5 }).notNull(),
+  role: varchar("role", { length: 64 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Loyalty Rewards Catalogue (per-venue) ───
+export const loyaltyRewards = pgTable("loyalty_rewards", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  name: varchar("name", { length: 128 }).notNull(),
+  description: text("description"),
+  pointsCost: integer("points_cost").notNull(),
+  rewardType: varchar("reward_type", { length: 32 }).notNull().$type<"free_item" | "discount_percent" | "discount_fixed" | "custom">(),
+  rewardValue: varchar("reward_value", { length: 64 }),
+  menuItemSlug: varchar("menu_item_slug", { length: 64 }),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Campaign Messages (email/SMS marketing) ───
+export const campaignMessages = pgTable("campaign_messages", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  name: varchar("name", { length: 128 }).notNull(),
+  type: varchar("type", { length: 8 }).notNull().$type<"email" | "sms">(),
+  subject: varchar("subject", { length: 255 }),
+  body: text("body").notNull(),
+  segment: varchar("segment", { length: 32 }).notNull().$type<"all" | "active_30d" | "high_value">(),
+  sentAt: timestamp("sent_at"),
+  recipientCount: integer("recipient_count").default(0),
+  status: varchar("status", { length: 16 }).notNull().default("draft").$type<"draft" | "sent">(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── NPS Responses ───
+export const npsResponses = pgTable("nps_responses", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  orderId: bigint("order_id", { mode: "number" }).references(() => orders.id),
+  phone: varchar("phone", { length: 32 }),
+  score: integer("score").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Waste Log (per-venue) ───
+export const wasteLog = pgTable("waste_log", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  menuItemId: bigint("menu_item_id", { mode: "number" }).references(() => menuItems.id),
+  itemName: varchar("item_name", { length: 128 }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  reason: varchar("reason", { length: 128 }).notNull(),
+  costEstimate: numeric("cost_estimate", { precision: 10, scale: 2 }),
+  staffId: bigint("staff_id", { mode: "number" }).references(() => staffAccounts.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Waitlist Entries (dine-in virtual queue) ───
+export const waitlistEntries = pgTable("waitlist_entries", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  partySize: integer("party_size").notNull().default(1),
+  position: integer("position").notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("waiting").$type<"waiting" | "notified" | "seated" | "cancelled">(),
+  notifiedAt: timestamp("notified_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Webhook Subscriptions (Zapier/custom integrations) ───
+export const webhookSubscriptions = pgTable("webhook_subscriptions", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  url: text("url").notNull(),
+  events: json("events").notNull().$type<string[]>(),
+  secret: varchar("secret", { length: 64 }),
+  isActive: boolean("is_active").default(true),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Xero Connections (accounting integration) ───
+export const xeroConnections = pgTable("xero_connections", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().unique().references(() => venues.id),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tenantId: varchar("tenant_id", { length: 64 }),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  lastSyncAt: timestamp("last_sync_at"),
+  isConnected: boolean("is_connected").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

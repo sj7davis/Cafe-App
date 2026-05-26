@@ -2,13 +2,14 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers } from "@db/schema";
-import { eq, and, desc, sql, gte, sum } from "drizzle-orm";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts } from "@db/schema";
+import { eq, and, desc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
 import { env } from "./lib/env";
 import { sendEmail } from "./lib/email";
+import { sendSms } from "./lib/sms";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -157,12 +158,15 @@ export const venueRouter = createRouter({
   listOrders: publicQuery.input(z.object({
     venueId: z.number().int().positive(),
     status: z.string().optional(),
-    limit: z.number().int().min(1).max(100).default(50),
+    statuses: z.array(z.string()).optional(), // multi-status filter (e.g. for KDS)
+    limit: z.number().int().min(1).max(200).default(50),
     locationId: z.number().int().positive().optional(),
   })).query(async ({ input }) => {
     const db = getDb();
     const conditions = [eq(orders.venueId, input.venueId)];
-    if (input.status) {
+    if (input.statuses && input.statuses.length > 0) {
+      conditions.push(sql`${orders.status} = ANY(${input.statuses})`);
+    } else if (input.status) {
       conditions.push(eq(orders.status, input.status as any));
     }
     if (input.locationId) {
@@ -237,10 +241,10 @@ export const venueRouter = createRouter({
     }
     await db.update(orders).set(updateData).where(eq(orders.id, input.orderId));
 
-    // EMAIL-02b: send "your order is ready" email when status → ready
+    // EMAIL-02b + SMS: send "your order is ready" when status → ready
     if (input.status === "ready") {
       const readyOrder = await db
-        .select({ customerEmail: orders.customerEmail, customerName: orders.customerName, orderNumber: orders.orderNumber })
+        .select({ customerEmail: orders.customerEmail, customerName: orders.customerName, orderNumber: orders.orderNumber, customerPhone: orders.customerPhone })
         .from(orders)
         .where(eq(orders.id, input.orderId))
         .limit(1);
@@ -253,6 +257,22 @@ export const venueRouter = createRouter({
 <p>Great news — your order <strong>${ro.orderNumber}</strong> is <strong>ready for pickup</strong>!</p>
 <p>Head to the counter and we'll have it waiting for you.</p>`,
         });
+      }
+      if (ro?.customerPhone) {
+        void sendSms(ro.customerPhone, `Your order #${ro.orderNumber} is ready for pickup! ☕`);
+      }
+    }
+
+    // SMS: notify customer when status → confirmed
+    if (input.status === "confirmed") {
+      const confirmedOrder = await db
+        .select({ customerPhone: orders.customerPhone, orderNumber: orders.orderNumber })
+        .from(orders)
+        .where(eq(orders.id, input.orderId))
+        .limit(1);
+      const co2 = confirmedOrder[0];
+      if (co2?.customerPhone) {
+        void sendSms(co2.customerPhone, `Your order #${co2.orderNumber} has been confirmed and is being prepared.`);
       }
     }
 
@@ -304,6 +324,13 @@ export const venueRouter = createRouter({
     })),
     locationId: z.number().int().positive().optional(),
     customerEmail: z.string().email().optional(),
+    tipAmount: z.number().min(0).default(0),
+    discountCode: z.string().optional(),
+    discountAmount: z.number().min(0).default(0),
+    stripeSessionId: z.string().optional(),
+    earnLoyalty: z.boolean().default(true),
+    tableNumber: z.string().optional(),
+    orderType: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
 
@@ -338,6 +365,10 @@ export const venueRouter = createRouter({
     // Generate order number
     const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
 
+    // Apply discount
+    const discountedTotal = Math.max(0, totalAmount - (input.discountAmount ?? 0));
+    const finalTotal = discountedTotal + (input.tipAmount ?? 0);
+
     // Create order
     const [orderResult] = await db.insert(orders).values({
       venueId: input.venueId,
@@ -347,9 +378,15 @@ export const venueRouter = createRouter({
       pickupTime: input.pickupTime,
       orderNote: input.orderNote,
       paymentMethod: input.paymentMethod as any,
-      totalAmount: totalAmount.toFixed(2),
+      totalAmount: finalTotal.toFixed(2),
       locationId: input.locationId,
       customerEmail: input.customerEmail,
+      tipAmount: input.tipAmount ? input.tipAmount.toFixed(2) : "0",
+      discountCode: input.discountCode ?? null,
+      discountAmount: input.discountAmount ? input.discountAmount.toFixed(2) : "0",
+      stripeSessionId: input.stripeSessionId ?? null,
+      tableNumber: input.tableNumber ?? null,
+      orderType: input.orderType ?? "pickup",
     }).returning({ id: orders.id });
 
     const orderId = orderResult.id;
@@ -364,6 +401,56 @@ export const venueRouter = createRouter({
         unitPrice: item.unitPrice.toFixed(2),
         note: item.note,
       });
+    }
+
+    // LOYALTY: auto-earn 1 point per $1 spent (rounded down, excluding tip)
+    if (input.earnLoyalty && discountedTotal >= 1) {
+      const pointsEarned = Math.floor(discountedTotal);
+      try {
+        let loyaltyAcc = await db.select().from(loyaltyAccounts)
+          .where(and(eq(loyaltyAccounts.venueId, input.venueId), eq(loyaltyAccounts.phone, input.customerPhone)))
+          .limit(1);
+        if (!loyaltyAcc[0]) {
+          await db.insert(loyaltyAccounts).values({
+            venueId: input.venueId,
+            phone: input.customerPhone,
+            name: input.customerName,
+            pointsBalance: 0,
+            totalLifetimePoints: 0,
+          });
+          loyaltyAcc = await db.select().from(loyaltyAccounts)
+            .where(and(eq(loyaltyAccounts.venueId, input.venueId), eq(loyaltyAccounts.phone, input.customerPhone)))
+            .limit(1);
+        }
+        const acc = loyaltyAcc[0];
+        if (acc) {
+          await db.update(loyaltyAccounts).set({
+            pointsBalance: acc.pointsBalance + pointsEarned,
+            totalLifetimePoints: acc.totalLifetimePoints + pointsEarned,
+          }).where(eq(loyaltyAccounts.id, acc.id));
+          await db.insert(loyaltyTransactions).values({
+            venueId: input.venueId,
+            accountId: acc.id,
+            type: "earn",
+            points: pointsEarned,
+            description: `Order ${orderNumber} — earned ${pointsEarned} pts`,
+            orderId,
+          });
+        }
+      } catch {
+        // Non-blocking — loyalty failure never blocks order
+      }
+    }
+
+    // DISCOUNT CODE: increment usage count
+    if (input.discountCode) {
+      try {
+        await db.update(discountCodes).set({ usedCount: sql`used_count + 1` })
+          .where(and(
+            eq(discountCodes.venueId, input.venueId),
+            eq(discountCodes.code, input.discountCode.toUpperCase()),
+          ));
+      } catch { /* non-blocking */ }
     }
 
     // EMAIL-01 + EMAIL-02: send post-order emails (non-blocking; never throw)
@@ -387,7 +474,7 @@ export const venueRouter = createRouter({
 <p>Your order <strong>${orderNumber}</strong> has been received!</p>
 <ul>${itemLines}</ul>
 <p><strong>Pickup time:</strong> ${input.pickupTime}</p>
-<p><strong>Total:</strong> $${totalAmount.toFixed(2)}</p>
+<p><strong>Total:</strong> $${finalTotal.toFixed(2)}</p>
 <p>Track your order: <a href="${env.appUrl}/order/${orderNumber}">${env.appUrl}/order/${orderNumber}</a></p>`,
       });
     }
@@ -402,11 +489,14 @@ export const venueRouter = createRouter({
 <p><strong>Customer:</strong> ${input.customerName} (${input.customerPhone})</p>
 <ul>${itemLines}</ul>
 <p><strong>Pickup time:</strong> ${input.pickupTime}</p>
-<p><strong>Total:</strong> $${totalAmount.toFixed(2)}</p>`,
+<p><strong>Total:</strong> $${finalTotal.toFixed(2)}</p>`,
       });
     }
 
-    return { orderId, orderNumber, totalAmount: totalAmount.toFixed(2) };
+    // SMS: customer order confirmation (fire-and-forget)
+    void sendSms(input.customerPhone, `Order #${orderNumber} confirmed! Pickup: ${input.pickupTime}. Total: $${finalTotal.toFixed(2)}`);
+
+    return { orderId, orderNumber, totalAmount: finalTotal.toFixed(2) };
   }),
 
   // ─── Menu Management ───
@@ -820,11 +910,17 @@ export const venueRouter = createRouter({
     senderName: z.string().optional(),
     recipientName: z.string().optional(),
     recipientPhone: z.string().optional(),
+    recipientEmail: z.string().email().optional(),
     message: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
+
+    // Fetch venue name for email branding
+    const venueRow = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const venueName = venueRow[0]?.name ?? "the cafe";
+
     const code = generateGiftCardCode();
     const [result] = await db.insert(giftCards).values({
       venueId,
@@ -834,8 +930,35 @@ export const venueRouter = createRouter({
       senderName: input.senderName,
       recipientName: input.recipientName,
       recipientPhone: input.recipientPhone,
+      recipientEmail: input.recipientEmail ?? null,
       message: input.message,
     }).returning({ id: giftCards.id });
+
+    // EMAIL: send digital gift card to recipient
+    if (input.recipientEmail) {
+      sendEmail({
+        to: input.recipientEmail,
+        subject: `🎁 You've received a $${input.amount.toFixed(2)} gift card from ${venueName}!`,
+        html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+<h2>You've got a gift card! 🎉</h2>
+${input.senderName ? `<p><strong>${input.senderName}</strong> sent you a gift card.</p>` : ""}
+${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:1rem;color:#555">${input.message}</blockquote>` : ""}
+<div style="background:#f9f9f9;border-radius:8px;padding:1.5rem;text-align:center;margin:1.5rem 0">
+  <p style="margin:0;color:#666;font-size:0.875rem">Your gift card code</p>
+  <p style="font-size:2rem;font-weight:bold;letter-spacing:0.2em;margin:0.5rem 0;color:#181818">${code}</p>
+  <p style="margin:0;color:#5E8B8B;font-size:1.25rem">Value: $${input.amount.toFixed(2)}</p>
+</div>
+<p style="text-align:center;margin:1.5rem 0">
+  <a href="${env.appUrl}/gift/${code}?v=${venueId}" style="display:inline-block;background:#5E8B8B;color:#fff;text-decoration:none;padding:0.75rem 2rem;border-radius:8px;font-weight:600">
+    View &amp; Redeem Gift Card
+  </a>
+</p>
+<p style="color:#666;font-size:0.875rem">Or use the code <strong>${code}</strong> at ${venueName} when ordering online or show it at the counter.</p>
+<p style="color:#999;font-size:0.75rem">Gift cards do not expire.</p>
+</div>`,
+      });
+    }
+
     return { id: result.id, code };
   }),
 
@@ -1272,6 +1395,382 @@ export const venueRouter = createRouter({
     const venueId = payload.payload.venueId as number;
     await db.delete(menuItemModifiers)
       .where(and(eq(menuItemModifiers.id, input.modifierId), eq(menuItemModifiers.venueId, venueId)));
+    return { success: true };
+  }),
+
+  // ─── Bundles ───
+  listBundlesPublic: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const rows = await db.select().from(bundles)
+      .where(and(eq(bundles.venueId, input.venueId), eq(bundles.isActive, true)));
+    const result = [];
+    for (const bundle of rows) {
+      const slugList = bundle.itemSlugs.split(",").map(s => s.trim()).filter(Boolean);
+      let items: { slug: string; name: string; price: string }[] = [];
+      if (slugList.length > 0) {
+        const menuRows = await db.select({ slug: menuItems.slug, name: menuItems.name, price: menuItems.price })
+          .from(menuItems)
+          .where(and(eq(menuItems.venueId, input.venueId), inArray(menuItems.slug, slugList)));
+        items = menuRows.map(r => ({ slug: r.slug, name: r.name, price: r.price }));
+      }
+      result.push({
+        id: bundle.id,
+        name: bundle.name,
+        description: bundle.description,
+        itemSlugs: bundle.itemSlugs,
+        bundlePrice: bundle.bundlePrice,
+        items,
+      });
+    }
+    return result;
+  }),
+
+  listBundles: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    return db.select().from(bundles).where(eq(bundles.venueId, venueId)).orderBy(desc(bundles.createdAt));
+  }),
+
+  createBundle: publicQuery.input(z.object({
+    token: z.string(),
+    name: z.string().min(1),
+    description: z.string().optional(),
+    itemSlugs: z.string().min(1),
+    bundlePrice: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const [result] = await db.insert(bundles).values({
+      venueId,
+      name: input.name,
+      description: input.description,
+      itemSlugs: input.itemSlugs,
+      bundlePrice: input.bundlePrice,
+    }).returning();
+    return result;
+  }),
+
+  updateBundle: publicQuery.input(z.object({
+    token: z.string(),
+    id: z.number().int().positive(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    itemSlugs: z.string().optional(),
+    bundlePrice: z.string().optional(),
+    isActive: z.boolean().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const { token: _t, id, ...rest } = input;
+    const updates: Record<string, unknown> = {};
+    if (rest.name !== undefined) updates.name = rest.name;
+    if (rest.description !== undefined) updates.description = rest.description;
+    if (rest.itemSlugs !== undefined) updates.itemSlugs = rest.itemSlugs;
+    if (rest.bundlePrice !== undefined) updates.bundlePrice = rest.bundlePrice;
+    if (rest.isActive !== undefined) updates.isActive = rest.isActive;
+    await db.update(bundles).set(updates).where(and(eq(bundles.id, id), eq(bundles.venueId, venueId)));
+    return { success: true };
+  }),
+
+  deleteBundle: publicQuery.input(z.object({
+    token: z.string(),
+    id: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    await db.delete(bundles).where(and(eq(bundles.id, input.id), eq(bundles.venueId, venueId)));
+    return { success: true };
+  }),
+
+  // ─── Happy Hour ───
+  setHappyHour: publicQuery.input(z.object({
+    token: z.string(),
+    enabled: z.boolean(),
+    startTime: z.string(),
+    endTime: z.string(),
+    discountPercent: z.number().min(0).max(100),
+    label: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
+    const updated = {
+      ...existing,
+      happyHour: {
+        enabled: input.enabled,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        discountPercent: input.discountPercent,
+        label: input.label ?? "Happy Hour",
+      },
+    };
+    await db.update(venues).set({ settingsJson: updated, updatedAt: new Date() }).where(eq(venues.id, venueId));
+    return updated;
+  }),
+
+  getHappyHour: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    const settings = venueRows[0]?.settingsJson as Record<string, unknown> | null;
+    return (settings?.happyHour as Record<string, unknown> | undefined) ?? null;
+  }),
+
+  // ─── Upsell Suggestions ───
+  getUpsellSuggestions: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    slugs: z.array(z.string()),
+  })).query(async ({ input }) => {
+    if (input.slugs.length === 0) return [];
+    const db = getDb();
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+    // Find menu item ids for the given slugs
+    const cartItems = await db.select({ id: menuItems.id, slug: menuItems.slug })
+      .from(menuItems)
+      .where(and(eq(menuItems.venueId, input.venueId), inArray(menuItems.slug, input.slugs)));
+    const cartItemIds = cartItems.map(i => i.id);
+    if (cartItemIds.length === 0) return [];
+
+    // Find recent orders containing any of those items
+    const matchingOrderItems = await db.select({ orderId: orderItems.orderId })
+      .from(orderItems)
+      .innerJoin(orders, and(eq(orderItems.orderId, orders.id), eq(orders.venueId, input.venueId), gte(orders.createdAt, ninetyDaysAgo)))
+      .where(inArray(orderItems.menuItemId, cartItemIds));
+    const orderIds = [...new Set(matchingOrderItems.map(r => r.orderId))].slice(0, 200);
+    if (orderIds.length === 0) return [];
+
+    // Find co-purchased items in those orders, excluding cart items
+    const coPurchased = await db.select({
+      menuItemId: orderItems.menuItemId,
+      cnt: count(orderItems.menuItemId),
+    })
+      .from(orderItems)
+      .where(and(inArray(orderItems.orderId, orderIds), not(inArray(orderItems.menuItemId, cartItemIds))))
+      .groupBy(orderItems.menuItemId)
+      .orderBy(desc(count(orderItems.menuItemId)))
+      .limit(3);
+
+    if (coPurchased.length === 0) return [];
+
+    const topIds = coPurchased.map(r => r.menuItemId);
+    const topItems = await db.select().from(menuItems).where(inArray(menuItems.id, topIds));
+    return topItems;
+  }),
+
+  // ─── Inventory Quantity ───
+  setInventoryQuantity: publicQuery.input(z.object({
+    token: z.string(),
+    menuItemId: z.number().int().positive(),
+    quantity: z.number().int().min(0),
+    quantityAlert: z.number().int().min(0).optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const existing = await db.select().from(inventory)
+      .where(and(eq(inventory.venueId, venueId), eq(inventory.menuItemId, input.menuItemId)))
+      .limit(1);
+    if (existing[0]) {
+      const updateData: Record<string, unknown> = {
+        quantity: input.quantity,
+        lastRestockedAt: new Date(),
+      };
+      if (input.quantityAlert !== undefined) updateData.quantityAlert = input.quantityAlert;
+      await db.update(inventory).set(updateData).where(eq(inventory.id, existing[0].id));
+      const updated = await db.select().from(inventory).where(eq(inventory.id, existing[0].id)).limit(1);
+      return updated[0];
+    } else {
+      const [inserted] = await db.insert(inventory).values({
+        venueId,
+        menuItemId: input.menuItemId,
+        quantity: input.quantity,
+        quantityAlert: input.quantityAlert,
+        lastRestockedAt: new Date(),
+        isAvailable: true,
+      }).returning();
+      return inserted;
+    }
+  }),
+
+  getInventoryLevels: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const rows = await db.select({
+      id: inventory.id,
+      menuItemId: inventory.menuItemId,
+      itemName: menuItems.name,
+      quantity: inventory.quantity,
+      quantityAlert: inventory.quantityAlert,
+      isAvailable: inventory.isAvailable,
+      lastRestockedAt: inventory.lastRestockedAt,
+      staffNote: inventory.staffNote,
+    })
+      .from(inventory)
+      .innerJoin(menuItems, eq(inventory.menuItemId, menuItems.id))
+      .where(eq(inventory.venueId, venueId))
+      .orderBy(sql`${inventory.quantity} asc nulls first`);
+    return rows;
+  }),
+
+  // ─── Abandoned Carts ───
+  saveAbandonedCart: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().optional(),
+    email: z.string().optional(),
+    customerName: z.string().optional(),
+    itemsJson: z.string(),
+    totalAmount: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    if (input.phone) {
+      const existing = await db.select({ id: abandonedCarts.id }).from(abandonedCarts)
+        .where(and(
+          eq(abandonedCarts.venueId, input.venueId),
+          eq(abandonedCarts.phone, input.phone),
+          eq(abandonedCarts.isRecovered, false),
+        ))
+        .limit(1);
+      if (existing[0]) {
+        await db.update(abandonedCarts).set({
+          itemsJson: input.itemsJson,
+          totalAmount: input.totalAmount,
+          customerName: input.customerName,
+          email: input.email ?? null,
+        }).where(eq(abandonedCarts.id, existing[0].id));
+        return { id: existing[0].id };
+      }
+    }
+    const [inserted] = await db.insert(abandonedCarts).values({
+      venueId: input.venueId,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      customerName: input.customerName ?? null,
+      itemsJson: input.itemsJson,
+      totalAmount: input.totalAmount,
+    }).returning({ id: abandonedCarts.id });
+    return { id: inserted.id };
+  }),
+
+  clearAbandonedCart: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(abandonedCarts).set({ isRecovered: true })
+      .where(and(
+        eq(abandonedCarts.venueId, input.venueId),
+        eq(abandonedCarts.phone, input.phone),
+      ));
+    return { success: true };
+  }),
+
+  // ─── Catering Quote Email ───
+  sendCateringQuote: publicQuery.input(z.object({
+    token: z.string(),
+    requestId: z.number().int().positive(),
+    quoteText: z.string().min(1),
+    totalAmount: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const reqRows = await db.select().from(cateringRequests)
+      .where(and(eq(cateringRequests.id, input.requestId), eq(cateringRequests.venueId, venueId)))
+      .limit(1);
+    const req = reqRows[0];
+    if (!req) throw new TRPCError({ code: "NOT_FOUND", message: "Catering request not found" });
+    if (!req.email) throw new TRPCError({ code: "BAD_REQUEST", message: "Catering request has no email address" });
+
+    const venueRow = await db.select({ name: venues.name, phone: venues.phone, address: venues.address })
+      .from(venues).where(eq(venues.id, venueId)).limit(1);
+    const venue = venueRow[0];
+    const venueName = venue?.name ?? "the café";
+
+    await sendEmail({
+      to: req.email,
+      subject: `Your catering quote from ${venueName}`,
+      html: `<h2>Your Catering Quote from ${venueName}</h2>
+<p>Hi ${req.name},</p>
+<p>Thank you for your catering enquiry. Here is your quote:</p>
+<div style="background:#f9f9f9;border-radius:8px;padding:1.5rem;margin:1rem 0;white-space:pre-wrap">${input.quoteText}</div>
+<p><strong>Total: $${input.totalAmount}</strong></p>
+${venue?.phone ? `<p>Contact us: <a href="tel:${venue.phone}">${venue.phone}</a></p>` : ""}
+${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
+<p>We look forward to hearing from you!</p>
+<p>Regards,<br/>${venueName}</p>`,
+    });
+
+    await db.update(cateringRequests).set({ status: "quoted" })
+      .where(eq(cateringRequests.id, input.requestId));
+
+    return { ok: true };
+  }),
+
+  // ─── Wait Time ───
+  setWaitTime: publicQuery.input(z.object({
+    token: z.string(),
+    minutes: z.number().int().min(0).max(120),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
+
+    await db.update(venues).set({
+      settingsJson: { ...existing, waitTimeMinutes: input.minutes },
+      updatedAt: new Date(),
+    }).where(eq(venues.id, venueId));
+
+    return { success: true, minutes: input.minutes };
+  }),
+
+  getWaitTime: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    const settings = venueRows[0]?.settingsJson as Record<string, unknown> | null;
+    return { minutes: (settings?.waitTimeMinutes as number | undefined) ?? 0 };
+  }),
+
+  // ─── Review Reply ───
+  replyToReview: publicQuery.input(z.object({
+    token: z.string(),
+    reviewId: z.number().int().positive(),
+    reply: z.string().min(1),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+
+    const reviewRows = await db.select().from(reviews).where(eq(reviews.id, input.reviewId)).limit(1);
+    const review = reviewRows[0];
+    if (!review) throw new TRPCError({ code: "NOT_FOUND", message: "Review not found" });
+    if (review.venueId !== venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+
+    await db.update(reviews).set({
+      ownerReply: input.reply,
+      ownerRepliedAt: new Date(),
+    }).where(eq(reviews.id, input.reviewId));
+
     return { success: true };
   }),
 });

@@ -16,4 +16,9 @@ export const env = {
   port: parseInt(process.env.PORT || "3001"),
   resendApiKey: process.env.RESEND_API_KEY || "",
   appUrl: process.env.APP_URL || "https://b1platform.com",
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || "",
+  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || "",
+  twilioFromNumber: process.env.TWILIO_FROM_NUMBER || "",
 };

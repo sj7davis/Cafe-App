@@ -1,11 +1,100 @@
-import { useParams, Link } from 'react-router';
+import { useParams, useSearchParams, Link } from 'react-router';
 import { trpc } from '@/providers/trpc';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
 import {
   Coffee, MapPin, Phone, Clock, Globe, Loader2,
   ShoppingBag, Plus, Minus, X, ChevronRight, Star,
-  Package, CheckCircle
+  Package, CheckCircle, QrCode, Download, Gift, AlertTriangle,
 } from 'lucide-react';
+
+// ─── Hours parsing helpers ───────────────────────────────────────────────────
+function parseHourValue(raw: string): number | null {
+  try {
+    const clean = raw.trim().toLowerCase().replace(/\s/g, '');
+    const ampm = clean.includes('am') ? 'am' : clean.includes('pm') ? 'pm' : null;
+    if (!ampm) return null;
+    const numPart = clean.replace('am', '').replace('pm', '');
+    const [hStr, mStr] = numPart.split(':');
+    let h = parseInt(hStr, 10);
+    const m = mStr ? parseInt(mStr, 10) : 0;
+    if (isNaN(h)) return null;
+    if (ampm === 'pm' && h !== 12) h += 12;
+    if (ampm === 'am' && h === 12) h = 0;
+    return h * 60 + m;
+  } catch {
+    return null;
+  }
+}
+
+function parseOpenClose(hoursStr: string): { openMin: number; closeMin: number } | null {
+  try {
+    const parts = hoursStr.split(/[–—-]/);
+    if (parts.length < 2) return null;
+    const openMin = parseHourValue(parts[0].trim());
+    const closeMin = parseHourValue(parts[1].trim());
+    if (openMin === null || closeMin === null) return null;
+    return { openMin, closeMin };
+  } catch {
+    return null;
+  }
+}
+
+function formatMinutes(totalMin: number): string {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const suffix = h >= 12 ? 'pm' : 'am';
+  const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return m === 0 ? `${displayH}${suffix}` : `${displayH}:${String(m).padStart(2, '0')}${suffix}`;
+}
+
+function getOpenStatus(venue: {
+  hoursWeekday?: string | null;
+  hoursSaturday?: string | null;
+  hoursSunday?: string | null;
+}): { isOpen: boolean; label: string } | null {
+  try {
+    const now = new Date();
+    const day = now.getDay();
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+
+    let hoursStr: string | null | undefined;
+    if (day === 0) hoursStr = venue.hoursSunday;
+    else if (day === 6) hoursStr = venue.hoursSaturday;
+    else hoursStr = venue.hoursWeekday;
+
+    if (!hoursStr) return null;
+    const parsed = parseOpenClose(hoursStr);
+    if (!parsed) return null;
+
+    if (currentMin >= parsed.openMin && currentMin < parsed.closeMin) {
+      return { isOpen: true, label: `Open now · closes at ${formatMinutes(parsed.closeMin)}` };
+    } else {
+      let nextDay = (day + 1) % 7;
+      let nextHoursStr: string | null | undefined;
+      if (nextDay === 0) nextHoursStr = venue.hoursSunday;
+      else if (nextDay === 6) nextHoursStr = venue.hoursSaturday;
+      else nextHoursStr = venue.hoursWeekday;
+      const nextParsed = nextHoursStr ? parseOpenClose(nextHoursStr) : null;
+      const nextLabel = nextParsed ? ` · opens tomorrow at ${formatMinutes(nextParsed.openMin)}` : '';
+      return { isOpen: false, label: `Closed${nextLabel}` };
+    }
+  } catch {
+    return null;
+  }
+}
+
+// ─── Countdown helper ─────────────────────────────────────────────────────────
+function formatCountdown(targetDate: string): string {
+  const diff = new Date(targetDate).getTime() - Date.now();
+  if (diff <= 0) return '';
+  const totalMins = Math.floor(diff / 60000);
+  const days = Math.floor(totalMins / (60 * 24));
+  if (days >= 1) return `${days} day${days > 1 ? 's' : ''}`;
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  return `${hours}h ${mins}m`;
+}
 
 interface CartItem {
   menuItemId: number;
@@ -16,14 +105,43 @@ interface CartItem {
   modifiers?: { group: string; option: string; priceAdj: number }[];
 }
 
-// Stable key for a cart entry — same item + same modifier combo = same slot
 function cartKey(menuItemId: number, modifiers?: { group: string; option: string; priceAdj: number }[]) {
   if (!modifiers || modifiers.length === 0) return String(menuItemId);
   return `${menuItemId}::${modifiers.map(m => `${m.group}=${m.option}`).join('|')}`;
 }
 
+// ─── Happy hour check ─────────────────────────────────────────────────────────
+function isWithinHappyHour(startTime: string, endTime: string): boolean {
+  try {
+    const now = new Date();
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    const start = sh * 60 + (sm || 0);
+    const end = eh * 60 + (em || 0);
+    return cur >= start && cur < end;
+  } catch {
+    return false;
+  }
+}
+
 export default function VenuePublic() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+
+  // ── Table mode ──────────────────────────────────────────────────────────────
+  const tableParam = searchParams.get('table');
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
+  const [orderType, setOrderType] = useState<'pickup' | 'dine-in'>('pickup');
+
+  useEffect(() => {
+    if (tableParam) {
+      setTableNumber(tableParam);
+      setOrderType('dine-in');
+    }
+  }, [tableParam]);
+
+  // ── Core state ──────────────────────────────────────────────────────────────
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null);
@@ -36,20 +154,43 @@ export default function VenuePublic() {
   const [checkoutGiftCode, setCheckoutGiftCode] = useState('');
   const [appliedGiftDiscount, setAppliedGiftDiscount] = useState(0);
   const [checkoutUsePass, setCheckoutUsePass] = useState(false);
+  const [tipOption, setTipOption] = useState<0 | 5 | 10 | 15 | 'custom'>(0);
+  const [tipCustom, setTipCustom] = useState('');
+  const [discountCodeInput, setDiscountCodeInput] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; description: string } | null>(null);
+  const [discountError, setDiscountError] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [cateringForm, setCateringForm] = useState({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
   const [cateringSubmitted, setCateringSubmitted] = useState(false);
-
-  // Modifier modal state
+  const [dietaryFilter, setDietaryFilter] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [showQr, setShowQr] = useState(false);
   const [modifierModalItem, setModifierModalItem] = useState<NonNullable<typeof menuItems>[number] | null>(null);
-
-  // Toast state
   const [toast, setToast] = useState<string | null>(null);
+
+  // ── Upsell state ─────────────────────────────────────────────────────────────
+  const [showUpsell, setShowUpsell] = useState(false);
+  const shownUpsell = useRef(false);
+  const upsellDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Countdown state ───────────────────────────────────────────────────────────
+  const [now, setNow] = useState(Date.now());
+
+  // ── Happy hour state ──────────────────────────────────────────────────────────
+  const [happyHourDiscount, setHappyHourDiscount] = useState(0);
+
+  // ── Loyalty rewards catalogue ─────────────────────────────────────────────────
+  const [showRewardsCatalogue, setShowRewardsCatalogue] = useState(false);
+
+  // ── Abandoned cart debounce ───────────────────────────────────────────────────
+  const abandonedCartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
+  // ── tRPC queries ──────────────────────────────────────────────────────────────
   const { data: venue, isLoading, error } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
     { enabled: !!slug }
@@ -70,6 +211,35 @@ export default function VenuePublic() {
     { enabled: !!venue?.id }
   );
 
+  const { data: bundles } = trpc.venue.listBundlesPublic.useQuery(
+    { venueId: venue?.id || 0 },
+    { enabled: !!venue?.id }
+  );
+
+  const { data: happyHourData } = trpc.venue.getHappyHour.useQuery(
+    { venueId: venue?.id || 0 },
+    { enabled: !!venue?.id }
+  );
+
+  const { data: customerMe } = trpc.customerAuth.me.useQuery(undefined, {
+    enabled: !!venue?.id,
+  });
+
+  const { data: loyaltyRewards } = trpc.loyaltyRewards.list.useQuery(
+    { venueId: venue?.id || 0 },
+    { enabled: !!venue?.id && showRewardsCatalogue }
+  );
+
+  const cartSlugs = cart.map(c => {
+    const mi = (menuItems || []).find(m => m.id === c.menuItemId);
+    return mi ? (mi as { id: number; slug?: string }).slug || String(mi.id) : String(c.menuItemId);
+  });
+
+  const upsellQuery = trpc.venue.getUpsellSuggestions.useQuery(
+    { venueId: venue?.id || 0, slugs: cartSlugs },
+    { enabled: false }
+  );
+
   const avgRating = reviewsList && reviewsList.length > 0
     ? reviewsList.reduce((sum, r) => sum + r.rating, 0) / reviewsList.length
     : null;
@@ -85,7 +255,6 @@ export default function VenuePublic() {
   );
 
   const upsertPreferences = trpc.venue.upsertCustomerPreferences.useMutation();
-
   const submitCatering = trpc.venue.submitCateringRequest.useMutation({
     onSuccess: () => {
       setCateringSubmitted(true);
@@ -93,19 +262,9 @@ export default function VenuePublic() {
     },
   });
 
-  useEffect(() => {
-    if (locationsList && locationsList.length === 1) {
-      setSelectedLocationId(locationsList[0].id);
-    }
-  }, [locationsList]);
-
   const redeemGiftCardMutation = trpc.venue.redeemGiftCard.useMutation({
-    onSuccess: (data) => {
-      setAppliedGiftDiscount(data.discount);
-    },
-    onError: (err) => {
-      alert(err.message);
-    },
+    onSuccess: (data) => { setAppliedGiftDiscount(data.discount); },
+    onError: (err) => { alert(err.message); },
   });
 
   const passQuery = trpc.venue.getPassByPhone.useQuery(
@@ -115,13 +274,34 @@ export default function VenuePublic() {
   const passInfo = passQuery.data ?? null;
 
   const usePassCreditMutation = trpc.venue.usePassCredit.useMutation();
+  const validateDiscountMut = trpc.promo.validateDiscount.useMutation();
+
+  const loyaltyQuery = trpc.loyalty.getAccount.useQuery(
+    { venueId: venue?.id ?? 0, phone: checkoutPhone },
+    { enabled: !!venue?.id && checkoutPhone.length >= 8 }
+  );
+  const loyaltyBalance = loyaltyQuery.data?.pointsBalance ?? null;
+
+  const redeemRewardMutation = trpc.loyaltyRewards.redeem.useMutation({
+    onSuccess: (_, vars) => {
+      const reward = (loyaltyRewards || []).find((r: { id: number }) => r.id === vars.rewardId);
+      showToast(`Reward redeemed! ${reward ? (reward as { description?: string }).description || (reward as { name: string }).name : ''}`);
+      loyaltyQuery.refetch();
+    },
+  });
+
+  const saveAbandonedCartMutation = trpc.venue.saveAbandonedCart.useMutation();
+  const clearAbandonedCartMutation = trpc.venue.clearAbandonedCart.useMutation();
 
   const createOrder = trpc.venue.createOrder.useMutation({
     onSuccess: (data) => {
       setCart([]);
       setPlacedOrderNumber(data.orderNumber);
-      setShowCart(true);  // keep drawer open so the confirmation panel is visible
-      // NOTE: do NOT auto-clear placedOrderNumber on a timer — the customer needs the link to remain
+      setShowCart(true);
+      shownUpsell.current = false;
+      if (checkoutPhone && venue?.id) {
+        clearAbandonedCartMutation.mutate({ venueId: venue.id, phone: checkoutPhone });
+      }
       if (checkoutPhone && venue?.id && (checkoutMilk || checkoutSugar)) {
         upsertPreferences.mutate({
           venueId: venue.id,
@@ -135,6 +315,59 @@ export default function VenuePublic() {
       }
     },
   });
+
+  // ── Effects ───────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (locationsList && locationsList.length === 1) {
+      setSelectedLocationId(locationsList[0].id);
+    }
+  }, [locationsList]);
+
+  useEffect(() => {
+    if (!venue?.slug) return;
+    const url = `${window.location.origin}/v/${venue.slug}`;
+    QRCode.toDataURL(url, { width: 240, margin: 2 })
+      .then(setQrDataUrl)
+      .catch((err: unknown) => console.error('[qr] generation failed:', err));
+  }, [venue?.slug]);
+
+  // Countdown ticker — updates every 60s
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Happy hour check
+  useEffect(() => {
+    if (!happyHourData) { setHappyHourDiscount(0); return; }
+    const hh = happyHourData as { startTime?: string; endTime?: string; discountPercent?: number; label?: string };
+    if (hh.startTime && hh.endTime && hh.discountPercent && isWithinHappyHour(hh.startTime, hh.endTime)) {
+      setHappyHourDiscount(hh.discountPercent);
+    } else {
+      setHappyHourDiscount(0);
+    }
+  }, [happyHourData]);
+
+  // Abandoned cart debounce — save after 2 min of no cart change
+  useEffect(() => {
+    if (abandonedCartTimer.current) clearTimeout(abandonedCartTimer.current);
+    if (cart.length === 0 || checkoutPhone.length < 8 || !venue?.id) return;
+    abandonedCartTimer.current = setTimeout(() => {
+      const total = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+      saveAbandonedCartMutation.mutate({
+        venueId: venue.id,
+        phone: checkoutPhone,
+        customerName: checkoutName || undefined,
+        itemsJson: JSON.stringify(cart),
+        totalAmount: total,
+      });
+    }, 2 * 60 * 1000);
+    return () => {
+      if (abandonedCartTimer.current) clearTimeout(abandonedCartTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, checkoutPhone, venue?.id]);
 
   if (isLoading) {
     return (
@@ -159,11 +392,20 @@ export default function VenuePublic() {
   const primaryColor = venue.primaryColor || '#181818';
   const accentColor = venue.accentColor || '#5E8B8B';
 
-  const coffeeItems = menuItems?.filter(i => i.category === 'coffee') || [];
-  const pastryItems = menuItems?.filter(i => i.category === 'pastries') || [];
-  const breadItems = menuItems?.filter(i => i.category === 'bread') || [];
+  const waitMinutes = (venue.settingsJson as { waitTimeMinutes?: number } | null)?.waitTimeMinutes ?? 0;
+  const openStatus = getOpenStatus(venue);
+
+  const allMenuItems = menuItems || [];
+  const filteredMenu = dietaryFilter
+    ? allMenuItems.filter(i => i.dietary?.split(',').map(d => d.trim()).includes(dietaryFilter))
+    : allMenuItems;
+
+  const coffeeItems = filteredMenu.filter(i => i.category === 'coffee');
+  const pastryItems = filteredMenu.filter(i => i.category === 'pastries');
+  const breadItems = filteredMenu.filter(i => i.category === 'bread');
 
   type MenuItem = NonNullable<typeof menuItems>[number];
+
   const addToCart = (item: MenuItem, modifiers?: { group: string; option: string; priceAdj: number }[]) => {
     const key = cartKey(item.id, modifiers);
     const modAdj = modifiers ? modifiers.reduce((s, m) => s + m.priceAdj, 0) : 0;
@@ -180,6 +422,36 @@ export default function VenuePublic() {
         modifiers: modifiers && modifiers.length > 0 ? modifiers : undefined,
       }];
     });
+
+    // Trigger upsell after adding
+    setTimeout(async () => {
+      if (!shownUpsell.current && cart.length >= 0) {
+        const result = await upsellQuery.refetch();
+        if (result.data && result.data.length > 0) {
+          shownUpsell.current = true;
+          setShowUpsell(true);
+          if (upsellDismissTimer.current) clearTimeout(upsellDismissTimer.current);
+          upsellDismissTimer.current = setTimeout(() => setShowUpsell(false), 4000);
+        }
+      }
+    }, 300);
+  };
+
+  const addBundleToCart = (bundle: { id: number; name: string; bundlePrice: number }) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.menuItemId === -bundle.id);
+      if (existing) {
+        return prev.map(c => c.menuItemId === -bundle.id ? { ...c, quantity: c.quantity + 1 } : c);
+      }
+      return [...prev, {
+        menuItemId: -bundle.id,
+        name: bundle.name,
+        price: bundle.bundlePrice,
+        quantity: 1,
+        note: 'Bundle deal',
+      }];
+    });
+    showToast(`${bundle.name} added to cart`);
   };
 
   const removeFromCart = (key: string) => {
@@ -193,13 +465,11 @@ export default function VenuePublic() {
   };
 
   const handleAddItem = (item: MenuItem) => {
-    // Open modifier modal; if item has no modifiers, ModifierModal will add directly
     setModifierModalItem(item);
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const effectiveTotal = Math.max(0, cartTotal - appliedGiftDiscount);
 
   const handlePhoneBlur = async () => {
     if (checkoutPhone.length >= 8 && venue?.id) {
@@ -213,22 +483,77 @@ export default function VenuePublic() {
     }
   };
 
+  const cartSubtotal = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+  const tipAmount = tipOption === 'custom'
+    ? Math.max(0, Number(tipCustom) || 0)
+    : tipOption === 0 ? 0
+    : (cartSubtotal * tipOption) / 100;
+
+  // Discount: use promo code if present, otherwise happy hour (better of the two)
+  const promoDiscountAmount = appliedDiscount?.amount ?? 0;
+  const happyHourDiscountAmount = happyHourDiscount > 0 ? (cartSubtotal * happyHourDiscount) / 100 : 0;
+  const effectivePromo = promoDiscountAmount > 0 ? promoDiscountAmount : happyHourDiscountAmount;
+  const totalAfterDiscounts = Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount);
+  const orderTotal = totalAfterDiscounts + tipAmount;
+
+  async function handleApplyDiscountCode() {
+    setDiscountError('');
+    if (!discountCodeInput.trim() || !venue?.id) return;
+    try {
+      const result = await validateDiscountMut.mutateAsync({
+        venueId: venue.id,
+        code: discountCodeInput.trim(),
+        orderAmount: cartSubtotal,
+      });
+      setAppliedDiscount({ code: discountCodeInput.trim().toUpperCase(), amount: result.discountAmount, description: result.description });
+      setDiscountCodeInput('');
+    } catch (e: unknown) {
+      setDiscountError((e as { message?: string }).message ?? 'Invalid code');
+    }
+  }
+
   const handlePlaceOrder = () => {
     if (cart.length === 0 || !venue?.id) return;
-    const orderNote = appliedGiftDiscount > 0
-      ? `Gift card: -$${appliedGiftDiscount.toFixed(2)}`
-      : undefined;
+    const notesParts: string[] = [];
+    if (appliedGiftDiscount > 0) notesParts.push(`Gift card: -$${appliedGiftDiscount.toFixed(2)}`);
+    if (tableNumber) notesParts.push(`Table: ${tableNumber}`);
     createOrder.mutate({
       venueId: venue.id,
       customerName: checkoutName || 'Guest',
       customerPhone: checkoutPhone || '0000000000',
-      pickupTime: checkoutPickupTime || 'ASAP',
+      pickupTime: orderType === 'dine-in' ? 'Now' : (checkoutPickupTime || 'ASAP'),
       locationId: selectedLocationId ?? undefined,
       customerEmail: checkoutEmail || undefined,
-      orderNote,
+      orderNote: notesParts.join('; ') || undefined,
       items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity, note: c.note, modifiers: c.modifiers })),
+      tipAmount,
+      discountCode: appliedDiscount?.code,
+      discountAmount: effectivePromo + appliedGiftDiscount,
+      earnLoyalty: true,
+      orderType: orderType,
+      tableNumber: tableNumber ?? undefined,
     });
   };
+
+  // Allergen warnings
+  const customerAllergies = (customerMe as { allergies?: string } | undefined)?.allergies?.toLowerCase() ?? '';
+  const allergenWarnings: string[] = [];
+  if (customerAllergies && cart.length > 0) {
+    const cartItemsData = cart.map(c => (allMenuItems.find(m => m.id === c.menuItemId)));
+    const hasDietary = (tag: string) => cartItemsData.some(i => i?.dietary?.toLowerCase().includes(tag));
+
+    if (customerAllergies.includes('nut') && !cartItemsData.every(i => i?.dietary?.toLowerCase().includes('nut-free'))) {
+      if (hasDietary('nut') || !hasDietary('nut-free')) allergenWarnings.push('nuts');
+    }
+    if (customerAllergies.includes('gluten') && !cartItemsData.every(i => i?.dietary?.toLowerCase().includes('gf'))) {
+      allergenWarnings.push('gluten');
+    }
+    if (customerAllergies.includes('dairy') && !cartItemsData.every(i => i?.dietary?.toLowerCase().includes('dairy-free'))) {
+      allergenWarnings.push('dairy');
+    }
+  }
+
+  const happyHourInfo = happyHourData as { startTime?: string; endTime?: string; discountPercent?: number; label?: string } | undefined;
 
   return (
     <div style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
@@ -245,6 +570,40 @@ export default function VenuePublic() {
         </div>
       )}
 
+      {/* Upsell bottom sheet */}
+      {showUpsell && upsellQuery.data && upsellQuery.data.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 88, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 200, background: '#fff', borderRadius: 12, padding: '12px 16px',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.18)', maxWidth: 380, width: 'calc(100% - 32px)',
+          border: '1px solid rgba(24,24,24,0.08)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#181818' }}>Customers also ordered:</span>
+            <button onClick={() => setShowUpsell(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+              <X size={14} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(upsellQuery.data as { id: number; name: string; price: string }[]).slice(0, 3).map(sug => (
+              <div key={sug.id} style={{ flex: 1, border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#181818', marginBottom: 2 }}>{sug.name}</div>
+                <div style={{ fontSize: 11, color: '#5E8B8B', marginBottom: 6 }}>${Number(sug.price).toFixed(2)}</div>
+                <button
+                  onClick={() => {
+                    const mi = allMenuItems.find(m => m.id === sug.id);
+                    if (mi) { addToCart(mi); setShowUpsell(false); }
+                  }}
+                  style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: 'none', background: '#181818', color: '#F3F2EE', cursor: 'pointer' }}
+                >
+                  Add
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Modifier modal */}
       {modifierModalItem && (
         <ModifierModal
@@ -256,6 +615,61 @@ export default function VenuePublic() {
           }}
         />
       )}
+
+      {/* Loyalty Rewards Catalogue Modal */}
+      {showRewardsCatalogue && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowRewardsCatalogue(false)}
+        >
+          <div
+            style={{ background: '#F3F2EE', borderRadius: '12px 12px 0 0', width: '100%', maxWidth: 480, padding: 24, maxHeight: '70dvh', overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: '#181818', margin: 0 }}>Redeem a Reward</h2>
+              <button onClick={() => setShowRewardsCatalogue(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X size={20} color="#5E5E5E" />
+              </button>
+            </div>
+            {!loyaltyRewards || loyaltyRewards.length === 0 ? (
+              <p style={{ color: '#5E5E5E', fontSize: 14 }}>No rewards available at the moment.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {(loyaltyRewards as { id: number; name: string; description?: string; pointsCost: number; rewardValue?: string }[]).map(reward => (
+                  <div key={reward.id} style={{ background: '#fff', borderRadius: 10, padding: 16, border: '1px solid rgba(24,24,24,0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: '#181818', marginBottom: 2 }}>{reward.name}</div>
+                        {reward.description && <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 4 }}>{reward.description}</div>}
+                        {reward.rewardValue && <div style={{ fontSize: 12, color: '#5E8B8B' }}>{reward.rewardValue}</div>}
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#d97706', marginTop: 4 }}>⭐ {reward.pointsCost} pts</div>
+                      </div>
+                      <button
+                        disabled={!checkoutPhone || (loyaltyBalance ?? 0) < reward.pointsCost || redeemRewardMutation.isPending}
+                        onClick={() => {
+                          if (!venue?.id || !checkoutPhone) return;
+                          redeemRewardMutation.mutate({ venueId: venue.id, phone: checkoutPhone, rewardId: reward.id });
+                        }}
+                        style={{
+                          padding: '8px 16px', borderRadius: 8, border: 'none',
+                          background: (loyaltyBalance ?? 0) >= reward.pointsCost ? '#181818' : '#ccc',
+                          color: '#F3F2EE', fontSize: 13, fontWeight: 600,
+                          cursor: (loyaltyBalance ?? 0) >= reward.pointsCost ? 'pointer' : 'not-allowed',
+                          flexShrink: 0,
+                        }}
+                      >
+                        Redeem
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Cart Drawer */}
       {showCart && (
         <div style={{
@@ -321,7 +735,21 @@ export default function VenuePublic() {
               </div>
             ) : (
               <>
-                {/* Recent Orders — shown once phone is entered */}
+                {/* Allergen warning */}
+                {allergenWarnings.length > 0 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
+                    background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)',
+                    borderRadius: 8, marginBottom: 16,
+                  }}>
+                    <AlertTriangle size={16} style={{ color: '#ca8a04', flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontSize: 12, color: '#92400e' }}>
+                      ⚠️ Allergen alert: This order may contain {allergenWarnings.join(', ')}. Review before ordering.
+                    </span>
+                  </div>
+                )}
+
+                {/* Recent Orders */}
                 {checkoutPhone.length >= 8 && orderHistoryQuery.data && orderHistoryQuery.data.length > 0 && (
                   <div style={{ marginBottom: 20 }}>
                     <h3 style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -360,6 +788,9 @@ export default function VenuePublic() {
                               {item.modifiers.map(m => m.option).join(', ')}
                             </div>
                           )}
+                          {item.note && (
+                            <div style={{ fontSize: 11, color: '#5E8B8B', marginTop: 2 }}>{item.note}</div>
+                          )}
                           <div style={{ fontSize: 13, color: '#5E5E5E' }}>${item.price.toFixed(2)} each</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -374,7 +805,10 @@ export default function VenuePublic() {
                           </button>
                           <span style={{ fontWeight: 600, fontSize: 14, minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
                           <button
-                            onClick={() => addToCart(menuItems?.find(m => m.id === item.menuItemId)!, item.modifiers)}
+                            onClick={() => {
+                              const mi = menuItems?.find(m => m.id === item.menuItemId);
+                              if (mi) addToCart(mi, item.modifiers);
+                            }}
                             style={{
                               width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
                               background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -388,7 +822,7 @@ export default function VenuePublic() {
                   })}
                 </div>
 
-                {/* Checkout form — rendered only when not in confirmation mode */}
+                {/* Checkout form */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, borderTop: '1px solid rgba(24,24,24,0.06)' }}>
                   <h3 style={{ fontSize: 14, fontWeight: 600, color: '#181818', margin: 0 }}>Your details</h3>
                   <input
@@ -407,6 +841,21 @@ export default function VenuePublic() {
                     onBlur={handlePhoneBlur}
                     style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
                   />
+                  {loyaltyBalance !== null && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, flexWrap: 'wrap' }}>
+                      <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
+                        ⭐ {loyaltyBalance} pts — ${(loyaltyBalance / 10).toFixed(2)} available to redeem
+                      </span>
+                      {loyaltyBalance > 0 && (
+                        <button
+                          onClick={() => setShowRewardsCatalogue(true)}
+                          style={{ fontSize: 12, color: accentColor, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          Redeem a reward →
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <label className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: 4 }}>
                       Email <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional — for order confirmation)</span>
@@ -419,13 +868,20 @@ export default function VenuePublic() {
                       style={{ width: '100%', padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', background: '#F3F2EE', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: '#181818', outline: 'none', boxSizing: 'border-box' }}
                     />
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Pickup time (e.g. ASAP, 10:30am)"
-                    value={checkoutPickupTime}
-                    onChange={e => setCheckoutPickupTime(e.target.value)}
-                    style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
-                  />
+                  {/* Pickup time — hidden for dine-in */}
+                  {orderType !== 'dine-in' ? (
+                    <input
+                      type="text"
+                      placeholder="Pickup time (e.g. ASAP, 10:30am)"
+                      value={checkoutPickupTime}
+                      onChange={e => setCheckoutPickupTime(e.target.value)}
+                      style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                    />
+                  ) : (
+                    <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(94,139,139,0.3)', fontSize: 14, background: 'rgba(94,139,139,0.05)', color: '#5E8B8B' }}>
+                      🍽️ Dine-in · Table {tableNumber} · Now
+                    </div>
+                  )}
                   <select
                     value={checkoutMilk}
                     onChange={e => setCheckoutMilk(e.target.value)}
@@ -452,7 +908,7 @@ export default function VenuePublic() {
                     <option value="3">3 sugars</option>
                   </select>
 
-                  {/* Location selector — only for multi-location venues */}
+                  {/* Location selector */}
                   {locationsList && locationsList.length > 1 && (
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 500, color: '#181818', display: 'block', marginBottom: 4 }}>
@@ -470,6 +926,75 @@ export default function VenuePublic() {
                       </select>
                     </div>
                   )}
+
+                  {/* Discount code */}
+                  {!appliedDiscount ? (
+                    <div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          type="text"
+                          placeholder="Promo / discount code"
+                          value={discountCodeInput}
+                          onChange={e => { setDiscountCodeInput(e.target.value.toUpperCase()); setDiscountError(''); }}
+                          style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
+                          onKeyDown={e => e.key === 'Enter' && handleApplyDiscountCode()}
+                        />
+                        <button
+                          onClick={handleApplyDiscountCode}
+                          disabled={!discountCodeInput.trim() || validateDiscountMut.isPending}
+                          style={{ padding: '10px 14px', borderRadius: 8, border: 'none', background: '#181818', color: '#F3F2EE', fontSize: 13, cursor: 'pointer', opacity: !discountCodeInput.trim() ? 0.5 : 1 }}
+                        >
+                          {validateDiscountMut.isPending ? '…' : 'Apply'}
+                        </button>
+                      </div>
+                      {discountError && <p style={{ fontSize: 12, color: '#dc2626', margin: '4px 0 0' }}>{discountError}</p>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: '#16a34a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🏷️ {appliedDiscount.code} — {appliedDiscount.description}</span>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span>-${appliedDiscount.amount.toFixed(2)}</span>
+                        <button onClick={() => setAppliedDiscount(null)} style={{ background: 'none', border: 'none', color: '#78716c', cursor: 'pointer', fontSize: 13 }}>✕</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tip selection */}
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 500, color: '#181818', display: 'block', marginBottom: 6 }}>
+                      Add a tip (optional)
+                    </label>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: tipOption === 'custom' ? 8 : 0 }}>
+                      {([0, 5, 10, 15, 'custom'] as const).map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => setTipOption(opt)}
+                          style={{
+                            flex: 1, padding: '6px 4px', borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
+                            background: tipOption === opt ? '#181818' : '#fff',
+                            color: tipOption === opt ? '#F3F2EE' : '#181818',
+                            fontSize: 12, cursor: 'pointer', fontWeight: tipOption === opt ? 600 : 400,
+                          }}
+                        >
+                          {opt === 0 ? 'None' : opt === 'custom' ? 'Other' : `${opt}%`}
+                        </button>
+                      ))}
+                    </div>
+                    {tipOption === 'custom' && (
+                      <input
+                        type="number" min="0" step="0.50"
+                        placeholder="Enter tip amount ($)"
+                        value={tipCustom}
+                        onChange={e => setTipCustom(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818', boxSizing: 'border-box' }}
+                      />
+                    )}
+                    {tipAmount > 0 && (
+                      <p style={{ fontSize: 12, color: '#5E5E5E', margin: '4px 0 0' }}>
+                        Tip: ${tipAmount.toFixed(2)} — thank you! 🙏
+                      </p>
+                    )}
+                  </div>
 
                   {/* Gift card */}
                   {appliedGiftDiscount === 0 && (
@@ -539,15 +1064,33 @@ export default function VenuePublic() {
                     <span style={{ color: '#5E5E5E' }}>Subtotal</span>
                     <span style={{ fontWeight: 600 }}>${cartTotal.toFixed(2)}</span>
                   </div>
+                  {appliedDiscount && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                      <span>🏷️ {appliedDiscount.description}</span>
+                      <span>-${appliedDiscount.amount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {!appliedDiscount && happyHourDiscountAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                      <span>⚡ Happy Hour discount</span>
+                      <span>-${happyHourDiscountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   {appliedGiftDiscount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#16a34a' }}>
-                      <span>Gift card discount</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                      <span>🎁 Gift card</span>
                       <span>-${appliedGiftDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {tipAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#5E5E5E', fontSize: 13 }}>
+                      <span>Tip 🙏</span>
+                      <span>+${tipAmount.toFixed(2)}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 18, fontWeight: 700 }}>
                     <span>Total</span>
-                    <span>${effectiveTotal.toFixed(2)}</span>
+                    <span>${orderTotal.toFixed(2)}</span>
                   </div>
                   <button
                     onClick={handlePlaceOrder}
@@ -613,6 +1156,29 @@ export default function VenuePublic() {
         </div>
       </header>
 
+      {/* Table mode banner */}
+      {tableNumber && (
+        <div style={{
+          textAlign: 'center', padding: '10px 16px', fontSize: 14, fontWeight: 600,
+          background: 'rgba(94,139,139,0.12)', color: '#5E8B8B',
+          borderBottom: '1px solid rgba(94,139,139,0.2)',
+        }}>
+          🍽️ Dine-in — Table {tableNumber}
+        </div>
+      )}
+
+      {/* Happy Hour Banner */}
+      {happyHourDiscount > 0 && happyHourInfo && (
+        <div style={{
+          textAlign: 'center', padding: '10px 16px', fontSize: 13, fontWeight: 600,
+          background: 'rgba(234,179,8,0.12)', color: '#b45309',
+          borderBottom: '1px solid rgba(234,179,8,0.2)',
+          animation: 'pulse 2s infinite',
+        }}>
+          ⚡ Happy Hour: {happyHourInfo.label || 'Special Offer'} — {happyHourDiscount}% off all items!
+        </div>
+      )}
+
       {/* Info Bar */}
       <div className="border-b" style={{ borderColor: `${primaryColor}15`, background: '#E8E4DD' }}>
         <div className="content-container py-4 flex flex-wrap items-center justify-center gap-6">
@@ -639,11 +1205,72 @@ export default function VenuePublic() {
         </div>
       </div>
 
+      {/* Open/Closed Banner */}
+      {openStatus && (
+        <div style={{
+          textAlign: 'center',
+          padding: '8px 16px',
+          fontSize: 13,
+          fontWeight: 500,
+          background: openStatus.isOpen ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.07)',
+          color: openStatus.isOpen ? '#15803d' : '#dc2626',
+          borderBottom: `1px solid ${openStatus.isOpen ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.12)'}`,
+        }}>
+          {openStatus.isOpen ? '🟢' : '🔴'} {openStatus.label}
+        </div>
+      )}
+
       {/* Menu Section */}
       <section className="content-container py-12">
-        <h2 className="font-data text-center mb-10" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: primaryColor }}>
-          Our Menu
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 10 }}>
+          <h2 className="font-data text-center" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: primaryColor, margin: 0 }}>
+            Our Menu
+          </h2>
+          {waitMinutes > 0 && (
+            <span style={{
+              fontSize: 12, fontWeight: 600,
+              background: 'rgba(217,119,6,0.12)', color: '#b45309',
+              borderRadius: 99, padding: '3px 10px',
+            }}>
+              ⏱ ~{waitMinutes} min wait
+            </span>
+          )}
+        </div>
+
+        {/* Dietary Filter Pills */}
+        {allMenuItems.length > 0 && (
+          <div style={{
+            display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4,
+            marginBottom: 24, WebkitOverflowScrolling: 'touch',
+          }}>
+            {[
+              { label: 'All', value: null },
+              { label: '🌱 Vegan', value: 'vegan' },
+              { label: '🌾 GF', value: 'gluten-free' },
+              { label: '🥛 Dairy-free', value: 'dairy-free' },
+              { label: '🥜 Nut-free', value: 'nut-free' },
+              { label: '🥦 Vegetarian', value: 'vegetarian' },
+            ].map(pill => {
+              const active = dietaryFilter === pill.value;
+              return (
+                <button
+                  key={pill.label}
+                  onClick={() => setDietaryFilter(pill.value)}
+                  style={{
+                    flexShrink: 0,
+                    borderRadius: 99, padding: '6px 14px', fontSize: 12, fontWeight: 500,
+                    border: active ? 'none' : '1px solid rgba(24,24,24,0.18)',
+                    background: active ? '#181818' : '#fff',
+                    color: active ? '#F3F2EE' : '#181818',
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Coffee */}
         {coffeeItems.length > 0 && (
@@ -657,7 +1284,15 @@ export default function VenuePublic() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {coffeeItems.map(item => (
-                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => handleAddItem(item)} cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)} onRemove={() => removeFromCart(cartKey(item.id))} />
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  accentColor={accentColor}
+                  onAdd={() => handleAddItem(item)}
+                  cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
+                  onRemove={() => removeFromCart(cartKey(item.id))}
+                  nowMs={now}
+                />
               ))}
             </div>
           </div>
@@ -675,7 +1310,15 @@ export default function VenuePublic() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {pastryItems.map(item => (
-                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => handleAddItem(item)} cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)} onRemove={() => removeFromCart(cartKey(item.id))} />
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  accentColor={accentColor}
+                  onAdd={() => handleAddItem(item)}
+                  cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
+                  onRemove={() => removeFromCart(cartKey(item.id))}
+                  nowMs={now}
+                />
               ))}
             </div>
           </div>
@@ -693,7 +1336,63 @@ export default function VenuePublic() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {breadItems.map(item => (
-                <MenuCard key={item.id} item={item} accentColor={accentColor} onAdd={() => handleAddItem(item)} cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)} onRemove={() => removeFromCart(cartKey(item.id))} />
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  accentColor={accentColor}
+                  onAdd={() => handleAddItem(item)}
+                  cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
+                  onRemove={() => removeFromCart(cartKey(item.id))}
+                  nowMs={now}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bundle Deals */}
+        {bundles && bundles.length > 0 && (
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <Gift size={20} style={{ color: accentColor }} />
+              <h3 className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: primaryColor }}>
+                Bundle Deals
+              </h3>
+              <div className="flex-1 h-px" style={{ background: `${primaryColor}10` }} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(bundles as { id: number; name: string; description?: string; bundlePrice: number; items?: string[] }[]).map(bundle => (
+                <div key={bundle.id} style={{
+                  border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8,
+                  background: 'white', padding: 16,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: '#181818', marginBottom: 2 }}>🎁 {bundle.name}</div>
+                      {bundle.description && (
+                        <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 6 }}>{bundle.description}</div>
+                      )}
+                      {bundle.items && bundle.items.length > 0 && (
+                        <ul style={{ margin: '4px 0 8px', paddingLeft: 16 }}>
+                          {bundle.items.map((it, idx) => (
+                            <li key={idx} style={{ fontSize: 11, color: '#5E5E5E', marginBottom: 2 }}>{it}</li>
+                          ))}
+                        </ul>
+                      )}
+                      <div style={{ fontWeight: 700, fontSize: 16, color: accentColor }}>${Number(bundle.bundlePrice).toFixed(2)}</div>
+                    </div>
+                    <button
+                      onClick={() => addBundleToCart(bundle)}
+                      style={{
+                        padding: '8px 16px', borderRadius: 8, border: 'none',
+                        background: '#181818', color: '#F3F2EE', fontSize: 13, fontWeight: 600,
+                        cursor: 'pointer', flexShrink: 0,
+                      }}
+                    >
+                      Add to Cart
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -707,7 +1406,7 @@ export default function VenuePublic() {
         )}
       </section>
 
-      {/* Hours Detail — per-location when locations exist, else venue-level */}
+      {/* Hours Detail */}
       <section className="content-container py-12 border-t" style={{ borderColor: `${primaryColor}15` }}>
         {locationsList && locationsList.length > 0 ? (
           <div>
@@ -790,49 +1489,12 @@ export default function VenuePublic() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input
-                type="text"
-                placeholder="Your name *"
-                value={cateringForm.name}
-                onChange={e => setCateringForm(f => ({ ...f, name: e.target.value }))}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
-              />
-              <input
-                type="tel"
-                placeholder="Phone number *"
-                value={cateringForm.phone}
-                onChange={e => setCateringForm(f => ({ ...f, phone: e.target.value }))}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
-              />
-              <input
-                type="email"
-                placeholder="Email address (optional)"
-                value={cateringForm.email}
-                onChange={e => setCateringForm(f => ({ ...f, email: e.target.value }))}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
-              />
-              <input
-                type="text"
-                placeholder="Event date * (e.g. 15 June 2026)"
-                value={cateringForm.eventDate}
-                onChange={e => setCateringForm(f => ({ ...f, eventDate: e.target.value }))}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
-              />
-              <input
-                type="number"
-                placeholder="Number of guests *"
-                min={1}
-                value={cateringForm.guestCount}
-                onChange={e => setCateringForm(f => ({ ...f, guestCount: e.target.value }))}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
-              />
-              <textarea
-                placeholder="Tell us about your event (optional)"
-                rows={4}
-                value={cateringForm.details}
-                onChange={e => setCateringForm(f => ({ ...f, details: e.target.value }))}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818', resize: 'vertical' }}
-              />
+              <input type="text" placeholder="Your name *" value={cateringForm.name} onChange={e => setCateringForm(f => ({ ...f, name: e.target.value }))} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }} />
+              <input type="tel" placeholder="Phone number *" value={cateringForm.phone} onChange={e => setCateringForm(f => ({ ...f, phone: e.target.value }))} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }} />
+              <input type="email" placeholder="Email address (optional)" value={cateringForm.email} onChange={e => setCateringForm(f => ({ ...f, email: e.target.value }))} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }} />
+              <input type="text" placeholder="Event date * (e.g. 15 June 2026)" value={cateringForm.eventDate} onChange={e => setCateringForm(f => ({ ...f, eventDate: e.target.value }))} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }} />
+              <input type="number" placeholder="Number of guests *" min={1} value={cateringForm.guestCount} onChange={e => setCateringForm(f => ({ ...f, guestCount: e.target.value }))} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }} />
+              <textarea placeholder="Tell us about your event (optional)" rows={4} value={cateringForm.details} onChange={e => setCateringForm(f => ({ ...f, details: e.target.value }))} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818', resize: 'vertical' }} />
               {submitCatering.error && (
                 <p style={{ color: '#dc2626', fontSize: 13 }}>{submitCatering.error.message}</p>
               )}
@@ -864,7 +1526,7 @@ export default function VenuePublic() {
         </div>
       </section>
 
-      {/* Reviews Section — hidden when no reviews exist */}
+      {/* Reviews Section */}
       {reviewsList && reviewsList.length > 0 && (
         <section style={{ padding: '32px 16px', maxWidth: 800, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -872,43 +1534,75 @@ export default function VenuePublic() {
             {avgRating !== null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Star size={20} fill="#F5B400" color="#F5B400" />
-                <span style={{ fontSize: 16, fontWeight: 600, color: '#181818' }}>
-                  {avgRating.toFixed(1)}
-                </span>
-                <span style={{ fontSize: 14, color: '#5E5E5E' }}>
-                  ({reviewsList.length})
-                </span>
+                <span style={{ fontSize: 16, fontWeight: 600, color: '#181818' }}>{avgRating.toFixed(1)}</span>
+                <span style={{ fontSize: 14, color: '#5E5E5E' }}>({reviewsList.length})</span>
               </div>
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {reviewsList.slice(0, 5).map((r) => (
-              <div key={r.id} style={{
-                background: '#fff',
-                borderRadius: 12,
-                padding: 16,
-                border: '1px solid rgba(24,24,24,0.06)',
-              }}>
+              <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid rgba(24,24,24,0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <div style={{ display: 'flex', gap: 2 }}>
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <Star
-                        key={i}
-                        size={14}
-                        fill={i <= r.rating ? '#F5B400' : '#D1D1D1'}
-                        color={i <= r.rating ? '#F5B400' : '#D1D1D1'}
-                      />
+                      <Star key={i} size={14} fill={i <= r.rating ? '#F5B400' : '#D1D1D1'} color={i <= r.rating ? '#F5B400' : '#D1D1D1'} />
                     ))}
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>
-                    {r.customerName}
-                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>{r.customerName}</span>
                 </div>
                 {r.comment && (
                   <p style={{ fontSize: 14, color: '#5E5E5E', margin: 0 }}>{r.comment}</p>
                 )}
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* QR Code Section */}
+      {qrDataUrl && (
+        <section className="content-container py-10 border-t" style={{ borderColor: `${primaryColor}15` }}>
+          <div style={{ maxWidth: 320, margin: '0 auto', textAlign: 'center' }}>
+            <h2 className="font-data mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: primaryColor }}>
+              Order via QR
+            </h2>
+            <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 16 }}>
+              Scan to open this menu on your phone.
+            </p>
+            {!showQr ? (
+              <button
+                onClick={() => setShowQr(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '10px 20px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.18)',
+                  background: '#fff', color: '#181818', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                <QrCode size={16} />
+                Show QR Code
+              </button>
+            ) : (
+              <div>
+                <img
+                  src={qrDataUrl}
+                  alt="QR code for ordering"
+                  style={{ width: 200, height: 200, margin: '0 auto 12px', display: 'block', borderRadius: 8 }}
+                />
+                <a
+                  href={qrDataUrl}
+                  download={`${venue.slug}-qr.png`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px', borderRadius: 6, border: 'none',
+                    background: '#181818', color: '#F3F2EE', fontSize: 12, fontWeight: 500,
+                    textDecoration: 'none', cursor: 'pointer',
+                  }}
+                >
+                  <Download size={14} />
+                  Download
+                </a>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -1009,7 +1703,6 @@ function ModifierModal({
 
   const [selections, setSelections] = useState<Record<string, { option: string; priceAdj: number }>>({});
 
-  // If no modifiers exist, confirm immediately with empty array
   const hasLoaded = !isLoading && groups !== undefined;
   const hasModifiers = groups && groups.length > 0;
 
@@ -1118,19 +1811,47 @@ function ModifierModal({
   );
 }
 
+const DIETARY_EMOJI: Record<string, string> = {
+  vegan: '🌱',
+  'gluten-free': '🌾',
+  'dairy-free': '🥛',
+  'nut-free': '🥜',
+  vegetarian: '🥦',
+};
+
+type MenuItemWithExtras = {
+  id: number;
+  name: string;
+  description: string | null;
+  price: string;
+  image: string | null;
+  dietary?: string | null;
+  isLimitedTime?: boolean;
+  limitedTimeLabel?: string | null;
+  activeTo?: string | null;
+};
+
 function MenuCard({
   item,
   accentColor,
   onAdd,
   cartQty,
   onRemove,
+  nowMs,
 }: {
-  item: { id: number; name: string; description: string | null; price: string; image: string | null };
+  item: MenuItemWithExtras;
   accentColor: string;
   onAdd: () => void;
   cartQty: number;
   onRemove: () => void;
+  nowMs: number;
 }) {
+  const dietaryTags = item.dietary ? item.dietary.split(',').map(d => d.trim()).filter(Boolean) : [];
+
+  const countdown = item.activeTo && new Date(item.activeTo).getTime() > nowMs
+    ? formatCountdown(item.activeTo)
+    : null;
+
   return (
     <div style={{
       border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8,
@@ -1150,13 +1871,41 @@ function MenuCard({
         alignItems: 'flex-start', gap: 12,
       }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: '#181818', marginBottom: 4 }}>{item.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{item.name}</div>
+            {item.isLimitedTime && item.limitedTimeLabel && (
+              <span style={{
+                fontSize: 10, fontWeight: 600, borderRadius: 99, padding: '2px 8px',
+                background: 'rgba(249,115,22,0.12)', color: '#ea580c',
+              }}>
+                {item.limitedTimeLabel}
+              </span>
+            )}
+          </div>
+          {countdown && (
+            <div style={{ fontSize: 10, color: '#ea580c', marginBottom: 4, fontWeight: 500 }}>
+              ⏳ Ends in {countdown}
+            </div>
+          )}
           {item.description && (
             <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 8, lineHeight: 1.4 }}>{item.description}</div>
           )}
-          <div style={{ fontWeight: 700, fontSize: 15, color: accentColor }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: accentColor, marginBottom: dietaryTags.length > 0 ? 6 : 0 }}>
             ${Number(item.price).toFixed(2)}
           </div>
+          {dietaryTags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {dietaryTags.map(tag => (
+                <span key={tag} style={{
+                  fontSize: 10, fontWeight: 500,
+                  background: 'rgba(94,139,139,0.1)', color: '#5E8B8B',
+                  borderRadius: 99, padding: '2px 7px',
+                }}>
+                  {DIETARY_EMOJI[tag] ?? ''} {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {cartQty > 0 && (

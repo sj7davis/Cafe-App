@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import QRCode from 'qrcode';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty'>('overview');
 
   if (loading) {
     return (
@@ -70,6 +70,10 @@ export default function OwnerDashboard() {
             { id: 'passes' as const, label: 'Passes', icon: Ticket },
             { id: 'locations' as const, label: 'Locations', icon: MapPin },
             { id: 'catering' as const, label: 'Catering', icon: Briefcase },
+            { id: 'promo' as const, label: 'Promos', icon: Tag },
+            { id: 'bundles' as const, label: 'Bundles', icon: Gift },
+            { id: 'campaigns' as const, label: 'Campaigns', icon: Send },
+            { id: 'loyalty' as const, label: 'Loyalty', icon: Star },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
               <tab.icon size={14} /> {tab.label}
@@ -90,6 +94,10 @@ export default function OwnerDashboard() {
         {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
         {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
         {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
+        {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
+        {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
+        {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
+        {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
       </div>
     </div>
   );
@@ -242,36 +250,177 @@ function SettingsTab({ venue }: { venue: any }) {
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
   const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
 
+  // Happy Hour state
+  const { data: hhData } = trpc.venue.getHappyHour.useQuery({ venueId: venue.id }, { enabled: !!venue.id });
+  const setHappyHour = trpc.venue.setHappyHour.useMutation();
+  const [hhForm, setHhForm] = useState({ enabled: false, startTime: '', endTime: '', discountPercent: '', label: '' });
+  const [hhMsg, setHhMsg] = useState('');
+  const [hhLoaded, setHhLoaded] = useState(false);
+  if (hhData && !hhLoaded) {
+    setHhLoaded(true);
+    setHhForm({
+      enabled: !!(hhData as any).enabled,
+      startTime: (hhData as any).startTime || '',
+      endTime: (hhData as any).endTime || '',
+      discountPercent: String((hhData as any).discountPercent ?? ''),
+      label: (hhData as any).label || '',
+    });
+  }
+
+  // Xero state
+  const { data: xeroConn, refetch: refetchXero } = trpc.xero.getConnection.useQuery();
+  const { data: xeroAuthUrl } = trpc.xero.getAuthUrl.useQuery();
+  const xeroDisconnect = trpc.xero.disconnect.useMutation({ onSuccess: () => refetchXero() });
+  const xeroSync = trpc.xero.syncRevenue.useMutation();
+  const [xeroSyncFrom, setXeroSyncFrom] = useState('');
+  const [xeroSyncTo, setXeroSyncTo] = useState('');
+  const [xeroMsg, setXeroMsg] = useState('');
+
   return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Venue Settings</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {[
-          { label: 'Cafe Name', key: 'name', type: 'text' },
-          { label: 'Phone', key: 'phone', type: 'text' },
-          { label: 'Mon-Fri Hours', key: 'hoursWeekday', type: 'text' },
-          { label: 'Saturday Hours', key: 'hoursSaturday', type: 'text' },
-          { label: 'Sunday Hours', key: 'hoursSunday', type: 'text' },
-        ].map((f) => (
-          <div key={f.key} className={f.key === 'name' || f.key === 'phone' ? '' : ''}>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
-            <input type={f.type} value={(form as any)[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className={inputCls} style={inputStyle} />
+    <div className="space-y-6">
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Venue Settings</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {[
+            { label: 'Cafe Name', key: 'name', type: 'text' },
+            { label: 'Phone', key: 'phone', type: 'text' },
+            { label: 'Mon-Fri Hours', key: 'hoursWeekday', type: 'text' },
+            { label: 'Saturday Hours', key: 'hoursSaturday', type: 'text' },
+            { label: 'Sunday Hours', key: 'hoursSunday', type: 'text' },
+          ].map((f) => (
+            <div key={f.key}>
+              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+              <input type={f.type} value={(form as any)[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className={inputCls} style={inputStyle} />
+            </div>
+          ))}
+          <div className="md:col-span-2">
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Address</label>
+            <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputCls} style={inputStyle} />
           </div>
-        ))}
-        <div className="md:col-span-2">
-          <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Address</label>
-          <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputCls} style={inputStyle} />
+          <div className="md:col-span-2">
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Description</label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className={inputCls} style={inputStyle} />
+          </div>
         </div>
-        <div className="md:col-span-2">
-          <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Description</label>
-          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className={inputCls} style={inputStyle} />
+        <div className="flex items-center gap-4">
+          <button onClick={() => { setSaveMessage(''); updateMutation.mutate({ token, data: form }); }} disabled={updateMutation.isPending} className="px-6 py-3 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+            {updateMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Changes</>}
+          </button>
+          {saveMessage && <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>{saveMessage}</span>}
         </div>
       </div>
-      <div className="flex items-center gap-4">
-        <button onClick={() => { setSaveMessage(''); updateMutation.mutate({ token, data: form }); }} disabled={updateMutation.isPending} className="px-6 py-3 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
-          {updateMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Changes</>}
-        </button>
-        {saveMessage && <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>{saveMessage}</span>}
+
+      {/* Happy Hour */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Happy Hour</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="md:col-span-2 flex items-center gap-3">
+            <input type="checkbox" id="hh-enabled" checked={hhForm.enabled} onChange={e => setHhForm({ ...hhForm, enabled: e.target.checked })} style={{ accentColor: '#181818', width: 16, height: 16 }} />
+            <label htmlFor="hh-enabled" className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#181818', cursor: 'pointer' }}>Enable Happy Hour</label>
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Start Time (HH:MM)</label>
+            <input type="time" value={hhForm.startTime} onChange={e => setHhForm({ ...hhForm, startTime: e.target.value })} className={inputCls} style={inputStyle} />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>End Time (HH:MM)</label>
+            <input type="time" value={hhForm.endTime} onChange={e => setHhForm({ ...hhForm, endTime: e.target.value })} className={inputCls} style={inputStyle} />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Discount Percent (0–100)</label>
+            <input type="number" min={0} max={100} value={hhForm.discountPercent} onChange={e => setHhForm({ ...hhForm, discountPercent: e.target.value })} className={inputCls} style={inputStyle} placeholder="e.g. 20" />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Label</label>
+            <input type="text" value={hhForm.label} onChange={e => setHhForm({ ...hhForm, label: e.target.value })} className={inputCls} style={inputStyle} placeholder="Happy Hour — 20% off!" />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            disabled={setHappyHour.isPending}
+            onClick={() => {
+              setHhMsg('');
+              setHappyHour.mutate({ venueId: venue.id, enabled: hhForm.enabled, startTime: hhForm.startTime, endTime: hhForm.endTime, discountPercent: Number(hhForm.discountPercent) || 0, label: hhForm.label }, {
+                onSuccess: () => setHhMsg('Happy hour saved!'),
+                onError: (e) => setHhMsg(e.message),
+              });
+            }}
+            className="px-6 py-3 font-button flex items-center gap-2"
+            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+          >
+            {setHappyHour.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Happy Hour</>}
+          </button>
+          {hhMsg && <span className="font-data" style={{ fontSize: '0.625rem', color: hhMsg.includes('saved') ? '#5E8B5E' : '#B85450' }}>{hhMsg}</span>}
+        </div>
+      </div>
+
+      {/* Xero Integration */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#13B5EA' }}>
+            <Link2 size={20} style={{ color: '#fff' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Xero Accounting</h3>
+            <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
+              Connect your Xero account to automatically sync daily revenue.
+            </p>
+            {(xeroConn as any)?.connected ? (
+              <div>
+                <p className="font-data mb-2" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>
+                  <Check size={10} className="inline mr-1" /> Connected
+                  {(xeroConn as any).lastSyncAt && <span style={{ color: '#5E5E5E', marginLeft: 8 }}>Last sync: {new Date((xeroConn as any).lastSyncAt).toLocaleDateString()}</span>}
+                </p>
+                <div className="flex flex-wrap gap-2 items-center mb-3">
+                  <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
+                  <span style={{ fontSize: '0.8125rem', color: '#5E5E5E' }}>to</span>
+                  <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
+                  <button
+                    disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
+                    onClick={() => {
+                      setXeroMsg('');
+                      xeroSync.mutate({ from: xeroSyncFrom, to: xeroSyncTo }, {
+                        onSuccess: () => setXeroMsg('Revenue synced to Xero!'),
+                        onError: (e) => setXeroMsg(e.message),
+                      });
+                    }}
+                    className="px-4 py-2 font-button flex items-center gap-2"
+                    style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!xeroSyncFrom || !xeroSyncTo) ? 0.5 : 1 }}
+                  >
+                    {xeroSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
+                    Sync Revenue
+                  </button>
+                  <button
+                    disabled={xeroDisconnect.isPending}
+                    onClick={() => { if (window.confirm('Disconnect Xero?')) xeroDisconnect.mutate(); }}
+                    className="px-4 py-2 font-data border"
+                    style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent', cursor: 'pointer' }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+                {xeroMsg && <p className="font-data" style={{ fontSize: '0.625rem', color: xeroMsg.includes('synced') ? '#5E8B5E' : '#B85450' }}>{xeroMsg}</p>}
+              </div>
+            ) : (
+              <div>
+                {xeroAuthUrl?.configured ? (
+                  <button
+                    onClick={() => { if (xeroAuthUrl.url) window.open(xeroAuthUrl.url, '_blank'); }}
+                    disabled={!xeroAuthUrl.url}
+                    className="px-4 py-2 font-button flex items-center gap-2"
+                    style={{ background: '#13B5EA', color: '#fff', fontSize: '0.75rem', opacity: !xeroAuthUrl.url ? 0.5 : 1 }}
+                  >
+                    <Link2 size={14} /> Connect Xero
+                  </button>
+                ) : (
+                  <p className="font-data" style={{ fontSize: '0.625rem', color: '#B85450' }}>
+                    <AlertCircle size={10} className="inline mr-1" /> Xero credentials not configured in environment.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -535,7 +684,63 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
   );
 }
 
+function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess: () => void }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [reply, setReply] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const replyMutation = trpc.venue.replyToReview.useMutation({
+    onSuccess: () => {
+      setReply('');
+      setOpen(false);
+      onSuccess();
+    },
+  });
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{ marginTop: 8, fontSize: '0.75rem', color: '#5E5E5E', background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+      >
+        Reply to this review
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(24,24,24,0.03)', border: '1px solid rgba(24,24,24,0.08)' }}>
+      <textarea
+        value={reply}
+        onChange={(e) => setReply(e.target.value)}
+        rows={3}
+        placeholder="Write your reply…"
+        style={{ width: '100%', fontSize: 13, color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 10px', resize: 'vertical', fontFamily: 'Inter', boxSizing: 'border-box' as const }}
+      />
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button
+          onClick={() => replyMutation.mutate({ token, reviewId, reply })}
+          disabled={replyMutation.isPending || !reply.trim()}
+          style={{ fontSize: '0.625rem', background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, opacity: replyMutation.isPending || !reply.trim() ? 0.6 : 1 }}
+        >
+          {replyMutation.isPending ? 'Submitting…' : 'Submit'}
+        </button>
+        <button
+          onClick={() => { setOpen(false); setReply(''); }}
+          style={{ fontSize: '0.625rem', background: 'none', color: '#5E5E5E', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+        >
+          Cancel
+        </button>
+      </div>
+      {replyMutation.isError && (
+        <p style={{ fontSize: 12, color: '#B85450', marginTop: 6 }}>{replyMutation.error?.message}</p>
+      )}
+    </div>
+  );
+}
+
 function ReviewsTab({ venueId }: { venueId: number }) {
+  const utils = trpc.useUtils();
   const { data: reviewsList, isLoading } = trpc.venue.listReviews.useQuery(
     { venueId, limit: 100 },
     { enabled: !!venueId }
@@ -577,6 +782,17 @@ function ReviewsTab({ venueId }: { venueId: number }) {
           </div>
           {r.comment && (
             <p style={{ fontSize: 14, color: '#5E5E5E', margin: 0 }}>{r.comment}</p>
+          )}
+          {(r as any).ownerReply ? (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(24,24,24,0.04)', border: '1px solid rgba(24,24,24,0.08)', borderRadius: 6 }}>
+              <span style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: 4 }}>Owner reply:</span>
+              <p style={{ fontSize: 13, color: '#181818', margin: 0 }}>{(r as any).ownerReply}</p>
+            </div>
+          ) : (
+            <ReviewReplyForm
+              reviewId={r.id}
+              onSuccess={() => utils.venue.listReviews.invalidate()}
+            />
           )}
         </div>
       ))}
@@ -748,6 +964,10 @@ function MenuTab({ venue }: { venue: any }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const utils = trpc.useUtils();
   const { data: items, isLoading } = trpc.venue.listMenu.useQuery({ venueId: venue.id });
+  const { data: inventoryLevels, refetch: refetchInventory } = trpc.venue.getInventoryLevels.useQuery(undefined, { enabled: !!venue.id });
+  const setInventoryQty = trpc.venue.setInventoryQuantity.useMutation({ onSuccess: () => { refetchInventory(); } });
+  const [stockFormOpen, setStockFormOpen] = useState<number | null>(null);
+  const [stockForm, setStockForm] = useState({ quantity: '', quantityAlert: '' });
 
   const [mode, setMode] = useState<'list' | 'create' | { type: 'edit'; id: number }>('list');
   const [openModifiers, setOpenModifiers] = useState<Set<number>>(new Set());
@@ -935,6 +1155,17 @@ function MenuTab({ venue }: { venue: any }) {
                 style={{ background: '#E8E4DD' }}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{ width: 48, height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.06)', borderRadius: 4 }}>
+                      <Coffee size={20} style={{ color: '#5E5E5E' }} />
+                    </div>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ fontWeight: 600, fontSize: 14, color: '#181818', display: 'block', marginBottom: 2 }}>{item.name}</span>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -952,6 +1183,47 @@ function MenuTab({ venue }: { venue: any }) {
                     </div>
                   </div>
                 </div>
+                {/* Inventory inline */}
+                {(() => {
+                  const inv = (inventoryLevels as any[])?.find((r: any) => r.menuItemId === item.id);
+                  const qty = inv?.quantity ?? null;
+                  const alert = inv?.quantityAlert ?? null;
+                  const isLow = qty !== null && alert !== null && qty <= alert;
+                  return (
+                    <div className="flex flex-col items-end mr-2" style={{ minWidth: 80 }}>
+                      <div className="flex items-center gap-1 mb-1">
+                        {qty !== null ? (
+                          <span className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.06em', color: isLow ? '#B85450' : '#5E5E5E' }}>
+                            {qty} in stock
+                          </span>
+                        ) : (
+                          <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>—</span>
+                        )}
+                        {isLow && <span className="font-data" style={{ fontSize: '0.5rem', background: 'rgba(184,84,80,0.12)', color: '#B85450', padding: '1px 5px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Low</span>}
+                      </div>
+                      {stockFormOpen === item.id ? (
+                        <div className="flex flex-col gap-1" style={{ minWidth: 120 }}>
+                          <input type="number" min={0} placeholder="Qty" value={stockForm.quantity} onChange={e => setStockForm(f => ({ ...f, quantity: e.target.value }))} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
+                          <input type="number" min={0} placeholder="Alert at" value={stockForm.quantityAlert} onChange={e => setStockForm(f => ({ ...f, quantityAlert: e.target.value }))} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => {
+                                setInventoryQty.mutate({ menuItemId: item.id, quantity: Number(stockForm.quantity), quantityAlert: stockForm.quantityAlert ? Number(stockForm.quantityAlert) : undefined }, { onSuccess: () => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); } });
+                              }}
+                              style={{ flex: 1, background: '#181818', color: '#F3F2EE', border: 'none', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}
+                            >Save</button>
+                            <button onClick={() => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', fontSize: 11, padding: '3px 6px', cursor: 'pointer', color: '#5E5E5E' }}>✕</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setStockFormOpen(item.id); setStockForm({ quantity: qty !== null ? String(qty) : '', quantityAlert: alert !== null ? String(alert) : '' }); }}
+                          style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '2px 7px', cursor: 'pointer', color: '#5E5E5E' }}
+                        >Set Stock</button>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => setOpenModifiers((prev) => {
@@ -1073,15 +1345,36 @@ function MenuTab({ venue }: { venue: any }) {
 
             {/* Dietary */}
             <div>
-              <label className="font-data block mb-1.5" style={labelStyle}>Dietary</label>
-              <input
-                type="text"
-                value={form.dietary}
-                onChange={(e) => setForm({ ...form, dietary: e.target.value })}
-                className={inputCls}
-                style={inputStyle}
-                placeholder="vegan, gluten-free, etc."
-              />
+              <label className="font-data block mb-1.5" style={labelStyle}>Dietary Tags</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', paddingTop: '0.5rem' }}>
+                {[
+                  { tag: 'vegan', label: 'Vegan' },
+                  { tag: 'gluten-free', label: 'GF' },
+                  { tag: 'dairy-free', label: 'Dairy-free' },
+                  { tag: 'nut-free', label: 'Nut-free' },
+                  { tag: 'vegetarian', label: 'Vegetarian' },
+                ].map(({ tag, label }) => {
+                  const tags = form.dietary ? form.dietary.split(',').map((t) => t.trim()).filter(Boolean) : [];
+                  const checked = tags.includes(tag);
+                  return (
+                    <label key={tag} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer', fontSize: '0.8125rem', color: '#181818' }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const current = form.dietary ? form.dietary.split(',').map((t) => t.trim()).filter(Boolean) : [];
+                          const next = e.target.checked
+                            ? [...current, tag]
+                            : current.filter((t) => t !== tag);
+                          setForm({ ...form, dietary: next.join(', ') });
+                        }}
+                        style={{ accentColor: '#181818' }}
+                      />
+                      <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E' }}>{label}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Description — full width */}
@@ -1101,12 +1394,12 @@ function MenuTab({ venue }: { venue: any }) {
             <div className="md:col-span-2">
               <label className="font-data block mb-1.5" style={labelStyle}>Image URL</label>
               <input
-                type="text"
+                type="url"
                 value={form.image}
                 onChange={(e) => setForm({ ...form, image: e.target.value })}
                 className={inputCls}
                 style={inputStyle}
-                placeholder="https://example.com/coffee.jpg"
+                placeholder="https://images.unsplash.com/..."
               />
               <p className="font-data mt-1" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
                 Leave blank to hide image on your public menu.
@@ -1152,6 +1445,7 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
     senderName: '',
     recipientName: '',
     recipientPhone: '',
+    recipientEmail: '',
     message: '',
   });
   const [newCode, setNewCode] = useState<string | null>(null);
@@ -1160,7 +1454,7 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
   const createCard = trpc.venue.createGiftCard.useMutation({
     onSuccess: (data) => {
       setNewCode(data.code);
-      setForm({ amount: '', senderName: '', recipientName: '', recipientPhone: '', message: '' });
+      setForm({ amount: '', senderName: '', recipientName: '', recipientPhone: '', recipientEmail: '', message: '' });
       refetchCards();
     },
     onError: (err) => setFormError(err.message),
@@ -1180,6 +1474,7 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
       senderName: form.senderName || undefined,
       recipientName: form.recipientName || undefined,
       recipientPhone: form.recipientPhone || undefined,
+      recipientEmail: form.recipientEmail || undefined,
       message: form.message || undefined,
     });
   };
@@ -1221,6 +1516,11 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
             <label style={labelStyle}>Recipient Phone</label>
             <input type="tel" placeholder="e.g. 0412345678" value={form.recipientPhone}
               onChange={e => setForm({ ...form, recipientPhone: e.target.value })} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Recipient Email (sends digital card)</label>
+            <input type="email" placeholder="e.g. jane@example.com" value={form.recipientEmail}
+              onChange={e => setForm({ ...form, recipientEmail: e.target.value })} style={inputStyle} />
           </div>
         </div>
         <div style={{ marginBottom: 12 }}>
@@ -1746,6 +2046,570 @@ function CateringTab({ venueId }: { venueId: number }) {
             )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Bundles Tab ─────────────────────────────────────────────────────────────
+function BundlesTab({ venueId }: { venueId: number }) {
+  const utils = trpc.useUtils();
+  const { data: bundles, isLoading } = trpc.venue.listBundles.useQuery({ venueId }, { enabled: !!venueId });
+  const createBundle = trpc.venue.createBundle.useMutation({ onSuccess: () => { utils.venue.listBundles.invalidate(); setShowForm(false); resetForm(); } });
+  const updateBundle = trpc.venue.updateBundle.useMutation({ onSuccess: () => { utils.venue.listBundles.invalidate(); setEditId(null); } });
+  const deleteBundle = trpc.venue.deleteBundle.useMutation({ onSuccess: () => utils.venue.listBundles.invalidate() });
+
+  const emptyForm = { name: '', description: '', itemSlugs: '', bundlePrice: '', isActive: true };
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [msg, setMsg] = useState('');
+  const resetForm = () => setForm(emptyForm);
+
+  const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
+  const labelStyle: React.CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div className="flex justify-between items-center">
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Bundles</h2>
+        <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+          <Plus size={14} /> New Bundle
+        </button>
+      </div>
+
+      {msg && <p style={{ fontSize: 13, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
+
+      {showForm && (
+        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#FAFAF8' }}>
+          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: 12 }}>New Bundle</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div><label style={labelStyle}>Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder="e.g. Breakfast Combo" /></div>
+            <div><label style={labelStyle}>Bundle Price ($) *</label><input type="number" min="0" step="0.01" value={form.bundlePrice} onChange={e => setForm({ ...form, bundlePrice: e.target.value })} style={inputStyle} placeholder="e.g. 12.00" /></div>
+            <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Item Slugs (comma-separated)</label><input value={form.itemSlugs} onChange={e => setForm({ ...form, itemSlugs: e.target.value })} style={inputStyle} placeholder="flat-white,croissant" /><p style={{ fontSize: 11, color: '#5E5E5E', marginTop: 3, fontFamily: 'Geist Mono' }}>Enter the slugs of menu items to include, separated by commas.</p></div>
+            <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Description</label><textarea rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inputStyle, resize: 'vertical' }} /></div>
+          </div>
+          <div className="flex items-center gap-3 mb-3">
+            <input type="checkbox" id="bundle-active-new" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} style={{ accentColor: '#181818' }} />
+            <label htmlFor="bundle-active-new" style={{ fontSize: '0.8125rem', color: '#181818', cursor: 'pointer' }}>Active</label>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => { if (!form.name || !form.bundlePrice) { setMsg('Error: Name and price required'); return; } setMsg(''); createBundle.mutate({ venueId, name: form.name, description: form.description || undefined, itemSlugs: form.itemSlugs.split(',').map(s => s.trim()).filter(Boolean), bundlePrice: form.bundlePrice, isActive: form.isActive }); }} disabled={createBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
+              {createBundle.isPending ? 'Saving…' : 'Create Bundle'}
+            </button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
+      {!isLoading && (!bundles || (bundles as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No bundles yet.</p>}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {(bundles as any[] | undefined)?.map((b) => (
+          <div key={b.id} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+            {editId === b.id ? (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div><label style={labelStyle}>Name</label><input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Bundle Price ($)</label><input type="number" min="0" step="0.01" value={editForm.bundlePrice} onChange={e => setEditForm({ ...editForm, bundlePrice: e.target.value })} style={inputStyle} /></div>
+                  <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Item Slugs</label><input value={editForm.itemSlugs} onChange={e => setEditForm({ ...editForm, itemSlugs: e.target.value })} style={inputStyle} /></div>
+                  <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Description</label><textarea rows={2} value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} style={{ ...inputStyle, resize: 'vertical' }} /></div>
+                </div>
+                <div className="flex items-center gap-3 mb-3">
+                  <input type="checkbox" id={`bundle-active-${b.id}`} checked={editForm.isActive} onChange={e => setEditForm({ ...editForm, isActive: e.target.checked })} style={{ accentColor: '#181818' }} />
+                  <label htmlFor={`bundle-active-${b.id}`} style={{ fontSize: '0.8125rem', color: '#181818', cursor: 'pointer' }}>Active</label>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { updateBundle.mutate({ bundleId: b.id, name: editForm.name, description: editForm.description || undefined, itemSlugs: editForm.itemSlugs.split(',').map((s: string) => s.trim()).filter(Boolean), bundlePrice: editForm.bundlePrice, isActive: editForm.isActive }); }} disabled={updateBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                  <button onClick={() => setEditId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-4">
+                <div style={{ flex: 1 }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{b.name}</span>
+                    <span style={{ fontFamily: 'Geist Mono', fontSize: 11, padding: '1px 6px', background: b.isActive ? 'rgba(94,139,94,0.12)' : 'rgba(184,84,80,0.10)', color: b.isActive ? '#5E8B5E' : '#B85450' }}>{b.isActive ? 'ACTIVE' : 'OFF'}</span>
+                    <span style={{ fontFamily: 'Geist Mono', fontSize: 13, fontWeight: 600, color: '#181818' }}>${Number(b.bundlePrice).toFixed(2)}</span>
+                  </div>
+                  {b.description && <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 4 }}>{b.description}</p>}
+                  <p style={{ fontSize: 11, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Items: {Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || '').slice(0, 60)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Edit2 size={14} /></button>
+                  {deleteConfirm === b.id ? (
+                    <div className="flex gap-1 items-center">
+                      <button onClick={() => { deleteBundle.mutate({ bundleId: b.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                      <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setDeleteConfirm(b.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Trash2 size={14} /></button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Campaigns Tab ────────────────────────────────────────────────────────────
+function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
+  const utils = trpc.useUtils();
+  const { data: campaigns, isLoading } = trpc.campaigns.list.useQuery();
+  const createCampaign = trpc.campaigns.create.useMutation({ onSuccess: () => { utils.campaigns.list.invalidate(); setShowForm(false); resetForm(); } });
+  const sendCampaign = trpc.campaigns.send.useMutation({ onSuccess: () => utils.campaigns.list.invalidate() });
+  const deleteCampaign = trpc.campaigns.delete.useMutation({ onSuccess: () => utils.campaigns.list.invalidate() });
+
+  const emptyForm = { name: '', type: 'email' as 'email' | 'sms', segment: 'all', subject: '', body: '' };
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [msg, setMsg] = useState('');
+  const resetForm = () => setForm(emptyForm);
+
+  const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
+  const labelStyle: React.CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+
+  const segmentLabel: Record<string, string> = { all: 'All Customers', active30: 'Active last 30 days', highvalue: 'High value (≥100 pts)' };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div className="flex justify-between items-center">
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Campaigns</h2>
+        <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+          <Plus size={14} /> New Campaign
+        </button>
+      </div>
+
+      {msg && <p style={{ fontSize: 13, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
+
+      {showForm && (
+        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#FAFAF8' }}>
+          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: 12 }}>New Campaign</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div><label style={labelStyle}>Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder="e.g. Summer Promo" /></div>
+            <div>
+              <label style={labelStyle}>Segment</label>
+              <select value={form.segment} onChange={e => setForm({ ...form, segment: e.target.value })} style={inputStyle}>
+                <option value="all">All Customers</option>
+                <option value="active30">Active last 30 days</option>
+                <option value="highvalue">High value (≥100 pts)</option>
+              </select>
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <label style={labelStyle}>Type</label>
+              <div className="flex gap-6">
+                {(['email', 'sms'] as const).map(t => (
+                  <label key={t} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: 14, color: '#181818' }}>
+                    <input type="radio" name="camp-type" value={t} checked={form.type === t} onChange={() => setForm({ ...form, type: t })} style={{ accentColor: '#181818' }} />
+                    {t === 'email' ? 'Email' : 'SMS'}
+                  </label>
+                ))}
+              </div>
+            </div>
+            {form.type === 'email' && (
+              <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Subject</label><input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} style={inputStyle} placeholder="Subject line" /></div>
+            )}
+            <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Body *</label><textarea rows={4} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} style={{ ...inputStyle, resize: 'vertical' }} placeholder="Message content…" /></div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              disabled={createCampaign.isPending}
+              onClick={() => {
+                if (!form.name || !form.body) { setMsg('Error: Name and body required'); return; }
+                setMsg('');
+                createCampaign.mutate({ name: form.name, type: form.type, segment: form.segment, subject: form.subject || undefined, body: form.body });
+              }}
+              style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
+            >{createCampaign.isPending ? 'Saving…' : 'Save Draft'}</button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
+      {!isLoading && (!campaigns || (campaigns as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No campaigns yet.</p>}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {(campaigns as any[] | undefined)?.map((c) => (
+          <div key={c.id} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+            <div className="flex items-start justify-between gap-4">
+              <div style={{ flex: 1 }}>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{c.name}</span>
+                  <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: c.type === 'email' ? 'rgba(37,99,235,0.10)' : 'rgba(196,149,58,0.12)', color: c.type === 'email' ? '#2563EB' : '#C4953A', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{c.type}</span>
+                  <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: c.status === 'sent' ? 'rgba(94,139,94,0.12)' : 'rgba(24,24,24,0.06)', color: c.status === 'sent' ? '#5E8B5E' : '#5E5E5E', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{c.status}</span>
+                  <span style={{ fontSize: 12, color: '#5E5E5E' }}>{segmentLabel[c.segment] || c.segment}</span>
+                </div>
+                {c.sentAt && <p style={{ fontSize: 11, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Sent: {new Date(c.sentAt).toLocaleString()}</p>}
+                {c.recipientCount != null && <p style={{ fontSize: 11, color: '#5E5E5E' }}>Recipients: {c.recipientCount}</p>}
+              </div>
+              <div className="flex gap-2 items-center">
+                {c.status === 'draft' && (
+                  <>
+                    <button
+                      disabled={sendCampaign.isPending}
+                      onClick={() => {
+                        if (window.confirm('This will send to all matching customers. Continue?')) {
+                          sendCampaign.mutate({ campaignId: c.id });
+                        }
+                      }}
+                      className="flex items-center gap-1 px-3 py-2 font-button"
+                      style={{ background: '#5E8B8B', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: 'pointer' }}
+                    >
+                      <Send size={12} /> Send
+                    </button>
+                    <button
+                      onClick={() => { if (window.confirm('Delete this campaign?')) deleteCampaign.mutate({ campaignId: c.id }); }}
+                      className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
+                      style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}
+                    ><Trash2 size={14} /></button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Loyalty Tab (with Rewards Catalogue) ────────────────────────────────────
+function LoyaltyTab({ venueId }: { venueId: number }) {
+  const utils = trpc.useUtils();
+  const { data: accounts, isLoading: accsLoading } = trpc.venue.listLoyaltyAccounts.useQuery({ venueId }, { enabled: !!venueId });
+  const { data: rewards, isLoading: rewardsLoading } = trpc.loyaltyRewards.listAll.useQuery();
+  const createReward = trpc.loyaltyRewards.create.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setShowRewardForm(false); resetRewardForm(); } });
+  const updateReward = trpc.loyaltyRewards.update.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setEditRewardId(null); } });
+  const deleteReward = trpc.loyaltyRewards.delete.useMutation({ onSuccess: () => utils.loyaltyRewards.listAll.invalidate() });
+
+  const emptyReward = { name: '', description: '', pointsCost: '', rewardType: 'free_item' as string, rewardValue: '', menuItemSlug: '', sortOrder: '' };
+  const [showRewardForm, setShowRewardForm] = useState(false);
+  const [rewardForm, setRewardForm] = useState(emptyReward);
+  const [editRewardId, setEditRewardId] = useState<number | null>(null);
+  const [editRewardForm, setEditRewardForm] = useState(emptyReward);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [msg, setMsg] = useState('');
+  const resetRewardForm = () => setRewardForm(emptyReward);
+
+  const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
+  const labelStyle: React.CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+
+  const rewardTypeOpts = [
+    { value: 'free_item', label: 'Free Item' },
+    { value: 'discount_percent', label: 'Discount %' },
+    { value: 'discount_fixed', label: 'Discount Fixed ($)' },
+    { value: 'custom', label: 'Custom' },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Loyalty Accounts */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>Loyalty Accounts</h2>
+        {accsLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
+        {!accsLoading && (!accounts || (accounts as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No loyalty accounts yet.</p>}
+        {(accounts as any[] | undefined) && (accounts as any[]).length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Customer', 'Phone', 'Points', 'Tier', 'Joined'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(accounts as any[]).map((a) => (
+                  <tr key={a.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <td style={{ padding: '10px 10px', fontWeight: 500, color: '#181818' }}>{a.customerName || '—'}</td>
+                    <td style={{ padding: '10px 10px', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: 12 }}>{a.phone || '—'}</td>
+                    <td style={{ padding: '10px 10px', fontWeight: 600, color: '#181818' }}>{a.points ?? 0}</td>
+                    <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>{a.tier || 'bronze'}</td>
+                    <td style={{ padding: '10px 10px', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: 11 }}>{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Rewards Catalogue */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="flex justify-between items-center mb-4">
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Rewards Catalogue</h2>
+          <button onClick={() => { setShowRewardForm(true); resetRewardForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+            <Plus size={14} /> New Reward
+          </button>
+        </div>
+
+        {msg && <p style={{ fontSize: 13, marginBottom: 8, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
+
+        {showRewardForm && (
+          <div className="border p-4 mb-4" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#FAFAF8' }}>
+            <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: 12 }}>New Reward</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div><label style={labelStyle}>Name *</label><input value={rewardForm.name} onChange={e => setRewardForm({ ...rewardForm, name: e.target.value })} style={inputStyle} placeholder="e.g. Free Coffee" /></div>
+              <div><label style={labelStyle}>Points Cost *</label><input type="number" min="1" value={rewardForm.pointsCost} onChange={e => setRewardForm({ ...rewardForm, pointsCost: e.target.value })} style={inputStyle} placeholder="e.g. 100" /></div>
+              <div>
+                <label style={labelStyle}>Reward Type</label>
+                <select value={rewardForm.rewardType} onChange={e => setRewardForm({ ...rewardForm, rewardType: e.target.value })} style={inputStyle}>
+                  {rewardTypeOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div><label style={labelStyle}>Reward Value</label><input value={rewardForm.rewardValue} onChange={e => setRewardForm({ ...rewardForm, rewardValue: e.target.value })} style={inputStyle} placeholder="e.g. flat-white or 20%" /></div>
+              <div><label style={labelStyle}>Menu Item Slug (optional)</label><input value={rewardForm.menuItemSlug} onChange={e => setRewardForm({ ...rewardForm, menuItemSlug: e.target.value })} style={inputStyle} placeholder="e.g. flat-white" /></div>
+              <div><label style={labelStyle}>Sort Order</label><input type="number" min="0" value={rewardForm.sortOrder} onChange={e => setRewardForm({ ...rewardForm, sortOrder: e.target.value })} style={inputStyle} placeholder="0" /></div>
+              <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Description</label><textarea rows={2} value={rewardForm.description} onChange={e => setRewardForm({ ...rewardForm, description: e.target.value })} style={{ ...inputStyle, resize: 'vertical' }} /></div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                disabled={createReward.isPending}
+                onClick={() => {
+                  if (!rewardForm.name || !rewardForm.pointsCost) { setMsg('Error: Name and points cost required'); return; }
+                  setMsg('');
+                  createReward.mutate({ name: rewardForm.name, description: rewardForm.description || undefined, pointsCost: Number(rewardForm.pointsCost), rewardType: rewardForm.rewardType, rewardValue: rewardForm.rewardValue || undefined, menuItemSlug: rewardForm.menuItemSlug || undefined, sortOrder: rewardForm.sortOrder ? Number(rewardForm.sortOrder) : undefined });
+                }}
+                style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
+              >{createReward.isPending ? 'Saving…' : 'Create Reward'}</button>
+              <button onClick={() => { setShowRewardForm(false); resetRewardForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {rewardsLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
+        {!rewardsLoading && (!rewards || (rewards as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No rewards yet.</p>}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {(rewards as any[] | undefined)?.map((r) => (
+            <div key={r.id} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+              {editRewardId === r.id ? (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div><label style={labelStyle}>Name</label><input value={editRewardForm.name} onChange={e => setEditRewardForm({ ...editRewardForm, name: e.target.value })} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Points Cost</label><input type="number" min="1" value={editRewardForm.pointsCost} onChange={e => setEditRewardForm({ ...editRewardForm, pointsCost: e.target.value })} style={inputStyle} /></div>
+                    <div>
+                      <label style={labelStyle}>Reward Type</label>
+                      <select value={editRewardForm.rewardType} onChange={e => setEditRewardForm({ ...editRewardForm, rewardType: e.target.value })} style={inputStyle}>
+                        {rewardTypeOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
+                    <div><label style={labelStyle}>Reward Value</label><input value={editRewardForm.rewardValue} onChange={e => setEditRewardForm({ ...editRewardForm, rewardValue: e.target.value })} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Menu Item Slug</label><input value={editRewardForm.menuItemSlug} onChange={e => setEditRewardForm({ ...editRewardForm, menuItemSlug: e.target.value })} style={inputStyle} /></div>
+                    <div><label style={labelStyle}>Sort Order</label><input type="number" min="0" value={editRewardForm.sortOrder} onChange={e => setEditRewardForm({ ...editRewardForm, sortOrder: e.target.value })} style={inputStyle} /></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button disabled={updateReward.isPending} onClick={() => { updateReward.mutate({ rewardId: r.id, name: editRewardForm.name, pointsCost: Number(editRewardForm.pointsCost), rewardType: editRewardForm.rewardType, rewardValue: editRewardForm.rewardValue || undefined, menuItemSlug: editRewardForm.menuItemSlug || undefined, sortOrder: editRewardForm.sortOrder ? Number(editRewardForm.sortOrder) : undefined }); }} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                    <button onClick={() => setEditRewardId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4">
+                  <div style={{ flex: 1 }}>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{r.name}</span>
+                      <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'rgba(94,139,139,0.12)', color: '#5E8B8B' }}>{r.pointsCost} PTS</span>
+                      <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'rgba(24,24,24,0.06)', color: '#5E5E5E', textTransform: 'uppercase' as const }}>{r.rewardType?.replace('_', ' ')}</span>
+                      <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: r.isActive ? 'rgba(94,139,94,0.12)' : 'rgba(184,84,80,0.10)', color: r.isActive ? '#5E8B5E' : '#B85450' }}>{r.isActive ? 'ACTIVE' : 'OFF'}</span>
+                    </div>
+                    {r.description && <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 2 }}>{r.description}</p>}
+                    {r.rewardValue && <p style={{ fontSize: 12, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Value: {r.rewardValue}</p>}
+                    {r.menuItemSlug && <p style={{ fontSize: 12, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Item: {r.menuItemSlug}</p>}
+                    {r.sortOrder != null && <p style={{ fontSize: 11, color: '#5E5E5E' }}>Sort: {r.sortOrder}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditRewardId(r.id); setEditRewardForm({ name: r.name, description: r.description || '', pointsCost: String(r.pointsCost), rewardType: r.rewardType || 'free_item', rewardValue: r.rewardValue || '', menuItemSlug: r.menuItemSlug || '', sortOrder: r.sortOrder != null ? String(r.sortOrder) : '' }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Edit2 size={14} /></button>
+                    {deleteConfirm === r.id ? (
+                      <div className="flex gap-1 items-center">
+                        <button onClick={() => { deleteReward.mutate({ rewardId: r.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                        <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setDeleteConfirm(r.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F85450] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Trash2 size={14} /></button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Promo / Discount Codes Tab ───────────────────────────────────────────────
+function PromoTab({ venueId: _venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const utils = trpc.useUtils();
+
+  const codesQuery = trpc.promo.listDiscountCodes.useQuery({ token }, { enabled: !!token });
+  const createMut = trpc.promo.createDiscountCode.useMutation({
+    onSuccess: () => {
+      utils.promo.listDiscountCodes.invalidate();
+      setForm({ code: '', type: 'percentage', value: '', minOrderAmount: '', maxUses: '', expiresAt: '' });
+      setMsg('✅ Code created');
+    },
+    onError: (e: any) => setMsg(`❌ ${e.message}`),
+  });
+  const toggleMut = trpc.promo.toggleDiscountCode.useMutation({
+    onSuccess: () => utils.promo.listDiscountCodes.invalidate(),
+  });
+  const deleteMut = trpc.promo.deleteDiscountCode.useMutation({
+    onSuccess: () => utils.promo.listDiscountCodes.invalidate(),
+  });
+
+  const [form, setForm] = useState({
+    code: '', type: 'percentage' as 'percentage' | 'fixed',
+    value: '', minOrderAmount: '', maxUses: '', expiresAt: '',
+  });
+  const [msg, setMsg] = useState('');
+
+  const inputStyle = {
+    padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
+    fontSize: 13, background: '#fff', color: '#181818', width: '100%', boxSizing: 'border-box' as const,
+  };
+  const labelStyle = {
+    fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const,
+    color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4,
+  };
+
+  function handleCreate() {
+    setMsg('');
+    const v = Number(form.value);
+    if (!form.code || !v) { setMsg('Code and value are required'); return; }
+    createMut.mutate({
+      token,
+      code: form.code,
+      type: form.type,
+      value: v,
+      minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : undefined,
+      maxUses: form.maxUses ? Number(form.maxUses) : undefined,
+      expiresAt: form.expiresAt || undefined,
+    });
+  }
+
+  const codes = codesQuery.data ?? [];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Create form */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>
+          New Discount Code
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={labelStyle}>Code *</label>
+            <input value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })}
+              placeholder="e.g. WELCOME10" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Type</label>
+            <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as any })}
+              style={inputStyle}>
+              <option value="percentage">Percentage (%)</option>
+              <option value="fixed">Fixed ($)</option>
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Value *</label>
+            <input type="number" min="0.01" step="0.01"
+              placeholder={form.type === 'percentage' ? 'e.g. 10' : 'e.g. 5.00'}
+              value={form.value} onChange={e => setForm({ ...form, value: e.target.value })}
+              style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Min Order ($)</label>
+            <input type="number" min="0" step="0.01" placeholder="No minimum"
+              value={form.minOrderAmount} onChange={e => setForm({ ...form, minOrderAmount: e.target.value })}
+              style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Max Uses</label>
+            <input type="number" min="1" step="1" placeholder="Unlimited"
+              value={form.maxUses} onChange={e => setForm({ ...form, maxUses: e.target.value })}
+              style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Expires At</label>
+            <input type="datetime-local" value={form.expiresAt}
+              onChange={e => setForm({ ...form, expiresAt: e.target.value })}
+              style={inputStyle} />
+          </div>
+        </div>
+        {msg && <p style={{ fontSize: 13, marginBottom: 8, color: msg.startsWith('✅') ? '#16a34a' : '#B85450' }}>{msg}</p>}
+        <button onClick={handleCreate} disabled={createMut.isPending}
+          style={{ padding: '10px 20px', background: '#181818', color: '#F3F2EE', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+          {createMut.isPending ? 'Creating…' : 'Create Code'}
+        </button>
+      </div>
+
+      {/* Codes list */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>
+          All Codes ({codes.length})
+        </h2>
+        {codes.length === 0 ? (
+          <p style={{ color: '#5E5E5E', fontSize: 14 }}>No discount codes yet.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.08)', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                <th style={{ textAlign: 'left', padding: '8px 4px' }}>Code</th>
+                <th style={{ textAlign: 'left', padding: '8px 4px' }}>Discount</th>
+                <th style={{ textAlign: 'right', padding: '8px 4px' }}>Used</th>
+                <th style={{ textAlign: 'right', padding: '8px 4px' }}>Limit</th>
+                <th style={{ textAlign: 'left', padding: '8px 4px' }}>Expires</th>
+                <th style={{ textAlign: 'right', padding: '8px 4px' }}>Status</th>
+                <th style={{ padding: '8px 4px' }} />
+              </tr>
+            </thead>
+            <tbody>
+              {codes.map((c: any) => (
+                <tr key={c.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.04)' }}>
+                  <td style={{ padding: '10px 4px', fontFamily: 'Geist Mono', fontWeight: 600 }}>{c.code}</td>
+                  <td style={{ padding: '10px 4px' }}>
+                    {c.type === 'percentage' ? `${c.value}% off` : `$${Number(c.value).toFixed(2)} off`}
+                  </td>
+                  <td style={{ padding: '10px 4px', textAlign: 'right' }}>{c.usedCount}</td>
+                  <td style={{ padding: '10px 4px', textAlign: 'right', color: '#5E5E5E' }}>{c.maxUses ?? '∞'}</td>
+                  <td style={{ padding: '10px 4px', color: '#5E5E5E', fontSize: 12 }}>
+                    {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : 'No expiry'}
+                  </td>
+                  <td style={{ padding: '10px 4px', textAlign: 'right' }}>
+                    <span style={{
+                      fontSize: 11, fontFamily: 'Geist Mono', padding: '2px 8px', borderRadius: 99,
+                      background: c.isActive ? 'rgba(94,139,94,0.12)' : 'rgba(184,84,80,0.10)',
+                      color: c.isActive ? '#5E8B5E' : '#B85450',
+                    }}>
+                      {c.isActive ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 4px', textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => toggleMut.mutate({ token, id: c.id, isActive: !c.isActive })}
+                      style={{ fontSize: 12, background: 'none', border: '1px solid rgba(24,24,24,0.15)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', color: '#181818' }}>
+                      {c.isActive ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                      onClick={() => { if (window.confirm('Delete this code?')) deleteMut.mutate({ token, id: c.id }); }}
+                      style={{ fontSize: 12, background: 'none', border: '1px solid rgba(184,84,80,0.3)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', color: '#B85450' }}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
