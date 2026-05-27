@@ -27,6 +27,7 @@ import { multiVenueRouter } from "./multi-venue-router";
 import { smsMarketingRouter } from "./sms-marketing-router";
 import { trainingRouter } from "./training-router";
 import { franchiseeRouter } from "./franchisee-router";
+import { shiftManagementRouter } from "./shift-management-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -60,6 +61,7 @@ export const appRouter = createRouter({
   smsMarketing: smsMarketingRouter,
   training: trainingRouter,
   franchisee: franchiseeRouter,
+  shiftManagement: shiftManagementRouter,
 });
 
 export type AppRouter = typeof appRouter;

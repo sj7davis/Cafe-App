@@ -31,13 +31,60 @@ import {
   UserPlus,
   KeyRound,
   Calendar,
+  CalendarDays,
+  CalendarOff,
   Trash2,
   ListOrdered,
   MessageSquare,
   BookOpen,
   GraduationCap,
   Loader2,
+  UserCircle,
+  Shield,
+  Mail,
+  Phone,
+  Lock,
 } from 'lucide-react';
+
+// ─── Role-based tab definitions ───
+type RoleName = 'staff' | 'manager' | 'admin';
+const ROLE_RANK: Record<RoleName, number> = { staff: 0, manager: 1, admin: 2 };
+
+type TabDef = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  minRole: RoleName;
+  badge?: number;
+};
+
+function buildTabs(pendingOrders: number, pendingTimeOff: number): TabDef[] {
+  return [
+    { id: 'orders',        label: 'Orders',             icon: <ShoppingBag size={18} />,  minRole: 'staff' },
+    { id: 'kitchen',       label: 'Kitchen/KDS',        icon: <Utensils size={18} />,     minRole: 'staff' },
+    { id: 'clock',         label: 'Clock In/Out',        icon: <Clock size={18} />,        minRole: 'staff' },
+    { id: 'myschedule',    label: 'My Schedule',         icon: <CalendarDays size={18} />, minRole: 'staff' },
+    { id: 'training',      label: 'Training',            icon: <GraduationCap size={18} />,minRole: 'staff' },
+    { id: 'profile',       label: 'Profile',             icon: <UserCircle size={18} />,   minRole: 'staff' },
+    { id: 'reservations',  label: 'Reservations',        icon: <BookOpen size={18} />,     minRole: 'manager' },
+    { id: 'waitlist',      label: 'Waitlist',            icon: <ListOrdered size={18} />,  minRole: 'manager' },
+    { id: 'delivery',      label: 'Delivery',            icon: <Truck size={18} />,        minRole: 'manager' },
+    { id: 'timeoff',       label: 'Time Off Requests',   icon: <CalendarOff size={18} />,  minRole: 'manager', badge: pendingTimeOff },
+    { id: 'schedule',      label: 'Schedule',            icon: <Calendar size={18} />,     minRole: 'manager' },
+    { id: 'giftcards',     label: 'Gift Cards',          icon: <Gift size={18} />,         minRole: 'admin' },
+    { id: 'subscriptions', label: 'Subscriptions',       icon: <CreditCard size={18} />,   minRole: 'admin' },
+    { id: 'push',          label: 'Push Notifications',  icon: <Bell size={18} />,         minRole: 'admin' },
+    { id: 'catering',      label: 'Catering',            icon: <Utensils size={18} />,     minRole: 'admin' },
+    { id: 'corporate',     label: 'Corporate',           icon: <Briefcase size={18} />,    minRole: 'admin' },
+    { id: 'settings',      label: 'Settings',            icon: <Settings size={18} />,     minRole: 'admin' },
+    // Management-only (not in visible tab list but reachable)
+    { id: 'inventory',     label: 'Inventory',           icon: <Package size={18} />,      minRole: 'manager' },
+    { id: 'loyalty',       label: 'Loyalty',             icon: <Star size={18} />,         minRole: 'manager' },
+    { id: 'analytics',     label: 'Analytics',           icon: <BarChart3 size={18} />,    minRole: 'manager' },
+    { id: 'waste',         label: 'Waste Log',           icon: <Trash2 size={18} />,       minRole: 'manager' },
+    { id: 'staff',         label: 'Staff',               icon: <Users size={18} />,        minRole: 'manager' },
+  ];
+}
 
 export default function StaffDashboard() {
   const { staff, venue, token, venueId: _venueId, isAdmin, isManager, logout, loading } = useStaffAuth();
@@ -53,6 +100,21 @@ export default function StaffDashboard() {
     { enabled: !!venue, refetchInterval: 15_000 }
   );
   const pendingCount = pendingOrdersData?.length ?? 0;
+
+  const { data: timeOffData } = trpc.shiftManagement.listTimeOffRequests.useQuery(
+    { token },
+    { enabled: !!(token && (isAdmin || isManager)), refetchInterval: 60_000 }
+  );
+  const pendingTimeOff = (timeOffData ?? []).filter((r: any) => r.status === 'pending').length;
+
+  // Build visible tabs based on role
+  const allTabs = buildTabs(pendingCount, pendingTimeOff);
+  const userRole: RoleName = (staff?.role as RoleName) ?? 'staff';
+  const visibleTabs = allTabs.filter(t => ROLE_RANK[userRole] >= ROLE_RANK[t.minRole]);
+
+  // Reset active tab if it's not in visibleTabs
+  const visibleTabIds = visibleTabs.map(t => t.id);
+  const safeActiveTab = visibleTabIds.includes(activeTab) ? activeTab : 'orders';
 
   if (loading) {
     return (
@@ -221,42 +283,53 @@ export default function StaffDashboard() {
           borderRight: '1px solid #e7e5e4',
           padding: '16px 12px',
           flexShrink: 0,
+          overflowY: 'auto',
         }}>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <SidebarItem icon={<ShoppingBag size={18} />} label="Orders" tab="orders" activeTab={activeTab} setActiveTab={setActiveTab} badge={pendingCount} />
-            <SidebarItem icon={<Package size={18} />} label="Inventory" tab="inventory" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Star size={18} />} label="Loyalty" tab="loyalty" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Gift size={18} />} label="Gift Cards" tab="giftcards" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<CreditCard size={18} />} label="Subscriptions" tab="subscriptions" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Bell size={18} />} label="Push Notifications" tab="push" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Utensils size={18} />} label="Catering" tab="catering" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Briefcase size={18} />} label="Corporate" tab="corporate" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<BarChart3 size={18} />} label="Analytics" tab="analytics" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Calendar size={18} />} label="Schedule" tab="schedule" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Trash2 size={18} />} label="Waste Log" tab="waste" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<ListOrdered size={18} />} label="Waitlist" tab="waitlist" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<BookOpen size={18} />} label="Reservations" tab="reservations" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Clock size={18} />} label="Clock History" tab="clock" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<Truck size={18} />} label="Delivery" tab="delivery" activeTab={activeTab} setActiveTab={setActiveTab} />
-            <SidebarItem icon={<GraduationCap size={18} />} label="Training" tab="training" activeTab={activeTab} setActiveTab={setActiveTab} />
+            {/* Staff-level tabs */}
+            {visibleTabs.filter(t => t.minRole === 'staff').map(t => (
+              <SidebarItem key={t.id} icon={t.icon} label={t.label} tab={t.id} activeTab={safeActiveTab} setActiveTab={setActiveTab} badge={t.badge} />
+            ))}
 
-            {(isAdmin || isManager) && (
+            {/* Manager-level tabs */}
+            {visibleTabs.some(t => t.minRole === 'manager') && (
               <>
                 <div style={{
                   marginTop: '12px',
-                  paddingTop: '12px',
-                  borderTop: '1px solid #e7e5e4',
                   fontSize: '10px',
                   fontWeight: 700,
                   color: '#a8a29e',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                   padding: '12px 12px 8px',
+                  borderTop: '1px solid #e7e5e4',
                 }}>
                   Management
                 </div>
-                <SidebarItem icon={<Users size={18} />} label="Staff" tab="staff" activeTab={activeTab} setActiveTab={setActiveTab} />
-                <SidebarItem icon={<Settings size={18} />} label="Settings" tab="settings" activeTab={activeTab} setActiveTab={setActiveTab} />
+                {visibleTabs.filter(t => t.minRole === 'manager').map(t => (
+                  <SidebarItem key={t.id} icon={t.icon} label={t.label} tab={t.id} activeTab={safeActiveTab} setActiveTab={setActiveTab} badge={t.badge} />
+                ))}
+              </>
+            )}
+
+            {/* Admin-level tabs */}
+            {visibleTabs.some(t => t.minRole === 'admin') && (
+              <>
+                <div style={{
+                  marginTop: '12px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: '#a8a29e',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '12px 12px 8px',
+                  borderTop: '1px solid #e7e5e4',
+                }}>
+                  Admin
+                </div>
+                {visibleTabs.filter(t => t.minRole === 'admin').map(t => (
+                  <SidebarItem key={t.id} icon={t.icon} label={t.label} tab={t.id} activeTab={safeActiveTab} setActiveTab={setActiveTab} badge={t.badge} />
+                ))}
               </>
             )}
           </nav>
@@ -264,24 +337,28 @@ export default function StaffDashboard() {
 
         {/* Main Content */}
         <main style={{ flex: 1, padding: '28px', overflow: 'auto' }}>
-          {activeTab === 'orders' && <OrdersTab venueId={venue.id} token={token} />}
-          {activeTab === 'inventory' && <InventoryTab venueId={venue.id} isManager={isManager} />}
-          {activeTab === 'loyalty' && <LoyaltyTab venueId={venue.id} token={token} />}
-          {activeTab === 'giftcards' && <GiftCardsTab venueId={venue.id} />}
-          {activeTab === 'subscriptions' && <SubscriptionsTab venueId={venue.id} />}
-          {activeTab === 'push' && <PushNotificationsTab venueId={venue.id} />}
-          {activeTab === 'catering' && <CateringTab venueId={venue.id} />}
-          {activeTab === 'corporate' && <CorporateTab venueId={venue.id} />}
-          {activeTab === 'analytics' && <AnalyticsTab venueId={venue.id} token={token} />}
-          {activeTab === 'schedule' && <ScheduleTab venueId={venue.id} token={token} />}
-          {activeTab === 'waste' && <WasteLogTab venueId={venue.id} />}
-          {activeTab === 'waitlist' && <WaitlistTab venueId={venue.id} />}
-          {activeTab === 'reservations' && <ReservationsTab venueId={venue.id} token={token} />}
-          {activeTab === 'clock' && <ClockHistoryTab token={token} />}
-          {activeTab === 'delivery' && <DeliveryTab venueId={venue.id} />}
-          {activeTab === 'training' && <TrainingTab venueId={venue.id} token={token} role={staff.role} />}
-          {activeTab === 'staff' && (isAdmin || isManager) && <StaffManagementTab venueId={venue.id} isAdmin={isAdmin} />}
-          {activeTab === 'settings' && (isAdmin || isManager) && <SettingsTab venueId={venue.id} />}
+          {safeActiveTab === 'orders'        && <OrdersTab venueId={venue.id} token={token} />}
+          {safeActiveTab === 'kitchen'       && <OrdersTab venueId={venue.id} token={token} />}
+          {safeActiveTab === 'inventory'     && <InventoryTab venueId={venue.id} isManager={isManager} />}
+          {safeActiveTab === 'loyalty'       && <LoyaltyTab venueId={venue.id} token={token} />}
+          {safeActiveTab === 'giftcards'     && <GiftCardsTab venueId={venue.id} />}
+          {safeActiveTab === 'subscriptions' && <SubscriptionsTab venueId={venue.id} />}
+          {safeActiveTab === 'push'          && <PushNotificationsTab venueId={venue.id} />}
+          {safeActiveTab === 'catering'      && <CateringTab venueId={venue.id} />}
+          {safeActiveTab === 'corporate'     && <CorporateTab venueId={venue.id} />}
+          {safeActiveTab === 'analytics'     && <AnalyticsTab venueId={venue.id} token={token} />}
+          {safeActiveTab === 'schedule'      && <ScheduleTab venueId={venue.id} token={token} />}
+          {safeActiveTab === 'waste'         && <WasteLogTab venueId={venue.id} />}
+          {safeActiveTab === 'waitlist'      && <WaitlistTab venueId={venue.id} />}
+          {safeActiveTab === 'reservations'  && <ReservationsTab venueId={venue.id} token={token} />}
+          {safeActiveTab === 'clock'         && <ClockHistoryTab token={token} />}
+          {safeActiveTab === 'delivery'      && <DeliveryTab venueId={venue.id} />}
+          {safeActiveTab === 'training'      && <TrainingTab venueId={venue.id} token={token} role={staff.role} />}
+          {safeActiveTab === 'myschedule'    && <MyScheduleTab token={token} />}
+          {safeActiveTab === 'timeoff'       && (isAdmin || isManager) && <TimeOffTab token={token} />}
+          {safeActiveTab === 'profile'       && <ProfileTab token={token} staff={staff} />}
+          {safeActiveTab === 'staff'         && (isAdmin || isManager) && <StaffManagementTab venueId={venue.id} isAdmin={isAdmin} />}
+          {safeActiveTab === 'settings'      && (isAdmin || isManager) && <SettingsTab venueId={venue.id} />}
         </main>
       </div>
     </div>
@@ -4779,6 +4856,720 @@ function TrainingTab({ venueId, token, role }: { venueId: number; token: string;
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── My Schedule Tab ───
+function MyScheduleTab({ token }: { token: string }) {
+  const utils = trpc.useUtils();
+  const [showTimeOffForm, setShowTimeOffForm] = useState(false);
+  const [toStart, setToStart] = useState('');
+  const [toEnd, setToEnd] = useState('');
+  const [toType, setToType] = useState<'annual' | 'sick' | 'unpaid' | 'other'>('annual');
+  const [toReason, setToReason] = useState('');
+  const [toMsg, setToMsg] = useState('');
+  const [toError, setToError] = useState('');
+
+  const { data: shifts, isLoading: shiftsLoading } = trpc.scheduling.getMyShifts.useQuery(
+    { token, weeksAhead: 3 },
+    { enabled: !!token }
+  );
+
+  const { data: availability, isLoading: availLoading } = trpc.shiftManagement.getMyAvailability.useQuery(
+    { token },
+    { enabled: !!token }
+  );
+
+  const { data: timeOffRequests, isLoading: torLoading } = trpc.shiftManagement.getMyTimeOffRequests.useQuery(
+    { token },
+    { enabled: !!token }
+  );
+
+  const { data: swapRequests } = trpc.shiftManagement.listShiftSwapRequests.useQuery(
+    { token },
+    { enabled: !!token }
+  );
+
+  const setAvailability = trpc.shiftManagement.setAvailability.useMutation({
+    onSuccess: () => utils.shiftManagement.getMyAvailability.invalidate(),
+  });
+
+  const requestTimeOff = trpc.shiftManagement.requestTimeOff.useMutation({
+    onSuccess: () => {
+      utils.shiftManagement.getMyTimeOffRequests.invalidate();
+      setShowTimeOffForm(false);
+      setToStart(''); setToEnd(''); setToReason('');
+      setToMsg('Time off request submitted!');
+      setToError('');
+      setTimeout(() => setToMsg(''), 4000);
+    },
+    onError: (e: any) => { setToError(e.message); },
+  });
+
+  const requestSwap = trpc.shiftManagement.requestShiftSwap.useMutation({
+    onSuccess: () => utils.shiftManagement.listShiftSwapRequests.invalidate(),
+  });
+
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Group shifts by week label
+  const shiftList = (shifts ?? []) as any[];
+  const torList = (timeOffRequests ?? []) as any[];
+  const availMap: Record<number, { isAvailable: boolean; preferredStart?: string; preferredEnd?: string }> = {};
+  if (availability) {
+    for (const a of availability as any[]) {
+      availMap[a.dayOfWeek] = { isAvailable: a.isAvailable, preferredStart: a.preferredStart ?? undefined, preferredEnd: a.preferredEnd ?? undefined };
+    }
+  }
+
+  function formatShiftDate(dateStr: string) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${dayNames[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+  }
+
+  const torStatusColors: Record<string, { bg: string; color: string }> = {
+    pending:  { bg: '#fef3c7', color: '#d97706' },
+    approved: { bg: '#dcfce7', color: '#16a34a' },
+    denied:   { bg: '#fee2e2', color: '#dc2626' },
+  };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 28px' }}>My Schedule</h2>
+
+      {/* ── Upcoming Shifts ── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginBottom: '20px' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>Upcoming Shifts</h3>
+        {shiftsLoading ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>Loading…</p>
+        ) : shiftList.length === 0 ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>No upcoming shifts scheduled</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {shiftList.map((shift: any) => (
+              <div key={shift.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '12px 16px',
+                background: '#f5f5f4',
+                borderRadius: '10px',
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#1c1917' }}>
+                    {formatShiftDate(shift.date)}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#57534e', marginTop: '2px' }}>
+                    {shift.startTime}–{shift.endTime}
+                  </div>
+                </div>
+                {shift.role && (
+                  <span style={{
+                    padding: '3px 10px', borderRadius: '6px', fontSize: '11px',
+                    fontWeight: 700, background: '#e7e5e4', color: '#57534e', textTransform: 'capitalize',
+                  }}>
+                    {shift.role}
+                  </span>
+                )}
+                <button
+                  onClick={() => requestSwap.mutate({ token, fromShiftId: shift.id })}
+                  disabled={requestSwap.isPending}
+                  title="Request shift swap"
+                  style={{
+                    padding: '4px 10px', borderRadius: '6px', border: '1px solid #e7e5e4',
+                    background: '#fff', color: '#78716c', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Swap
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── My Availability ── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginBottom: '20px' }}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>My Availability</h3>
+        {availLoading ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>Loading…</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+            {DAYS.map((day, idx) => {
+              const avail = availMap[idx] ?? { isAvailable: true };
+              return (
+                <div key={idx} style={{
+                  borderRadius: '10px',
+                  border: '1px solid #e7e5e4',
+                  padding: '10px 6px',
+                  textAlign: 'center',
+                  background: avail.isAvailable ? '#f0fdf4' : '#fef2f2',
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#78716c', marginBottom: '8px' }}>{day}</div>
+                  <button
+                    onClick={() => setAvailability.mutate({ token, dayOfWeek: idx, isAvailable: !avail.isAvailable })}
+                    style={{
+                      width: '100%',
+                      padding: '5px 0',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: avail.isAvailable ? '#16a34a' : '#dc2626',
+                      color: '#fff',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {avail.isAvailable ? 'Available' : 'Unavailable'}
+                  </button>
+                  {avail.isAvailable && (
+                    <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <input
+                        type="time"
+                        defaultValue={avail.preferredStart ?? ''}
+                        onBlur={e => setAvailability.mutate({ token, dayOfWeek: idx, isAvailable: true, preferredStart: e.target.value || undefined })}
+                        style={{ width: '100%', padding: '3px 4px', fontSize: '10px', borderRadius: '4px', border: '1px solid #e7e5e4', boxSizing: 'border-box' }}
+                      />
+                      <input
+                        type="time"
+                        defaultValue={avail.preferredEnd ?? ''}
+                        onBlur={e => setAvailability.mutate({ token, dayOfWeek: idx, isAvailable: true, preferredEnd: e.target.value || undefined })}
+                        style={{ width: '100%', padding: '3px 4px', fontSize: '10px', borderRadius: '4px', border: '1px solid #e7e5e4', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Time Off Requests ── */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Time Off Requests</h3>
+          <button
+            onClick={() => setShowTimeOffForm(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '7px 14px', borderRadius: '8px', border: 'none',
+              background: showTimeOffForm ? '#57534e' : '#1c1917',
+              color: '#fafaf9', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            <Plus size={14} /> {showTimeOffForm ? 'Cancel' : 'Request Time Off'}
+          </button>
+        </div>
+
+        {toMsg && <div style={{ marginBottom: '12px', fontSize: '13px', color: '#16a34a' }}>{toMsg}</div>}
+
+        {showTimeOffForm && (
+          <div style={{ background: '#f5f5f4', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+            {toError && <div style={{ fontSize: '13px', color: '#dc2626', marginBottom: '10px' }}>{toError}</div>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Start Date</label>
+                <input type="date" value={toStart} onChange={e => setToStart(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '13px', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>End Date</label>
+                <input type="date" value={toEnd} onChange={e => setToEnd(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '13px', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Type</label>
+                <select value={toType} onChange={e => setToType(e.target.value as any)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '13px', background: '#fff', boxSizing: 'border-box' }}>
+                  <option value="annual">Annual</option>
+                  <option value="sick">Sick</option>
+                  <option value="unpaid">Unpaid</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ fontSize: '11px', color: '#78716c', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Reason (optional)</label>
+              <textarea value={toReason} onChange={e => setToReason(e.target.value)} rows={2}
+                placeholder="Any additional details…"
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical' }} />
+            </div>
+            <button
+              onClick={() => {
+                setToError('');
+                if (!toStart || !toEnd) { setToError('Start and end date are required'); return; }
+                requestTimeOff.mutate({ token, startDate: toStart, endDate: toEnd, type: toType, reason: toReason || undefined });
+              }}
+              disabled={requestTimeOff.isPending}
+              style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#1c1917', color: '#fafaf9', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              {requestTimeOff.isPending ? '…' : 'Submit Request'}
+            </button>
+          </div>
+        )}
+
+        {torLoading ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>Loading…</p>
+        ) : torList.length === 0 ? (
+          <p style={{ color: '#78716c', fontSize: '13px' }}>No time off requests yet</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {torList.map((r: any) => {
+              const sc = torStatusColors[r.status] ?? torStatusColors.pending;
+              return (
+                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#f5f5f4', borderRadius: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#1c1917' }}>
+                      {r.startDate} → {r.endDate}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#78716c', marginTop: '2px', textTransform: 'capitalize' }}>
+                      {r.type}{r.reason ? ` — ${r.reason}` : ''}
+                    </div>
+                  </div>
+                  <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', background: sc.bg, color: sc.color }}>
+                    {r.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Shift Swaps ── */}
+      {(swapRequests ?? []).length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '20px' }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600 }}>My Shift Swap Requests</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {(swapRequests as any[]).map((r: any) => (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#f5f5f4', borderRadius: '8px' }}>
+                <div style={{ flex: 1, fontSize: '13px', color: '#44403c' }}>
+                  Swap request for shift on {r.shiftDate ?? `#${r.fromShiftId}`}
+                </div>
+                <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', background: '#fef3c7', color: '#d97706' }}>
+                  {r.status ?? 'pending'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Time Off Requests Tab (Manager+) ───
+function TimeOffTab({ token }: { token: string }) {
+  const utils = trpc.useUtils();
+  const [filter, setFilter] = useState<'pending' | 'all'>('pending');
+
+  const { data: requests, isLoading } = trpc.shiftManagement.listTimeOffRequests.useQuery(
+    { token },
+    { enabled: !!token, refetchInterval: 30_000 }
+  );
+
+  const reviewTimeOff = trpc.shiftManagement.reviewTimeOff.useMutation({
+    onSuccess: () => utils.shiftManagement.listTimeOffRequests.invalidate(),
+  });
+
+  const list = (requests ?? []) as any[];
+  const filtered = filter === 'pending' ? list.filter(r => r.status === 'pending') : list;
+
+  const torStatusColors: Record<string, { bg: string; color: string }> = {
+    pending:  { bg: '#fef3c7', color: '#d97706' },
+    approved: { bg: '#dcfce7', color: '#16a34a' },
+    denied:   { bg: '#fee2e2', color: '#dc2626' },
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: 0 }}>Time Off Requests</h2>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {(['pending', 'all'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{
+                padding: '6px 14px', borderRadius: '6px', border: 'none', fontSize: '12px',
+                fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
+                background: filter === f ? '#1c1917' : '#e7e5e4',
+                color: filter === f ? '#fafaf9' : '#57534e',
+              }}>
+              {f === 'pending' ? 'Pending' : 'All'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p style={{ color: '#78716c', fontSize: '14px' }}>Loading…</p>
+      ) : filtered.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', padding: '32px', textAlign: 'center', color: '#78716c', fontSize: '14px' }}>
+          No {filter === 'pending' ? 'pending ' : ''}time off requests
+        </div>
+      ) : (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e7e5e4', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ background: '#fafaf9', borderBottom: '1px solid #e7e5e4' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Staff</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dates</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Reason</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r: any) => {
+                const sc = torStatusColors[r.status] ?? torStatusColors.pending;
+                return (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #f5f5f4' }}>
+                    <td style={{ padding: '14px 16px', fontWeight: 600, color: '#1c1917' }}>{r.staffName ?? `Staff #${r.staffId}`}</td>
+                    <td style={{ padding: '14px 16px', color: '#44403c' }}>{r.startDate} → {r.endDate}</td>
+                    <td style={{ padding: '14px 16px', color: '#57534e', textTransform: 'capitalize' }}>{r.type}</td>
+                    <td style={{ padding: '14px 16px', color: '#78716c' }}>{r.reason ?? '—'}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', background: sc.bg, color: sc.color }}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '14px 16px' }}>
+                      {r.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, decision: 'approved' })}
+                            disabled={reviewTimeOff.isPending}
+                            style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#dcfce7', color: '#16a34a', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, decision: 'denied' })}
+                            disabled={reviewTimeOff.isPending}
+                            style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Profile Tab ───
+function ProfileTab({ token, staff }: { token: string; staff: { id: number; name: string; username: string; role: string; email?: string | null; twoFaEnabled?: boolean } }) {
+  const utils = trpc.useUtils();
+
+  // Profile form
+  const [profileForm, setProfileForm] = useState({
+    name: staff.name ?? '',
+    email: (staff as any).email ?? '',
+    phone: (staff as any).phone ?? '',
+  });
+  const [profileMsg, setProfileMsg] = useState('');
+  const [profileError, setProfileError] = useState('');
+
+  // Change password form
+  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' });
+  const [pwMsg, setPwMsg] = useState('');
+  const [pwError, setPwError] = useState('');
+
+  // 2FA
+  const [twoFaMsg, setTwoFaMsg] = useState('');
+  const [twoFaError, setTwoFaError] = useState('');
+
+  const updateProfile = trpc.staffAuth.updateMyProfile.useMutation({
+    onSuccess: () => {
+      setProfileMsg('Profile updated!');
+      setProfileError('');
+      setTimeout(() => setProfileMsg(''), 3000);
+    },
+    onError: (e: any) => { setProfileError(e.message); },
+  });
+
+  const changePassword = trpc.staffAuth.changePassword.useMutation({
+    onSuccess: () => {
+      setPwMsg('Password changed!');
+      setPwError('');
+      setPwForm({ current: '', newPw: '', confirm: '' });
+      setTimeout(() => setPwMsg(''), 3000);
+    },
+    onError: (e: any) => { setPwError(e.message); },
+  });
+
+  const enable2FA = trpc.staffAuth.enable2FA.useMutation({
+    onSuccess: () => {
+      setTwoFaMsg('Two-factor authentication enabled.');
+      setTwoFaError('');
+      utils.staffAuth.me.invalidate();
+    },
+    onError: (e: any) => { setTwoFaError(e.message); },
+  });
+
+  const disable2FA = trpc.staffAuth.disable2FA.useMutation({
+    onSuccess: () => {
+      setTwoFaMsg('Two-factor authentication disabled.');
+      setTwoFaError('');
+      utils.staffAuth.me.invalidate();
+    },
+    onError: (e: any) => { setTwoFaError(e.message); },
+  });
+
+  const cardStyle: React.CSSProperties = {
+    background: '#fff',
+    borderRadius: '12px',
+    border: '1px solid #e7e5e4',
+    padding: '24px',
+    marginBottom: '16px',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: '1px solid #e7e5e4',
+    fontSize: '13px',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
+    outline: 'none',
+  };
+
+  const labelSt: React.CSSProperties = {
+    fontSize: '11px',
+    color: '#78716c',
+    display: 'block',
+    marginBottom: '4px',
+    fontWeight: 600,
+  };
+
+  const saveBtnSt: React.CSSProperties = {
+    padding: '9px 20px',
+    background: '#1c1917',
+    color: '#fafaf9',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginTop: '12px',
+  };
+
+  const twoFaEnabled = (staff as any).twoFaEnabled ?? false;
+
+  return (
+    <div>
+      <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c1917', margin: '0 0 24px' }}>My Profile</h2>
+
+      {/* ── Staff Info ── */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <UserCircle size={18} color="#5E8B8B" /> Personal Information
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelSt}>Full Name</label>
+            <input
+              value={profileForm.name}
+              onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+              style={inputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+            />
+          </div>
+          <div>
+            <label style={labelSt}>Username</label>
+            <input
+              value={staff.username}
+              disabled
+              style={{ ...inputStyle, background: '#f5f5f4', color: '#78716c' }}
+            />
+          </div>
+          <div>
+            <label style={labelSt}>Email</label>
+            <input
+              type="email"
+              value={profileForm.email}
+              onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
+              style={inputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+            />
+          </div>
+          <div>
+            <label style={labelSt}>Phone</label>
+            <input
+              type="tel"
+              value={profileForm.phone}
+              onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))}
+              placeholder="+61 4xx xxx xxx"
+              style={inputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+          <button
+            onClick={() => {
+              setProfileError('');
+              updateProfile.mutate({ token, name: profileForm.name, email: profileForm.email || undefined, phone: profileForm.phone || undefined });
+            }}
+            disabled={updateProfile.isPending}
+            style={{ ...saveBtnSt, opacity: updateProfile.isPending ? 0.7 : 1 }}
+          >
+            {updateProfile.isPending ? 'Saving…' : 'Save Profile'}
+          </button>
+          {profileMsg && <span style={{ fontSize: '13px', color: '#16a34a' }}>{profileMsg}</span>}
+          {profileError && <span style={{ fontSize: '13px', color: '#dc2626' }}>{profileError}</span>}
+        </div>
+      </div>
+
+      {/* ── Change Password ── */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Lock size={18} color="#5E8B8B" /> Change Password
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '400px' }}>
+          <div>
+            <label style={labelSt}>Current Password</label>
+            <input
+              type="password"
+              value={pwForm.current}
+              onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+              autoComplete="current-password"
+              style={inputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+            />
+          </div>
+          <div>
+            <label style={labelSt}>New Password</label>
+            <input
+              type="password"
+              value={pwForm.newPw}
+              onChange={e => setPwForm(f => ({ ...f, newPw: e.target.value }))}
+              autoComplete="new-password"
+              style={inputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+            />
+          </div>
+          <div>
+            <label style={labelSt}>Confirm New Password</label>
+            <input
+              type="password"
+              value={pwForm.confirm}
+              onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+              autoComplete="new-password"
+              style={inputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => {
+              setPwError('');
+              if (!pwForm.current || !pwForm.newPw) { setPwError('All fields are required'); return; }
+              if (pwForm.newPw !== pwForm.confirm) { setPwError('Passwords do not match'); return; }
+              changePassword.mutate({ token, currentPassword: pwForm.current, newPassword: pwForm.newPw });
+            }}
+            disabled={changePassword.isPending}
+            style={{ ...saveBtnSt, opacity: changePassword.isPending ? 0.7 : 1 }}
+          >
+            {changePassword.isPending ? 'Changing…' : 'Change Password'}
+          </button>
+          {pwMsg && <span style={{ fontSize: '13px', color: '#16a34a' }}>{pwMsg}</span>}
+          {pwError && <span style={{ fontSize: '13px', color: '#dc2626' }}>{pwError}</span>}
+        </div>
+      </div>
+
+      {/* ── Security / 2FA ── */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Shield size={18} color="#5E8B8B" /> Security
+        </h3>
+
+        {/* 2FA */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #f5f5f4' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 500, color: '#1c1917' }}>Two-Factor Authentication</div>
+            <div style={{ fontSize: '12px', color: '#78716c', marginTop: '2px' }}>
+              {twoFaEnabled ? 'Enabled — your account is protected by email 2FA' : 'Disabled — enable to require an email code on login'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+            <span style={{
+              padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+              background: twoFaEnabled ? '#dcfce7' : '#f3f4f6',
+              color: twoFaEnabled ? '#16a34a' : '#6b7280',
+            }}>
+              {twoFaEnabled ? 'ON' : 'OFF'}
+            </span>
+            {twoFaEnabled ? (
+              <button
+                onClick={() => { setTwoFaError(''); setTwoFaMsg(''); disable2FA.mutate({ token }); }}
+                disabled={disable2FA.isPending}
+                style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                {disable2FA.isPending ? '…' : 'Disable 2FA'}
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setTwoFaError('');
+                  setTwoFaMsg('');
+                  if (!profileForm.email && !(staff as any).email) {
+                    setTwoFaError('Add an email address to your profile first');
+                    return;
+                  }
+                  enable2FA.mutate({ token });
+                }}
+                disabled={enable2FA.isPending}
+                style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#dcfce7', color: '#16a34a', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                {enable2FA.isPending ? '…' : 'Enable 2FA'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Email verification status */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 500, color: '#1c1917' }}>Email Address</div>
+            <div style={{ fontSize: '12px', color: '#78716c', marginTop: '2px' }}>
+              {profileForm.email || (staff as any).email || 'No email set'}
+            </div>
+          </div>
+          <span style={{
+            padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+            background: (staff as any).emailVerifiedAt ? '#dcfce7' : '#fef3c7',
+            color: (staff as any).emailVerifiedAt ? '#16a34a' : '#d97706',
+          }}>
+            {(staff as any).emailVerifiedAt ? 'Verified' : 'Not verified'}
+          </span>
+        </div>
+
+        {(twoFaMsg || twoFaError) && (
+          <div style={{ marginTop: '8px', fontSize: '13px', color: twoFaError ? '#dc2626' : '#16a34a' }}>
+            {twoFaError || twoFaMsg}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

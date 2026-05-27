@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
@@ -10,7 +10,7 @@ export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -109,6 +109,7 @@ export default function OwnerDashboard() {
             { id: 'allvenues' as const, label: 'All Venues', icon: Building2 },
             { id: 'smsmarketing' as const, label: 'SMS Marketing', icon: MessageSquare },
             { id: 'franchisee' as const, label: 'Franchisee', icon: Percent },
+            { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
               <tab.icon size={14} /> {tab.label}
@@ -140,12 +141,13 @@ export default function OwnerDashboard() {
         {activeTab === 'allvenues' && <AllVenuesTab />}
         {activeTab === 'smsmarketing' && <SmsMarketingTab />}
         {activeTab === 'franchisee' && <FranchiseeTab />}
+        {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
       </div>
     </div>
   );
 }
 
-function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee') => void }) {
+function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes') => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
@@ -1004,224 +1006,546 @@ function BillingTab() {
 
 function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | null }) {
   const token = localStorage.getItem('b1-owner-token') || '';
-  const { data: squareStatus } = trpc.square.status.useQuery({ token }, { enabled: !!token });
-  const { data: oauthData, isLoading: oauthLoading, error: oauthError } = trpc.square.getOAuthUrl.useQuery(
-    { token },
-    { enabled: !!token && !squareStatus?.connected }
-  );
-  const disconnect = trpc.square.disconnect.useMutation({ onSuccess: () => window.location.reload() });
-  const syncMenu = trpc.square.syncMenu.useMutation();
-  const syncInventory = trpc.square.syncInventory.useMutation();
 
-  const [squareConnectedBanner, setSquareConnectedBanner] = useState(false);
-  const [syncMenuResult, setSyncMenuResult] = useState<{ imported: number; total: number } | null>(null);
-  const [syncInventoryResult, setSyncInventoryResult] = useState<{ synced: number } | null>(null);
+  // ── Banner state ──────────────────────────────────────────────────────────
+  const [connectedBanner, setConnectedBanner] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  function showToast(msg: string, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('square') === 'connected') {
-      setSquareConnectedBanner(true);
-      params.delete('square');
-      const newSearch = params.toString();
-      window.history.replaceState({}, '', window.location.pathname + (newSearch ? '?' + newSearch : ''));
+    const connected = params.get('connected') || (params.get('square') === 'connected' ? 'square' : null) || (params.get('xero') === 'connected' ? 'xero' : null);
+    if (connected) {
+      setConnectedBanner(connected);
+      params.delete('connected'); params.delete('square'); params.delete('xero');
+      const s = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (s ? '?' + s : ''));
     }
   }, []);
 
-  useEffect(() => {
-    if (!venue?.slug) return;
-    const url = `${window.location.origin}/v/${venue.slug}`;
-    QRCode.toDataURL(url, { width: 300, margin: 2 })
-      .then(setQrDataUrl)
-      .catch((err: unknown) => console.error('[qr] generation failed:', err));
-  }, [venue?.slug]);
-
-  function handleQrDownload() {
-    if (!qrDataUrl || !venue?.slug) return;
-    const a = document.createElement('a');
-    a.href = qrDataUrl;
-    a.download = `${venue.slug}-qr.png`;
-    a.click();
-  }
-
-  function handleSyncMenu() {
-    setSyncMenuResult(null);
-    syncMenu.mutate({ token }, {
-      onSuccess: (data) => setSyncMenuResult(data),
-    });
-  }
-
-  function handleSyncInventory() {
-    setSyncInventoryResult(null);
-    syncInventory.mutate({ token }, {
-      onSuccess: (data) => setSyncInventoryResult(data),
-    });
-  }
-
+  // ── Square ────────────────────────────────────────────────────────────────
+  const { data: squareStatus } = trpc.square.status.useQuery({ token }, { enabled: !!token });
+  const { data: oauthData, isLoading: oauthLoading, error: oauthError } = trpc.square.getOAuthUrl.useQuery(
+    { token }, { enabled: !!token && !squareStatus?.connected }
+  );
+  const squareDisconnect = trpc.square.disconnect.useMutation({ onSuccess: () => window.location.reload() });
+  const squareSyncMenu = trpc.square.syncMenu.useMutation();
+  const squareSyncInventory = trpc.square.syncInventory.useMutation();
+  const [squareSyncMenuResult, setSquareSyncMenuResult] = useState<{ imported: number; total: number } | null>(null);
+  const [squareSyncInvResult, setSquareSyncInvResult] = useState<{ synced: number } | null>(null);
   const squareNotConfigured = oauthError && String(oauthError.message).toLowerCase().includes('not configured');
 
+  // ── Lightspeed ────────────────────────────────────────────────────────────
+  const { data: lsConn } = trpc.lightspeed.getConnection.useQuery({ token }, { enabled: !!token });
+  const { refetch: fetchLsAuthUrl, isFetching: lsAuthFetching } = trpc.lightspeed.getAuthUrl.useQuery({ token }, { enabled: false });
+  const lsSyncMenu = trpc.lightspeed.syncMenu.useMutation();
+  const [lsSyncMsg, setLsSyncMsg] = useState('');
+  const lsC = lsConn as any;
+
+  async function handleLsConnect() {
+    const result = await fetchLsAuthUrl();
+    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
+  }
+
+  // ── Tyro ──────────────────────────────────────────────────────────────────
+  const { data: tyroConn } = trpc.tyro.getConnection.useQuery({ token }, { enabled: !!token });
+  const tyroConnect = trpc.tyro.connect.useMutation();
+  const [tyroForm, setTyroForm] = useState({ apiKey: '', merchantId: '', terminalId: '' });
+  const [tyroMsg, setTyroMsg] = useState('');
+  const tyroC = tyroConn as any;
+
+  // ── Impos ─────────────────────────────────────────────────────────────────
+  const { data: imposConn, refetch: refetchImpos } = trpc.impos.getConnection.useQuery({ token }, { enabled: !!token });
+  const imposConnect = trpc.impos.connect.useMutation({ onSuccess: () => refetchImpos() });
+  const imposSyncMenu = trpc.impos.syncMenu.useMutation();
+  const [imposForm, setImposForm] = useState({ apiKey: '', siteId: '' });
+  const [imposConnMsg, setImposConnMsg] = useState('');
+  const [imposSyncMsg, setImposSyncMsg] = useState('');
+  const imposC = imposConn as any;
+
+  // ── Xero ──────────────────────────────────────────────────────────────────
+  const { data: xeroConn, refetch: refetchXeroHub } = trpc.xero.getConnection.useQuery();
+  const { data: xeroAuthUrlData } = trpc.xero.getAuthUrl.useQuery();
+  const xeroDisconnect = trpc.xero.disconnect.useMutation({ onSuccess: () => refetchXeroHub() });
+  const xeroSync = trpc.xero.syncRevenue.useMutation();
+  const [xeroSyncFrom, setXeroSyncFrom] = useState('');
+  const [xeroSyncTo, setXeroSyncTo] = useState('');
+  const [xeroMsg, setXeroMsg] = useState('');
+  const xeroC = xeroConn as any;
+
+  // ── Google My Business ────────────────────────────────────────────────────
+  const { data: gmbConn } = trpc.venue.gmbGetConnection.useQuery({ token }, { enabled: !!token });
+  const { refetch: fetchGmbAuthUrl, isFetching: gmbAuthFetching } = trpc.venue.gmbGetAuthUrl.useQuery({ token }, { enabled: false });
+  const gmbSyncHours = trpc.venue.gmbSyncHours.useMutation();
+  const gmbSyncMenu = trpc.venue.gmbSyncMenu.useMutation();
+  const [gmbSyncMsg, setGmbSyncMsg] = useState('');
+  const gmbC = gmbConn as any;
+
+  async function handleGmbConnect() {
+    const result = await fetchGmbAuthUrl();
+    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
+  }
+
+  // ── QR Code ───────────────────────────────────────────────────────────────
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!venue?.slug) return;
+    QRCode.toDataURL(`${window.location.origin}/v/${venue.slug}`, { width: 300, margin: 2 })
+      .then(setQrDataUrl).catch(() => {});
+  }, [venue?.slug]);
+
+  // ── Styles helpers ────────────────────────────────────────────────────────
+  const cardStyle: CSSProperties = {
+    background: '#fff',
+    border: '1px solid rgba(24,24,24,0.10)',
+    borderRadius: 2,
+    padding: '1.25rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  };
+  const sectionHeadStyle: CSSProperties = {
+    fontWeight: 400, fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#5E5E5E',
+    marginBottom: '0.5rem', marginTop: '0.25rem',
+  };
+  const pillConnected: CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    background: 'rgba(94,139,94,0.12)', color: '#5E8B5E',
+    fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase',
+    padding: '2px 8px', borderRadius: 99,
+  };
+  const pillNotConnected: CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    background: 'rgba(24,24,24,0.06)', color: '#5E5E5E',
+    fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase',
+    padding: '2px 8px', borderRadius: 99,
+  };
+  const primaryBtn: CSSProperties = {
+    background: '#181818', color: '#F3F2EE', fontSize: '0.75rem',
+    border: 'none', padding: '6px 14px', cursor: 'pointer',
+    fontFamily: 'Geist Mono, monospace', letterSpacing: '0.06em', textTransform: 'uppercase',
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+  };
+  const ghostBtn: CSSProperties = {
+    background: 'transparent', color: '#B85450', fontSize: '0.625rem',
+    border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', cursor: 'pointer',
+    fontFamily: 'Geist Mono, monospace', letterSpacing: '0.06em', textTransform: 'uppercase',
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+  };
+
+  const origin = window.location.origin;
+
   return (
-    <div className="space-y-4">
-      {squareConnectedBanner && (
-        <div className="border p-4 flex items-center justify-between" style={{ borderColor: '#5E8B5E', background: 'rgba(94,139,94,0.08)' }}>
+    <div className="space-y-8">
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          background: toast.ok ? '#5E8B5E' : '#B85450', color: '#fff',
+          padding: '10px 18px', fontSize: '0.8125rem', borderRadius: 2,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.16)', display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {toast.ok ? <Check size={14} /> : <AlertCircle size={14} />}
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Connected banner */}
+      {connectedBanner && (
+        <div className="flex items-center justify-between p-4 border" style={{ borderColor: '#5E8B5E', background: 'rgba(94,139,94,0.08)' }}>
           <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            <Check size={10} className="inline mr-1" /> Square connected successfully
+            <Check size={10} className="inline mr-1" />
+            {connectedBanner.charAt(0).toUpperCase() + connectedBanner.slice(1)} connected successfully
           </span>
-          <button onClick={() => setSquareConnectedBanner(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+          <button onClick={() => setConnectedBanner(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
             <X size={14} />
           </button>
         </div>
       )}
 
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 flex items-center justify-center" style={{ background: '#181818' }}>
-              <Zap size={20} style={{ color: '#F3F2EE' }} />
-            </div>
-            <div>
-              <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Square POS</h3>
-              <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5 }}>
-                Sync your menu, inventory, and orders with Square Point of Sale.<br />
-                When a customer orders online, it appears in your Square dashboard.
-              </p>
-              {squareStatus?.connected && (
-                <div className="mt-2 space-y-1">
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                    <Check size={10} className="inline mr-1" /> Connected
-                  </p>
-                  {squareStatus.merchantId && (
-                    <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>
-                      Merchant ID: {squareStatus.merchantId}
-                    </p>
-                  )}
+      {/* ── Section 1: POS Systems ─────────────────────────────────────────── */}
+      <div>
+        <p style={sectionHeadStyle}>POS Systems</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Square */}
+          <div style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 36, height: 36, background: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Zap size={18} style={{ color: '#F3F2EE' }} />
                 </div>
-              )}
-              {squareNotConfigured && (
-                <p className="font-data mt-2" style={{ fontSize: '0.5625rem', color: '#B85450' }}>
-                  <AlertCircle size={10} className="inline mr-1" /> Add SQUARE_APP_ID and SQUARE_APP_SECRET to Railway env vars to enable Square.
-                </p>
-              )}
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Square POS</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync menu, inventory &amp; orders</p>
+                </div>
+              </div>
+              {squareStatus?.connected
+                ? <span style={pillConnected}><Check size={8} /> Connected</span>
+                : <span style={pillNotConnected}>Not connected</span>}
             </div>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            {squareStatus?.connected ? (
-              <button onClick={() => disconnect.mutate({ token })} disabled={disconnect.isPending} className="px-4 py-2 font-data border" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
-                {disconnect.isPending ? 'Disconnecting...' : 'Disconnect'}
-              </button>
-            ) : squareNotConfigured ? null : (
-              <button
-                onClick={() => { if (oauthData?.url) window.location.href = oauthData.url; }}
-                disabled={oauthLoading || !oauthData?.url}
-                className="px-4 py-2 font-button flex items-center gap-2"
-                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: oauthLoading ? 0.6 : 1 }}
-              >
-                {oauthLoading ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
-                {oauthLoading ? 'Loading...' : 'Connect Square'}
-              </button>
+            {squareNotConfigured && (
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>
+                <AlertCircle size={9} className="inline mr-1" /> Add SQUARE_APP_ID &amp; SQUARE_APP_SECRET to env vars.
+              </p>
             )}
-          </div>
-        </div>
-
-        {squareStatus?.connected && (
-          <div className="mt-4 pt-4 flex items-center gap-3" style={{ borderTop: '1px solid rgba(24,24,24,0.08)' }}>
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={handleSyncMenu}
-                disabled={syncMenu.isPending}
-                className="px-4 py-2 font-button flex items-center gap-2"
-                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncMenu.isPending ? 0.6 : 1 }}
-              >
-                {syncMenu.isPending ? <Loader2 size={14} className="animate-spin" /> : <Coffee size={14} />}
-                Sync Menu
-              </button>
-              {syncMenuResult && (
-                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                  Imported {syncMenuResult.imported} / {syncMenuResult.total} items
-                </p>
-              )}
-              {syncMenu.isError && (
-                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>Sync failed</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={handleSyncInventory}
-                disabled={syncInventory.isPending}
-                className="px-4 py-2 font-button flex items-center gap-2"
-                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncInventory.isPending ? 0.6 : 1 }}
-              >
-                {syncInventory.isPending ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}
-                Sync Inventory
-              </button>
-              {syncInventoryResult && (
-                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                  Synced {syncInventoryResult.synced} inventory levels
-                </p>
-              )}
-              {syncInventory.isError && (
-                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>Sync failed</p>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* QR Code Section */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 flex items-center justify-center" style={{ background: '#181818' }}>
-            <QrCode size={20} style={{ color: '#F3F2EE' }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>QR Code</h3>
-            <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 16 }}>
-              Display this QR code in your venue. Customers scan it to open your ordering page directly.
-            </p>
-            {qrDataUrl && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
-                <img
-                  src={qrDataUrl}
-                  alt="Venue QR code"
-                  style={{ width: 180, height: 180, border: '1px solid rgba(24,24,24,0.08)' }}
-                />
-                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>
-                  Links to: {window.location.origin}/v/{venue?.slug}
-                </p>
-                <button
-                  onClick={handleQrDownload}
-                  className="px-4 py-2 font-button flex items-center gap-2"
-                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}
-                >
-                  <Download size={14} /> Download PNG
+            {squareStatus?.connected ? (
+              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <button style={{ ...primaryBtn, opacity: squareSyncMenu.isPending ? 0.6 : 1 }}
+                  disabled={squareSyncMenu.isPending}
+                  onClick={() => { setSquareSyncMenuResult(null); squareSyncMenu.mutate({ token }, { onSuccess: (d) => { setSquareSyncMenuResult(d); showToast(`Imported ${d.imported}/${d.total} items`); }, onError: (e) => showToast(e.message, false) }); }}>
+                  {squareSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
+                  Sync Menu
+                </button>
+                <button style={{ ...primaryBtn, opacity: squareSyncInventory.isPending ? 0.6 : 1 }}
+                  disabled={squareSyncInventory.isPending}
+                  onClick={() => { setSquareSyncInvResult(null); squareSyncInventory.mutate({ token }, { onSuccess: (d) => { setSquareSyncInvResult(d); showToast(`Synced ${d.synced} levels`); }, onError: (e) => showToast(e.message, false) }); }}>
+                  {squareSyncInventory.isPending ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
+                  Sync Inventory
+                </button>
+                <button style={{ ...ghostBtn }} disabled={squareDisconnect.isPending}
+                  onClick={() => squareDisconnect.mutate({ token })}>
+                  Disconnect
+                </button>
+                {squareSyncMenuResult && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Imported {squareSyncMenuResult.imported}/{squareSyncMenuResult.total}</span>}
+                {squareSyncInvResult && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Synced {squareSyncInvResult.synced}</span>}
+              </div>
+            ) : squareNotConfigured ? null : (
+              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <button style={{ ...primaryBtn, opacity: oauthLoading ? 0.6 : 1 }}
+                  disabled={oauthLoading || !oauthData?.url}
+                  onClick={() => { if (oauthData?.url) window.open(oauthData.url, '_blank'); }}>
+                  {oauthLoading ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                  Connect with Square
                 </button>
               </div>
             )}
-            {!qrDataUrl && venue?.slug && (
-              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Generating QR code…</p>
+          </div>
+
+          {/* Lightspeed */}
+          <div style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 36, height: 36, background: '#FF6600', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Zap size={18} style={{ color: '#fff' }} />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Lightspeed</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Kounta-powered restaurant POS</p>
+                </div>
+              </div>
+              {lsC?.connected
+                ? <span style={pillConnected}><Check size={8} /> Connected</span>
+                : <span style={pillNotConnected}>Not connected</span>}
+            </div>
+            {lsC?.connected ? (
+              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                {lsC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Last sync: {new Date(lsC.lastSyncAt).toLocaleDateString()}</p>}
+                <button style={{ ...primaryBtn, opacity: lsSyncMenu.isPending ? 0.6 : 1 }} disabled={lsSyncMenu.isPending}
+                  onClick={() => { setLsSyncMsg(''); lsSyncMenu.mutate({ token }, { onSuccess: () => { setLsSyncMsg('Menu synced!'); showToast('Lightspeed menu synced'); }, onError: (e) => { setLsSyncMsg(e.message); showToast(e.message, false); } }); }}>
+                  {lsSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
+                  Sync Menu
+                </button>
+                <button style={ghostBtn} onClick={() => { if (window.confirm('Disconnect Lightspeed?')) window.location.reload(); }}>Disconnect</button>
+                {lsSyncMsg && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: lsSyncMsg === 'Menu synced!' ? '#5E8B5E' : '#B85450' }}>{lsSyncMsg}</span>}
+              </div>
+            ) : (
+              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <button style={{ ...primaryBtn, background: '#FF6600', opacity: lsAuthFetching ? 0.6 : 1 }} disabled={lsAuthFetching} onClick={handleLsConnect}>
+                  {lsAuthFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                  Connect Lightspeed
+                </button>
+              </div>
             )}
-            {!venue?.slug && (
+          </div>
+
+          {/* Tyro */}
+          <div style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 36, height: 36, background: '#003087', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <CreditCard size={18} style={{ color: '#fff' }} />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Tyro EFTPOS</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Terminal reconciliation &amp; settlements</p>
+                </div>
+              </div>
+              {tyroC?.connected
+                ? <span style={pillConnected}><Check size={8} /> Connected</span>
+                : <span style={pillNotConnected}>Not connected</span>}
+            </div>
+            {tyroC?.connected ? (
+              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Terminal: {tyroC.terminalId}</p>
+              </div>
+            ) : (
+              <div className="pt-1 space-y-2" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                {[
+                  { label: 'API Key', key: 'apiKey', placeholder: 'tyro-api-key' },
+                  { label: 'Merchant ID', key: 'merchantId', placeholder: 'MID-123456' },
+                  { label: 'Terminal ID', key: 'terminalId', placeholder: 'TID-001' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+                    <input type="text" placeholder={f.placeholder} value={(tyroForm as any)[f.key]}
+                      onChange={e => setTyroForm({ ...tyroForm, [f.key]: e.target.value })}
+                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
+                  </div>
+                ))}
+                {tyroMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{tyroMsg}</p>}
+                <button style={{ ...primaryBtn, background: '#003087', opacity: (!tyroForm.apiKey || !tyroForm.merchantId || !tyroForm.terminalId || tyroConnect.isPending) ? 0.5 : 1 }}
+                  disabled={tyroConnect.isPending || !tyroForm.apiKey || !tyroForm.merchantId || !tyroForm.terminalId}
+                  onClick={() => { setTyroMsg(''); tyroConnect.mutate({ token, ...tyroForm }, { onSuccess: () => showToast('Tyro connected'), onError: (e) => { setTyroMsg(e.message); showToast(e.message, false); } }); }}>
+                  {tyroConnect.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                  Connect Tyro
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Impos */}
+          <div style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 36, height: 36, background: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Coffee size={18} style={{ color: '#F3F2EE' }} />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Impos POS</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync menu &amp; sales from Impos</p>
+                </div>
+              </div>
+              {imposC?.connected
+                ? <span style={pillConnected}><Check size={8} /> Connected</span>
+                : <span style={pillNotConnected}>Not connected</span>}
+            </div>
+            {imposC?.connected ? (
+              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                {imposC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Last sync: {new Date(imposC.lastSyncAt).toLocaleDateString()}</p>}
+                <button style={{ ...primaryBtn, opacity: imposSyncMenu.isPending ? 0.6 : 1 }} disabled={imposSyncMenu.isPending}
+                  onClick={() => { setImposSyncMsg(''); imposSyncMenu.mutate({ token }, { onSuccess: () => { setImposSyncMsg('Synced!'); showToast('Impos menu synced'); }, onError: (e) => { setImposSyncMsg(e.message); showToast(e.message, false); } }); }}>
+                  {imposSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
+                  Sync Menu
+                </button>
+                <button style={ghostBtn} onClick={() => { if (window.confirm('Disconnect Impos?')) imposConnect.mutate({ token, apiKey: '', siteId: '' }); }}>Disconnect</button>
+                {imposSyncMsg && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: imposSyncMsg === 'Synced!' ? '#5E8B5E' : '#B85450' }}>{imposSyncMsg}</span>}
+              </div>
+            ) : (
+              <div className="pt-1 space-y-2" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                {[
+                  { label: 'API Key', key: 'apiKey', placeholder: 'impos-api-key' },
+                  { label: 'Site ID', key: 'siteId', placeholder: 'SITE-001' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+                    <input type="text" placeholder={f.placeholder} value={(imposForm as any)[f.key]}
+                      onChange={e => setImposForm({ ...imposForm, [f.key]: e.target.value })}
+                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
+                  </div>
+                ))}
+                {imposConnMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{imposConnMsg}</p>}
+                <button style={{ ...primaryBtn, opacity: (!imposForm.apiKey || !imposForm.siteId || imposConnect.isPending) ? 0.5 : 1 }}
+                  disabled={imposConnect.isPending || !imposForm.apiKey || !imposForm.siteId}
+                  onClick={() => { setImposConnMsg(''); imposConnect.mutate({ token, ...imposForm }, { onSuccess: () => showToast('Impos connected'), onError: (e) => { setImposConnMsg(e.message); showToast(e.message, false); } }); }}>
+                  {imposConnect.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                  Connect Impos
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Section 2: Accounting ──────────────────────────────────────────── */}
+      <div>
+        <p style={sectionHeadStyle}>Accounting</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Xero */}
+          <div style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 36, height: 36, background: '#13B5EA', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <DollarSign size={18} style={{ color: '#fff' }} />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Xero</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync revenue &amp; invoices to Xero</p>
+                </div>
+              </div>
+              {xeroC?.isConnected
+                ? <span style={pillConnected}><Check size={8} /> Connected</span>
+                : <span style={pillNotConnected}>Not connected</span>}
+            </div>
+            {xeroC?.isConnected ? (
+              <div className="pt-1 space-y-3" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                {xeroC.updatedAt && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Last sync: {new Date(xeroC.updatedAt).toLocaleDateString()}</p>}
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>From</label>
+                    <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)}
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
+                  </div>
+                  <div>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>To</label>
+                    <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)}
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
+                  </div>
+                  <button style={{ ...primaryBtn, opacity: (!xeroSyncFrom || !xeroSyncTo || xeroSync.isPending) ? 0.5 : 1 }}
+                    disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
+                    onClick={() => { setXeroMsg(''); xeroSync.mutate({ from: xeroSyncFrom, to: xeroSyncTo }, { onSuccess: (d: any) => { setXeroMsg(`Synced ${d.invoicesCreated ?? 0} invoices`); showToast('Xero sync complete'); }, onError: (e) => { setXeroMsg(e.message); showToast(e.message, false); } }); }}>
+                    {xeroSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
+                    Sync Revenue
+                  </button>
+                </div>
+                {xeroMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>{xeroMsg}</p>}
+                <button style={ghostBtn} disabled={xeroDisconnect.isPending} onClick={() => xeroDisconnect.mutate()}>Disconnect</button>
+              </div>
+            ) : (
+              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <button style={{ ...primaryBtn, background: '#13B5EA' }}
+                  onClick={() => { if ((xeroAuthUrlData as any)?.url) window.open((xeroAuthUrlData as any).url, '_blank'); }}>
+                  <Link2 size={12} /> Connect Xero
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Section 3: Delivery Platforms ─────────────────────────────────── */}
+      <div>
+        <p style={sectionHeadStyle}>Delivery Platforms</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {[
+            { id: 'uber-eats', label: 'Uber Eats', fee: '30%', color: '#06C167', textColor: '#fff', webhookPath: `/api/webhooks/uber-eats?venue=YOUR_VENUE_ID` },
+            { id: 'doordash', label: 'DoorDash', fee: '25%', color: '#FF3008', textColor: '#fff', webhookPath: `/api/webhooks/doordash?venue=YOUR_VENUE_ID` },
+            { id: 'menulog', label: 'Menulog', fee: '12%', color: '#E84E1B', textColor: '#fff', webhookPath: `/api/webhooks/menulog?venue=YOUR_VENUE_ID` },
+          ].map(platform => {
+            const webhookUrl = `${origin}${platform.webhookPath}`;
+            return (
+              <div key={platform.id} style={cardStyle}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div style={{ width: 36, height: 36, background: platform.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Globe size={18} style={{ color: platform.textColor }} />
+                    </div>
+                    <div>
+                      <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>{platform.label}</p>
+                      <span style={{ ...pillNotConnected, background: 'rgba(24,24,24,0.06)', color: '#5E5E5E' }}>
+                        Platform fee: {platform.fee}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-1 space-y-2" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                  <label className="font-data block" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Webhook URL</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input readOnly value={webhookUrl}
+                      style={{ flex: 1, fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', color: '#5E5E5E', background: 'rgba(24,24,24,0.03)', border: '1px solid rgba(24,24,24,0.10)', padding: '5px 8px', minWidth: 0 }} />
+                    <button style={{ ...primaryBtn, flexShrink: 0 }}
+                      onClick={() => { navigator.clipboard.writeText(webhookUrl).then(() => showToast('Webhook URL copied')).catch(() => showToast('Copy failed', false)); }}>
+                      Copy
+                    </button>
+                  </div>
+                  <p className="font-data" style={{ fontSize: '0.5rem', color: '#5E5E5E', lineHeight: 1.6 }}>
+                    Paste this URL in your {platform.label} merchant dashboard under Developer Settings → Webhooks. Replace YOUR_VENUE_ID with your venue ID.
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+
+        </div>
+      </div>
+
+      {/* ── Section 4: Google My Business ─────────────────────────────────── */}
+      <div>
+        <p style={sectionHeadStyle}>Business Listings</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 36, height: 36, background: '#4285F4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Globe size={18} style={{ color: '#fff' }} />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Google My Business</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync hours &amp; menu to your listing</p>
+                </div>
+              </div>
+              {gmbC?.connected
+                ? <span style={pillConnected}><Check size={8} /> Connected</span>
+                : <span style={pillNotConnected}>Not connected</span>}
+            </div>
+            {gmbC?.connected ? (
+              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <button style={{ ...primaryBtn, opacity: gmbSyncHours.isPending ? 0.6 : 1 }} disabled={gmbSyncHours.isPending}
+                  onClick={() => { setGmbSyncMsg(''); gmbSyncHours.mutate({ token }, { onSuccess: () => { setGmbSyncMsg('Hours synced!'); showToast('Hours synced to GMB'); }, onError: (e) => { setGmbSyncMsg(e.message); showToast(e.message, false); } }); }}>
+                  {gmbSyncHours.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Sync Hours
+                </button>
+                <button style={{ ...primaryBtn, background: '#4285F4', opacity: gmbSyncMenu.isPending ? 0.6 : 1 }} disabled={gmbSyncMenu.isPending}
+                  onClick={() => { setGmbSyncMsg(''); gmbSyncMenu.mutate({ token }, { onSuccess: () => { setGmbSyncMsg('Menu synced!'); showToast('Menu synced to GMB'); }, onError: (e) => { setGmbSyncMsg(e.message); showToast(e.message, false); } }); }}>
+                  {gmbSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
+                  Sync Menu
+                </button>
+                {gmbSyncMsg && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: gmbSyncMsg.includes('synced') ? '#5E8B5E' : '#B85450' }}>{gmbSyncMsg}</span>}
+              </div>
+            ) : (
+              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <button style={{ ...primaryBtn, background: '#4285F4', opacity: gmbAuthFetching ? 0.6 : 1 }} disabled={gmbAuthFetching} onClick={handleGmbConnect}>
+                  {gmbAuthFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                  Connect Google
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── QR Code ──────────────────────────────────────────────────────────── */}
+      <div>
+        <p style={sectionHeadStyle}>Venue QR Code</p>
+        <div style={{ ...cardStyle, maxWidth: 420 }}>
+          <div className="flex items-center gap-3">
+            <div style={{ width: 36, height: 36, background: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <QrCode size={18} style={{ color: '#F3F2EE' }} />
+            </div>
+            <div>
+              <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Ordering QR Code</p>
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Customers scan to open your ordering page</p>
+            </div>
+          </div>
+          <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+            {qrDataUrl ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <img src={qrDataUrl} alt="QR code" style={{ width: 160, height: 160, border: '1px solid rgba(24,24,24,0.08)' }} />
+                <p className="font-data" style={{ fontSize: '0.5rem', color: '#5E5E5E' }}>{origin}/v/{venue?.slug}</p>
+                <button style={primaryBtn} onClick={() => { if (!qrDataUrl || !venue?.slug) return; const a = document.createElement('a'); a.href = qrDataUrl; a.download = `${venue.slug}-qr.png`; a.click(); }}>
+                  <Download size={12} /> Download PNG
+                </button>
+              </div>
+            ) : venue?.slug ? (
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Generating…</p>
+            ) : (
               <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>No venue configured.</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Lightspeed */}
-      <LightspeedCard token={token} />
-
-      {/* Tyro EFTPOS */}
-      <TyroCard token={token} />
-
-      {/* Impos POS */}
-      <ImposCard token={token} />
-
-      {/* Delivery Platforms Overview */}
-      <DeliveryOverviewCard token={token} />
-
-      {/* Google My Business */}
-      <GMBCard token={token} />
     </div>
   );
 }
@@ -2611,7 +2935,7 @@ function BundlesTab({ venueId }: { venueId: number }) {
   const resetForm = () => setForm(emptyForm);
 
   const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
-  const labelStyle: React.CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -2715,7 +3039,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
   const resetForm = () => setForm(emptyForm);
 
   const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
-  const labelStyle: React.CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
   const segmentLabel: Record<string, string> = { all: 'All Customers', active30: 'Active last 30 days', highvalue: 'High value (≥100 pts)' };
 
@@ -2841,7 +3165,7 @@ function LoyaltyTab({ venueId }: { venueId: number }) {
   const resetRewardForm = () => setRewardForm(emptyReward);
 
   const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
-  const labelStyle: React.CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
   const rewardTypeOpts = [
     { value: 'free_item', label: 'Free Item' },
@@ -3743,359 +4067,6 @@ function AuditTab() {
   );
 }
 
-// ─── Integration sub-cards ────────────────────────────────────────────────────
-function LightspeedCard({ token }: { token: string }) {
-  const { data: conn, refetch } = trpc.lightspeed.getConnection.useQuery({ token }, { enabled: !!token });
-  const { refetch: fetchAuthUrl, isFetching: authFetching } = trpc.lightspeed.getAuthUrl.useQuery(
-    { token }, { enabled: false }
-  );
-  const syncMenuLS = trpc.lightspeed.syncMenu.useMutation();
-  const [syncMsg, setSyncMsg] = useState('');
-  const c = conn as any;
-
-  async function handleConnect() {
-    const result = await fetchAuthUrl();
-    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
-  }
-
-  return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#FF6600' }}>
-          <Zap size={20} style={{ color: '#fff' }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Lightspeed Restaurant</h3>
-          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
-            Sync your Lightspeed Restaurant menu and inventory
-          </p>
-          {c?.connected ? (
-            <div>
-              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                <Check size={10} className="inline mr-1" /> Connected
-                {c.lastSyncAt && <span style={{ color: '#5E5E5E', marginLeft: 8 }}>Last sync: {new Date(c.lastSyncAt).toLocaleDateString()}</span>}
-              </p>
-              <div className="flex flex-wrap gap-2 items-center">
-                <button
-                  onClick={() => { setSyncMsg(''); syncMenuLS.mutate({ token }, { onSuccess: () => setSyncMsg('Menu synced!'), onError: (e) => setSyncMsg(e.message) }); }}
-                  disabled={syncMenuLS.isPending}
-                  className="px-4 py-2 font-button flex items-center gap-2"
-                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncMenuLS.isPending ? 0.6 : 1 }}>
-                  {syncMenuLS.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
-                  Sync Menu
-                </button>
-                <button
-                  onClick={() => { if (window.confirm('Disconnect Lightspeed?')) refetch(); }}
-                  className="px-4 py-2 font-data border"
-                  style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
-                  Disconnect
-                </button>
-                {syncMsg && <span className="font-data" style={{ fontSize: '0.5625rem', color: syncMsg === 'Menu synced!' ? '#5E8B5E' : '#B85450' }}>{syncMsg}</span>}
-              </div>
-            </div>
-          ) : (
-            <button onClick={handleConnect} disabled={authFetching}
-              className="px-4 py-2 font-button flex items-center gap-2"
-              style={{ background: '#FF6600', color: '#fff', fontSize: '0.75rem', opacity: authFetching ? 0.6 : 1 }}>
-              {authFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-              Connect Lightspeed
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TyroCard({ token }: { token: string }) {
-  const { data: conn } = trpc.tyro.getConnection.useQuery({ token }, { enabled: !!token });
-  const connect = trpc.tyro.connect.useMutation();
-  const [form, setForm] = useState({ apiKey: '', merchantId: '', terminalId: '' });
-  const [connectMsg, setConnectMsg] = useState('');
-  const [settlementDate, setSettlementDate] = useState('');
-  const [fetchSettlement, setFetchSettlement] = useState(false);
-  const { data: settlement, isFetching: settleFetching } = trpc.tyro.getSettlement.useQuery(
-    { token, date: settlementDate },
-    { enabled: fetchSettlement && !!settlementDate }
-  );
-  const c = conn as any;
-
-  return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#003087' }}>
-          <CreditCard size={20} style={{ color: '#fff' }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Tyro EFTPOS</h3>
-          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
-            Connect your Tyro EFTPOS terminal for transaction reconciliation
-          </p>
-          {c?.connected ? (
-            <div>
-              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                <Check size={10} className="inline mr-1" /> Connected — Terminal: {c.terminalId}
-              </p>
-              <div className="flex flex-wrap items-end gap-3 mb-3">
-                <div>
-                  <label className="font-data block mb-1" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Settlement Date</label>
-                  <input type="date" value={settlementDate} onChange={e => { setSettlementDate(e.target.value); setFetchSettlement(false); }}
-                    className="border px-3 py-2 focus:outline-none bg-transparent"
-                    style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
-                </div>
-                <button disabled={!settlementDate || settleFetching} onClick={() => setFetchSettlement(true)}
-                  className="px-4 py-2 font-button flex items-center gap-2"
-                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: !settlementDate ? 0.5 : 1 }}>
-                  {settleFetching ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
-                  View Settlement
-                </button>
-              </div>
-              {settlement && (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 8 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
-                        {['Type', 'Count', 'Amount'].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {((settlement as any).totals ?? []).map((row: any) => (
-                        <tr key={row.type} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                          <td style={{ padding: '6px 8px', textTransform: 'capitalize', color: '#181818' }}>{row.type}</td>
-                          <td style={{ padding: '6px 8px' }}>{row.count}</td>
-                          <td style={{ padding: '6px 8px', color: '#5E8B5E', fontWeight: 500 }}>${Number(row.amount).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                {[
-                  { label: 'API Key', key: 'apiKey', placeholder: 'tyro-api-key' },
-                  { label: 'Merchant ID', key: 'merchantId', placeholder: 'MID-123456' },
-                  { label: 'Terminal ID', key: 'terminalId', placeholder: 'TID-001' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label className="font-data block mb-1" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
-                    <input type="text" placeholder={f.placeholder} value={(form as any)[f.key]}
-                      onChange={e => setForm({ ...form, [f.key]: e.target.value })}
-                      className="w-full bg-transparent border px-3 py-2 focus:outline-none"
-                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
-                  </div>
-                ))}
-              </div>
-              {connectMsg && <p className="font-data mb-2" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{connectMsg}</p>}
-              <button
-                disabled={connect.isPending || !form.apiKey || !form.merchantId || !form.terminalId}
-                onClick={() => { setConnectMsg(''); connect.mutate({ token, ...form }, { onError: (e) => setConnectMsg(e.message) }); }}
-                className="px-4 py-2 font-button flex items-center gap-2"
-                style={{ background: '#003087', color: '#fff', fontSize: '0.75rem', opacity: (!form.apiKey || !form.merchantId || !form.terminalId) ? 0.5 : 1 }}>
-                {connect.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-                Connect Tyro
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ImposCard({ token }: { token: string }) {
-  const { data: conn, refetch } = trpc.impos.getConnection.useQuery({ token }, { enabled: !!token });
-  const connect = trpc.impos.connect.useMutation({ onSuccess: () => refetch() });
-  const syncMenuImpos = trpc.impos.syncMenu.useMutation();
-  const [form, setForm] = useState({ apiKey: '', siteId: '' });
-  const [connectMsg, setConnectMsg] = useState('');
-  const [syncMsg, setSyncMsg] = useState('');
-  const c = conn as any;
-
-  return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#181818' }}>
-          <Coffee size={20} style={{ color: '#F3F2EE' }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Impos POS</h3>
-          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
-            Sync your Impos POS menu and sales data
-          </p>
-          {c?.connected ? (
-            <div>
-              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                <Check size={10} className="inline mr-1" /> Connected
-                {c.lastSyncAt && <span style={{ color: '#5E5E5E', marginLeft: 8 }}>Last sync: {new Date(c.lastSyncAt).toLocaleDateString()}</span>}
-              </p>
-              <div className="flex flex-wrap gap-2 items-center">
-                <button
-                  onClick={() => { setSyncMsg(''); syncMenuImpos.mutate({ token }, { onSuccess: () => setSyncMsg('Menu synced!'), onError: (e) => setSyncMsg(e.message) }); }}
-                  disabled={syncMenuImpos.isPending}
-                  className="px-4 py-2 font-button flex items-center gap-2"
-                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncMenuImpos.isPending ? 0.6 : 1 }}>
-                  {syncMenuImpos.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
-                  Sync Menu
-                </button>
-                <button
-                  onClick={() => { if (window.confirm('Disconnect Impos?')) connect.mutate({ token, apiKey: '', siteId: '' }); }}
-                  className="px-4 py-2 font-data border"
-                  style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
-                  Disconnect
-                </button>
-                {syncMsg && <span className="font-data" style={{ fontSize: '0.5625rem', color: syncMsg === 'Menu synced!' ? '#5E8B5E' : '#B85450' }}>{syncMsg}</span>}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                {[
-                  { label: 'API Key', key: 'apiKey', placeholder: 'impos-api-key' },
-                  { label: 'Site ID', key: 'siteId', placeholder: 'SITE-001' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label className="font-data block mb-1" style={{ fontSize: '0.5625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
-                    <input type="text" placeholder={f.placeholder} value={(form as any)[f.key]}
-                      onChange={e => setForm({ ...form, [f.key]: e.target.value })}
-                      className="w-full bg-transparent border px-3 py-2 focus:outline-none"
-                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
-                  </div>
-                ))}
-              </div>
-              {connectMsg && <p className="font-data mb-2" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{connectMsg}</p>}
-              <button
-                disabled={connect.isPending || !form.apiKey || !form.siteId}
-                onClick={() => { setConnectMsg(''); connect.mutate({ token, ...form }, { onError: (e) => setConnectMsg(e.message) }); }}
-                className="px-4 py-2 font-button flex items-center gap-2"
-                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!form.apiKey || !form.siteId) ? 0.5 : 1 }}>
-                {connect.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-                Connect Impos
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DeliveryOverviewCard({ token }: { token: string }) {
-  const { data: summary } = trpc.delivery.getSummary.useQuery({ token, days: 30 }, { enabled: !!token });
-  const s = summary as any;
-
-  return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#181818' }}>
-          <Globe size={20} style={{ color: '#F3F2EE' }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Delivery Platforms</h3>
-          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
-            Track delivery platform orders and fees in one place (last 30 days)
-          </p>
-          {s?.byPlatform && s.byPlatform.length > 0 ? (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
-                    {['Platform', 'Orders', 'Net Revenue', 'Fees'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {s.byPlatform.map((row: any) => (
-                    <tr key={row.platform} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                      <td style={{ padding: '8px 8px', textTransform: 'capitalize', color: '#181818', fontWeight: 500 }}>
-                        {row.platform === 'uber_eats' ? 'Uber Eats' : row.platform === 'doordash' ? 'DoorDash' : row.platform === 'menulog' ? 'Menulog' : row.platform}
-                      </td>
-                      <td style={{ padding: '8px 8px' }}>{row.orders}</td>
-                      <td style={{ padding: '8px 8px', color: '#5E8B5E', fontWeight: 500 }}>${Number(row.net).toFixed(2)}</td>
-                      <td style={{ padding: '8px 8px', color: '#B85450' }}>${Number(row.fees).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>No delivery data yet. Log orders in the Delivery tab.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GMBCard({ token }: { token: string }) {
-  const { data: conn } = trpc.venue.gmbGetConnection.useQuery({ token }, { enabled: !!token });
-  const { refetch: fetchAuthUrl, isFetching: authFetching } = trpc.venue.gmbGetAuthUrl.useQuery(
-    { token }, { enabled: false }
-  );
-  const syncHoursGMB = trpc.venue.gmbSyncHours.useMutation();
-  const syncMenuGMB = trpc.venue.gmbSyncMenu.useMutation();
-  const [syncMsg, setSyncMsg] = useState('');
-  const c = conn as any;
-
-  async function handleConnect() {
-    const result = await fetchAuthUrl();
-    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
-  }
-
-  return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      <div className="flex items-start gap-4">
-        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#4285F4' }}>
-          <Globe size={20} style={{ color: '#fff' }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Google My Business</h3>
-          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
-            Keep your Google listing up to date with your live hours and menu
-          </p>
-          {c?.connected ? (
-            <div>
-              <p className="font-data mb-3" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>
-                <Check size={10} className="inline mr-1" /> Connected
-              </p>
-              <div className="flex flex-wrap gap-2 items-center">
-                <button
-                  onClick={() => { setSyncMsg(''); syncHoursGMB.mutate({ token }, { onSuccess: () => setSyncMsg('Hours synced!'), onError: (e) => setSyncMsg(e.message) }); }}
-                  disabled={syncHoursGMB.isPending}
-                  className="px-4 py-2 font-button flex items-center gap-2"
-                  style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: syncHoursGMB.isPending ? 0.6 : 1 }}>
-                  {syncHoursGMB.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Sync Hours
-                </button>
-                <button
-                  onClick={() => { setSyncMsg(''); syncMenuGMB.mutate({ token }, { onSuccess: () => setSyncMsg('Menu synced!'), onError: (e) => setSyncMsg(e.message) }); }}
-                  disabled={syncMenuGMB.isPending}
-                  className="px-4 py-2 font-button flex items-center gap-2"
-                  style={{ background: '#4285F4', color: '#fff', fontSize: '0.75rem', opacity: syncMenuGMB.isPending ? 0.6 : 1 }}>
-                  {syncMenuGMB.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
-                  Sync Menu
-                </button>
-                {syncMsg && <span className="font-data" style={{ fontSize: '0.5625rem', color: syncMsg.includes('synced') ? '#5E8B5E' : '#B85450' }}>{syncMsg}</span>}
-              </div>
-            </div>
-          ) : (
-            <button onClick={handleConnect} disabled={authFetching}
-              className="px-4 py-2 font-button flex items-center gap-2"
-              style={{ background: '#4285F4', color: '#fff', fontSize: '0.75rem', opacity: authFetching ? 0.6 : 1 }}>
-              {authFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-              Connect Google My Business
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── All Venues Tab ───────────────────────────────────────────────────────────
 function AllVenuesTab() {
@@ -4704,6 +4675,231 @@ function FranchiseeTab() {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── QR Codes Tab ─────────────────────────────────────────────────────────────
+function QRCodesTab({ venue }: { venue: any }) {
+  const slug = venue?.slug ?? '';
+  const origin = window.location.origin;
+
+  // Table QR state
+  const [tableCount, setTableCount] = useState(10);
+  const [tableQRs, setTableQRs] = useState<{ table: number; url: string; dataUrl: string }[]>([]);
+  const [generating, setGenerating] = useState(false);
+
+  // Single QR states (generated on mount)
+  const [menuQR, setMenuQR] = useState('');
+  const [kioskQR, setKioskQR] = useState('');
+
+  const qrLabelStyle = {
+    fontFamily: 'Geist Mono, monospace',
+    fontSize: '0.625rem',
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase' as const,
+    color: '#5E5E5E',
+    display: 'block',
+    marginBottom: '0.375rem',
+  };
+
+  // Generate single QRs on mount
+  useEffect(() => {
+    if (!slug) return;
+    QRCode.toDataURL(`${origin}/v/${slug}`, { width: 250, margin: 1 }).then(setMenuQR).catch(() => {});
+    QRCode.toDataURL(`${origin}/kiosk/${slug}`, { width: 250, margin: 1 }).then(setKioskQR).catch(() => {});
+  }, [slug, origin]);
+
+  const generateTableQRs = async () => {
+    if (!tableCount || tableCount < 1) return;
+    setGenerating(true);
+    const codes = await Promise.all(
+      Array.from({ length: tableCount }, async (_, i) => {
+        const tableNum = i + 1;
+        const url = `${origin}/v/${slug}?table=${tableNum}`;
+        const dataUrl = await QRCode.toDataURL(url, { width: 200, margin: 1 });
+        return { table: tableNum, url, dataUrl };
+      }),
+    );
+    setTableQRs(codes);
+    setGenerating(false);
+  };
+
+  const printTableQRs = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const html = `<!DOCTYPE html><html><head><title>Table QR Codes — ${slug}</title><style>
+      body { font-family: sans-serif; }
+      .grid { display: flex; flex-wrap: wrap; gap: 20px; padding: 20px; }
+      .card { text-align: center; border: 1px solid #ccc; padding: 12px; break-inside: avoid; }
+      img { display: block; margin: 0 auto; }
+      @media print { .no-print { display: none; } }
+    </style></head><body>
+    <h2 style="text-align:center;padding:20px">${slug} — Table QR Codes</h2>
+    <div class="grid">${tableQRs.map((q) => `<div class="card"><img src="${q.dataUrl}" width="150"/><p>Table ${q.table}</p></div>`).join('')}</div>
+    <button class="no-print" onclick="window.print()">Print</button>
+    <script>window.onload = () => window.print();<\/script>
+    </body></html>`;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const printSingle = (dataUrl: string, title: string) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const html = `<!DOCTYPE html><html><head><title>${title}</title><style>
+      body { font-family: sans-serif; text-align: center; padding: 40px; }
+      @media print { .no-print { display: none; } }
+    </style></head><body>
+    <h2>${title}</h2>
+    <img src="${dataUrl}" width="250" style="display:block;margin:20px auto"/>
+    <button class="no-print" onclick="window.print()">Print</button>
+    <script>window.onload = () => window.print();<\/script>
+    </body></html>`;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const downloadQR = (dataUrl: string, filename: string) => {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+  };
+
+  const qrSectionStyle = { borderColor: 'rgba(24,24,24,0.08)' };
+  const qrBtnPrimary = { background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' };
+  const qrBtnSecondary = { borderColor: 'rgba(24,24,24,0.15)', color: '#181818', fontSize: '0.75rem' };
+
+  return (
+    <div className="space-y-6">
+      {/* Table QR Codes */}
+      <div className="border p-6" style={qrSectionStyle}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+          Table QR Codes
+        </h2>
+        <div className="flex items-end gap-3 mb-5">
+          <div className="flex-1">
+            <label style={qrLabelStyle}>Number of Tables</label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={tableCount}
+              onChange={(e) => setTableCount(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="w-full bg-transparent border px-4 py-3 focus:outline-none"
+              style={{ borderColor: 'rgba(24,24,24,0.15)', fontSize: '0.875rem', color: '#181818' }}
+            />
+          </div>
+          <button
+            onClick={generateTableQRs}
+            disabled={generating}
+            className="py-3 px-6 font-button flex items-center gap-2 hover:opacity-85 transition-opacity disabled:opacity-40"
+            style={qrBtnPrimary}
+          >
+            {generating ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />}
+            Generate
+          </button>
+        </div>
+
+        {tableQRs.length > 0 && (
+          <>
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 mb-4 max-h-96 overflow-y-auto">
+              {tableQRs.map((q) => (
+                <div key={q.table} className="text-center border p-2 group relative" style={{ borderColor: 'rgba(24,24,24,0.1)' }}>
+                  <img src={q.dataUrl} alt={`Table ${q.table}`} className="w-full" />
+                  <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5rem', color: '#5E5E5E', marginTop: '4px' }}>
+                    T{q.table}
+                  </p>
+                  <button
+                    onClick={() => downloadQR(q.dataUrl, `table-${q.table}-qr.png`)}
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                    style={{ background: '#181818', color: '#F3F2EE' }}
+                    title="Download"
+                  >
+                    <Download size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={printTableQRs}
+                className="px-5 py-2.5 font-button flex items-center gap-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
+                style={qrBtnSecondary}
+              >
+                Print All
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Menu QR */}
+      <div className="border p-6" style={qrSectionStyle}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+          Menu QR Code
+        </h2>
+        <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em', marginBottom: '1rem' }}>
+          {origin}/v/{slug}
+        </p>
+        {menuQR ? (
+          <div className="flex items-start gap-6">
+            <img src={menuQR} alt="Menu QR" width={150} height={150} />
+            <div className="flex flex-col gap-2 justify-start pt-2">
+              <button
+                onClick={() => downloadQR(menuQR, `${slug}-menu-qr.png`)}
+                className="px-4 py-2.5 font-button flex items-center gap-2 hover:opacity-85 transition-opacity"
+                style={qrBtnPrimary}
+              >
+                <Download size={14} /> Download
+              </button>
+              <button
+                onClick={() => printSingle(menuQR, `${slug} — Menu QR Code`)}
+                className="px-4 py-2.5 font-button flex items-center gap-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
+                style={qrBtnSecondary}
+              >
+                Print
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+        )}
+      </div>
+
+      {/* Kiosk Mode QR */}
+      <div className="border p-6" style={qrSectionStyle}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+          Kiosk Mode QR
+        </h2>
+        <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em', marginBottom: '1rem' }}>
+          {origin}/kiosk/{slug}
+        </p>
+        {kioskQR ? (
+          <div className="flex items-start gap-6">
+            <img src={kioskQR} alt="Kiosk QR" width={150} height={150} />
+            <div className="flex flex-col gap-2 justify-start pt-2">
+              <button
+                onClick={() => downloadQR(kioskQR, `${slug}-kiosk-qr.png`)}
+                className="px-4 py-2.5 font-button flex items-center gap-2 hover:opacity-85 transition-opacity"
+                style={qrBtnPrimary}
+              >
+                <Download size={14} /> Download
+              </button>
+              <button
+                onClick={() => printSingle(kioskQR, `${slug} — Kiosk Mode QR Code`)}
+                className="px-4 py-2.5 font-button flex items-center gap-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
+                style={qrBtnSecondary}
+              >
+                Print
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
         )}
       </div>
     </div>

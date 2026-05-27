@@ -170,6 +170,63 @@ app.get("/api/xero/callback", async (c) => {
   }
 });
 
+// Lightspeed (Kounta) OAuth callback
+app.get("/api/lightspeed/callback", async (c) => {
+  const code = c.req.query("code");
+  const stateRaw = c.req.query("state");
+  if (!code || !stateRaw) return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_denied`);
+  try {
+    const { venueId } = JSON.parse(Buffer.from(stateRaw, "base64").toString());
+    const clientId = process.env.LIGHTSPEED_CLIENT_ID;
+    const clientSecret = process.env.LIGHTSPEED_CLIENT_SECRET;
+    if (!clientId || !clientSecret) return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_not_configured`);
+
+    const redirectUri = `${env.appUrl}/api/lightspeed/callback`;
+    const tokenRes = await fetch("https://my.kounta.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "authorization_code", client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri }),
+    });
+    if (!tokenRes.ok) return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_auth_failed`);
+    const tokenData = await tokenRes.json() as any;
+
+    // Fetch company info
+    const companyRes = await fetch("https://api.kounta.com/v1/companies/me.json", {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const companyData = await companyRes.json() as any;
+
+    const db = getDb();
+    const { posIntegrations } = await import("@db/schema");
+    const { eq: eqDrizzle, and: andDrizzle } = await import("drizzle-orm");
+    const existing = await db.select({ id: posIntegrations.id })
+      .from(posIntegrations)
+      .where(andDrizzle(eqDrizzle(posIntegrations.venueId, venueId), eqDrizzle(posIntegrations.provider, "lightspeed")))
+      .limit(1);
+
+    const expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null;
+    const values = {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || null,
+      accountId: String(companyData.id || ""),
+      tokenExpiresAt: expiresAt,
+      isActive: true,
+      lastSyncAt: new Date(),
+    };
+
+    if (existing[0]) {
+      await db.update(posIntegrations).set(values).where(eqDrizzle(posIntegrations.id, existing[0].id));
+    } else {
+      await db.insert(posIntegrations).values({ venueId, provider: "lightspeed", ...values });
+    }
+
+    return c.redirect(`${env.appUrl}/dashboard?connected=lightspeed`);
+  } catch (e) {
+    console.error("Lightspeed OAuth callback error:", e);
+    return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_error`);
+  }
+});
+
 // Uber Eats order webhook
 app.post("/api/webhooks/uber-eats", async (c) => {
   try {

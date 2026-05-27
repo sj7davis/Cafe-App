@@ -164,6 +164,18 @@ export const staffAccounts = pgTable("staff_accounts", {
   role: staffRoleEnum("role").default("staff").notNull(),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
+  email: varchar("email", { length: 320 }),
+  twoFaEnabled: boolean("two_fa_enabled").default(false),
+  emailVerified: boolean("email_verified").default(false),
+  emailVerifyToken: varchar("email_verify_token", { length: 64 }),
+  emailVerifyExpiry: timestamp("email_verify_expiry"),
+  resetToken: varchar("reset_token", { length: 64 }),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
+  phone: varchar("phone", { length: 32 }),
+  employmentType: varchar("employment_type", { length: 16 }).default("casual").$type<"full_time" | "part_time" | "casual">(),
+  hourlyRate: numeric("hourly_rate", { precision: 8, scale: 2 }),
+  emergencyContact: varchar("emergency_contact", { length: 255 }),
+  emergencyPhone: varchar("emergency_phone", { length: 32 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type StaffAccount = typeof staffAccounts.$inferSelect;
@@ -686,5 +698,59 @@ export const franchiseePayouts = pgTable("franchisee_payouts", {
   status: varchar("status", { length: 16 }).notNull().default("pending").$type<"pending" | "processing" | "paid" | "failed">(),
   stripePayoutId: varchar("stripe_payout_id", { length: 128 }),
   paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Staff 2FA Tokens ───
+export const staffTwoFaTokens = pgTable("staff_two_fa_tokens", {
+  id: serial("id").primaryKey(),
+  staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
+  code: varchar("code", { length: 6 }).notNull(),
+  purpose: varchar("purpose", { length: 16 }).notNull().$type<"login" | "verify_email" | "reset_password">(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Staff Availability Preferences ───
+export const staffAvailability = pgTable("staff_availability", {
+  id: serial("id").primaryKey(),
+  staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sun, 6=Sat
+  available: boolean("available").default(true),
+  preferredStartTime: varchar("preferred_start_time", { length: 5 }), // "09:00"
+  preferredEndTime: varchar("preferred_end_time", { length: 5 }),
+  note: text("note"),
+});
+
+// ─── Shift Swap Requests ───
+export const shiftSwapRequests = pgTable("shift_swap_requests", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  requestingStaffId: bigint("requesting_staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
+  fromShiftId: bigint("from_shift_id", { mode: "number" }).notNull().references(() => staffShifts.id),
+  targetStaffId: bigint("target_staff_id", { mode: "number" }).references(() => staffAccounts.id),
+  targetShiftId: bigint("target_shift_id", { mode: "number" }).references(() => staffShifts.id),
+  reason: text("reason"),
+  status: varchar("status", { length: 16 }).notNull().default("pending").$type<"pending" | "approved" | "denied">(),
+  reviewedBy: bigint("reviewed_by", { mode: "number" }),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Time Off Requests ───
+export const timeOffRequests = pgTable("time_off_requests", {
+  id: serial("id").primaryKey(),
+  staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  startDate: varchar("start_date", { length: 10 }).notNull(), // "YYYY-MM-DD"
+  endDate: varchar("end_date", { length: 10 }).notNull(),
+  leaveType: varchar("leave_type", { length: 16 }).notNull().default("annual").$type<"annual" | "sick" | "unpaid" | "other">(),
+  reason: text("reason"),
+  status: varchar("status", { length: 16 }).notNull().default("pending").$type<"pending" | "approved" | "denied">(),
+  reviewedBy: bigint("reviewed_by", { mode: "number" }),
+  reviewedAt: timestamp("reviewed_at"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

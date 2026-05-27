@@ -29,4 +29,6 @@ export const env = {
   stripePriceIdPro: process.env.STRIPE_PRICE_PRO ?? "",
   xeroClientId: process.env.XERO_CLIENT_ID ?? "",
   xeroClientSecret: process.env.XERO_CLIENT_SECRET ?? "",
+  lightspeedClientId: process.env.LIGHTSPEED_CLIENT_ID ?? "",
+  lightspeedClientSecret: process.env.LIGHTSPEED_CLIENT_SECRET ?? "",
 };
