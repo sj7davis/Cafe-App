@@ -155,7 +155,7 @@ export default function VenuePublic() {
   const [checkoutGiftCode, setCheckoutGiftCode] = useState('');
   const [appliedGiftDiscount, setAppliedGiftDiscount] = useState(0);
   const [checkoutUsePass, setCheckoutUsePass] = useState(false);
-  const [tipOption, setTipOption] = useState<0 | 5 | 10 | 15 | 'custom'>(0);
+  const [tipOption, setTipOption] = useState<0 | 10 | 15 | 20 | 'custom'>(0);
   const [tipCustom, setTipCustom] = useState('');
   const [discountCodeInput, setDiscountCodeInput] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; description: string } | null>(null);
@@ -568,7 +568,7 @@ export default function VenuePublic() {
   const tipAmount = tipOption === 'custom'
     ? Math.max(0, Number(tipCustom) || 0)
     : tipOption === 0 ? 0
-    : (cartSubtotal * tipOption) / 100;
+    : (cartSubtotal * (tipOption as number)) / 100;
 
   // Discount: use promo code if present, otherwise happy hour (better of the two)
   const promoDiscountAmount = appliedDiscount?.amount ?? 0;
@@ -1399,38 +1399,60 @@ export default function VenuePublic() {
                   )}
 
                   {/* Tip selection */}
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 500, color: '#181818', display: 'block', marginBottom: 6 }}>
-                      Add a tip (optional)
-                    </label>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: tipOption === 'custom' ? 8 : 0 }}>
-                      {([0, 5, 10, 15, 'custom'] as const).map(opt => (
+                  <div style={{ marginBottom: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: '#1c1917' }}>Add a tip?</p>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {([0, 10, 15, 20] as const).map(pct => (
                         <button
-                          key={opt}
-                          onClick={() => setTipOption(opt)}
+                          key={pct}
+                          onClick={() => setTipOption(pct)}
                           style={{
-                            flex: 1, padding: '6px 4px', borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
-                            background: tipOption === opt ? '#181818' : '#fff',
-                            color: tipOption === opt ? '#F3F2EE' : '#181818',
-                            fontSize: 12, cursor: 'pointer', fontWeight: tipOption === opt ? 600 : 400,
+                            padding: '8px 16px',
+                            borderRadius: 8,
+                            border: `2px solid ${tipOption === pct ? '#1c1917' : '#e7e5e4'}`,
+                            background: tipOption === pct ? '#1c1917' : '#fff',
+                            color: tipOption === pct ? '#fff' : '#1c1917',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
                           }}
                         >
-                          {opt === 0 ? 'None' : opt === 'custom' ? 'Other' : `${opt}%`}
+                          {pct === 0 ? 'No tip' : `${pct}%${pct > 0 ? ` ($${((cartSubtotal * pct) / 100).toFixed(2)})` : ''}`}
                         </button>
                       ))}
+                      <button
+                        onClick={() => setTipOption('custom')}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          border: `2px solid ${tipOption === 'custom' ? '#1c1917' : '#e7e5e4'}`,
+                          background: tipOption === 'custom' ? '#1c1917' : '#fff',
+                          color: tipOption === 'custom' ? '#fff' : '#1c1917',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Custom
+                      </button>
                     </div>
                     {tipOption === 'custom' && (
-                      <input
-                        type="number" min="0" step="0.50"
-                        placeholder="Enter tip amount ($)"
-                        value={tipCustom}
-                        onChange={e => setTipCustom(e.target.value)}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818', boxSizing: 'border-box' }}
-                      />
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 14, color: '#44403c' }}>$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.50"
+                          value={tipCustom}
+                          onChange={e => setTipCustom(e.target.value)}
+                          placeholder="0.00"
+                          style={{ width: 80, padding: '8px 12px', borderRadius: 8, border: '1px solid #e7e5e4', fontSize: 14 }}
+                        />
+                      </div>
                     )}
                     {tipAmount > 0 && (
-                      <p style={{ fontSize: 12, color: '#5E5E5E', margin: '4px 0 0' }}>
-                        Tip: ${tipAmount.toFixed(2)} — thank you! 🙏
+                      <p style={{ fontSize: 12, color: '#78716c', marginTop: 6 }}>
+                        Tip: ${tipAmount.toFixed(2)} — 100% goes to the team
                       </p>
                     )}
                   </div>

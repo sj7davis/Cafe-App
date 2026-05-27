@@ -10,6 +10,7 @@ import { randomBytes } from "crypto";
 import { env } from "./lib/env";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
+import { broadcastToVenue } from "./lib/sse-store";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -316,6 +317,15 @@ export const venueRouter = createRouter({
     }
     await db.update(orders).set(updateData).where(eq(orders.id, input.orderId));
 
+    // SSE: broadcast status update to KDS listeners
+    {
+      const updatedOrder = await db.select({ orderNumber: orders.orderNumber, venueId: orders.venueId })
+        .from(orders).where(eq(orders.id, input.orderId)).limit(1);
+      if (updatedOrder[0]) {
+        broadcastToVenue(updatedOrder[0].venueId, "order_update", { orderId: input.orderId, status: input.status, orderNumber: updatedOrder[0].orderNumber });
+      }
+    }
+
     // EMAIL-02b + SMS: send "your order is ready" when status → ready
     if (input.status === "ready") {
       const readyOrder = await db
@@ -523,6 +533,9 @@ export const venueRouter = createRouter({
       });
     }
 
+    // SSE: broadcast new order to KDS listeners
+    broadcastToVenue(input.venueId, "order_update", { orderId, status: "pending", orderNumber });
+
     // LOYALTY: auto-earn 1 point per $1 spent (rounded down, excluding tip)
     if (input.earnLoyalty && discountedTotal >= 1) {
       const pointsEarned = Math.floor(discountedTotal);
@@ -638,7 +651,7 @@ export const venueRouter = createRouter({
     name: z.string().min(1),
     description: z.string().optional(),
     price: z.string().or(z.number()),
-    category: z.enum(["coffee", "pastries", "bread"]),
+    category: z.enum(["coffee", "pastries", "bread", "food", "drinks", "snacks", "merchandise", "seasonal"]),
     dietary: z.string().optional(),
     image: z.string().optional(),
     originRegion: z.string().optional(),
@@ -666,7 +679,7 @@ export const venueRouter = createRouter({
       name: z.string().min(1).optional(),
       description: z.string().optional(),
       price: z.string().or(z.number()).optional(),
-      category: z.enum(["coffee", "pastries", "bread"]).optional(),
+      category: z.enum(["coffee", "pastries", "bread", "food", "drinks", "snacks", "merchandise", "seasonal"]).optional(),
       dietary: z.string().optional(),
       image: z.string().optional(),
     }),
@@ -2477,5 +2490,74 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     }).where(eq(reviews.id, input.reviewId));
 
     return { success: true };
+  }),
+
+  // ─── Onboarding wizard: token-based menu item create ───
+  createMenuItemOwner: publicQuery.input(z.object({
+    token: z.string(),
+    name: z.string().min(1).max(128),
+    price: z.number().positive(),
+    category: z.enum(["coffee", "pastries", "bread", "food", "drinks", "snacks", "merchandise", "seasonal"]),
+    description: z.string().optional(),
+    imageUrl: z.string().url().optional(),
+  })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+    const slug = `${input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+    const [item] = await db.insert(menuItems).values({
+      venueId,
+      slug,
+      name: input.name,
+      price: String(input.price.toFixed(2)),
+      category: input.category as any,
+      description: input.description,
+      image: input.imageUrl,
+    }).returning({ id: menuItems.id });
+    return { id: item.id };
+  }),
+
+  updateMenuItemImage: publicQuery.input(z.object({
+    token: z.string(),
+    menuItemId: z.number(),
+    imageUrl: z.string().url().nullable(),
+  })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+    await db.update(menuItems).set({ image: input.imageUrl })
+      .where(and(eq(menuItems.id, input.menuItemId), eq(menuItems.venueId, venueId)));
+    return { ok: true };
+  }),
+
+  getCustomerOrders: publicQuery.input(z.object({
+    token: z.string(),
+    limit: z.number().default(20),
+  })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    // Customer token has customerId + phone
+    const phone = payload.payload.phone as string | undefined;
+    const venueId = payload.payload.venueId as number | undefined;
+    const db = getDb();
+    const conditions: any[] = [];
+    if (phone) conditions.push(eq(orders.customerPhone, phone));
+    if (venueId) conditions.push(eq(orders.venueId, venueId));
+    if (conditions.length === 0) return [];
+    return db.select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      tipAmount: orders.tipAmount,
+      discountAmount: orders.discountAmount,
+      paymentMethod: orders.paymentMethod,
+      orderType: orders.orderType,
+      pickupTime: orders.pickupTime,
+      createdAt: orders.createdAt,
+      tableNumber: orders.tableNumber,
+    }).from(orders)
+      .where(and(...conditions))
+      .orderBy(desc(orders.createdAt))
+      .limit(input.limit);
   }),
 });

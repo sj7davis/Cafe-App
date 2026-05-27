@@ -337,8 +337,8 @@ export default function StaffDashboard() {
 
         {/* Main Content */}
         <main style={{ flex: 1, padding: '28px', overflow: 'auto' }}>
-          {safeActiveTab === 'orders'        && <OrdersTab venueId={venue.id} token={token} />}
-          {safeActiveTab === 'kitchen'       && <OrdersTab venueId={venue.id} token={token} />}
+          {safeActiveTab === 'orders'        && <OrdersTab venueId={venue.id} token={token} venue={venue} />}
+          {safeActiveTab === 'kitchen'       && <OrdersTab venueId={venue.id} token={token} venue={venue} />}
           {safeActiveTab === 'inventory'     && <InventoryTab venueId={venue.id} isManager={isManager} />}
           {safeActiveTab === 'loyalty'       && <LoyaltyTab venueId={venue.id} token={token} />}
           {safeActiveTab === 'giftcards'     && <GiftCardsTab venueId={venue.id} />}
@@ -441,13 +441,104 @@ function SidebarItem({ icon, label, tab, activeTab, setActiveTab, badge }: {
   );
 }
 
+// ─── Receipt Printing ───
+function printReceipt(order: any, venue: any, printerSize: '80mm' | '58mm' | 'a4' = '80mm') {
+  const widths = { '80mm': '302px', '58mm': '218px', 'a4': '210mm' };
+  const width = widths[printerSize];
+
+  const itemsHtml = (() => {
+    try {
+      const items = typeof order.itemsJson === 'string' ? JSON.parse(order.itemsJson) : (order.items || []);
+      return items.map((item: any) =>
+        `<tr><td>${item.name || item.itemName}${item.note ? `<br><small>${item.note}</small>` : ''}</td><td style="text-align:right">×${item.quantity || item.qty || 1}</td><td style="text-align:right">$${((item.unitPrice || item.price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}</td></tr>`
+      ).join('');
+    } catch { return '<tr><td colspan="3">Items unavailable</td></tr>'; }
+  })();
+
+  const subtotal = Number(order.totalAmount || 0) - Number(order.tipAmount || 0) + Number(order.discountAmount || 0);
+  const tip = Number(order.tipAmount || 0);
+  const discount = Number(order.discountAmount || 0);
+  const total = Number(order.totalAmount || 0);
+  void subtotal;
+
+  const html = `<!DOCTYPE html><html><head><title>Receipt</title><style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 12px; width: ${width}; padding: 8px; }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .lg { font-size: 16px; }
+    hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 2px 0; vertical-align: top; }
+    .total-row td { font-weight: bold; border-top: 1px solid #000; padding-top: 4px; }
+    @media print { @page { margin: 0; size: ${printerSize === 'a4' ? 'A4' : width + ' auto'}; } }
+  </style></head><body>
+  <div class="center bold lg">${venue?.name || 'Cafe'}</div>
+  ${venue?.address ? `<div class="center" style="font-size:10px">${venue.address}</div>` : ''}
+  ${venue?.phone ? `<div class="center" style="font-size:10px">Ph: ${venue.phone}</div>` : ''}
+  <hr>
+  <div>Order #${order.orderNumber}</div>
+  <div>${new Date(order.createdAt).toLocaleString('en-AU')}</div>
+  <div>${order.customerName} — ${order.customerPhone}</div>
+  ${order.tableNumber ? `<div>Table: ${order.tableNumber}</div>` : ''}
+  ${order.pickupTime ? `<div>Pickup: ${order.pickupTime}</div>` : ''}
+  <hr>
+  <table>
+    <tbody>${itemsHtml}</tbody>
+  </table>
+  <hr>
+  <table>
+    ${discount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-$${discount.toFixed(2)}</td></tr>` : ''}
+    ${tip > 0 ? `<tr><td>Tip</td><td style="text-align:right">$${tip.toFixed(2)}</td></tr>` : ''}
+    <tr class="total-row"><td class="bold">TOTAL</td><td style="text-align:right" class="bold">$${total.toFixed(2)} AUD</td></tr>
+  </table>
+  <hr>
+  <div class="center" style="font-size:10px">${order.paymentMethod === 'online' ? 'Paid online' : 'Pay at pickup'}</div>
+  <div class="center bold" style="margin-top:8px">Thank you!</div>
+  <div style="margin-top:24px"></div>
+  <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank', 'width=400,height=600');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
+// ─── Password Strength ───
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  if (!password) return { score: 0, label: '', color: '#e7e5e4' };
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  if (score <= 1) return { score, label: 'Weak', color: '#ef4444' };
+  if (score === 2) return { score, label: 'Fair', color: '#f59e0b' };
+  if (score === 3) return { score, label: 'Good', color: '#3b82f6' };
+  return { score, label: 'Strong', color: '#10b981' };
+}
+
+function PasswordStrengthBar({ password }: { password: string }) {
+  const { score, label, color } = getPasswordStrength(password);
+  if (!password) return null;
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ height: 4, borderRadius: 2, background: '#e7e5e4', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${(score / 5) * 100}%`, background: color, transition: 'width 0.3s, background 0.3s', borderRadius: 2 }} />
+      </div>
+      <span style={{ fontSize: 11, color, marginTop: 3, display: 'block' }}>{label}</span>
+    </div>
+  );
+}
+
 // ─── Tab Components ───
-function OrdersTab({ venueId, token }: { venueId: number; token: string }) {
+function OrdersTab({ venueId, token, venue }: { venueId: number; token: string; venue?: any }) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<number | null>(null);
   const [orderSearch, setOrderSearch] = useState('');
   const [waitInput, setWaitInput] = useState('');
   const [waitMsg, setWaitMsg] = useState('');
+  const [printerSize, setPrinterSize] = useState<'80mm' | '58mm' | 'a4'>('80mm');
   const utils = trpc.useUtils();
   const { data: ordersList } = trpc.venue.listOrders.useQuery(
     { venueId, status: statusFilter === 'all' ? undefined : statusFilter, locationId: locationFilter ?? undefined, limit: 50 },
@@ -608,6 +699,28 @@ function OrdersTab({ venueId, token }: { venueId: number; token: string }) {
         </div>
       </div>
 
+      {/* Printer size selector */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 12, color: '#78716c' }}>Printer:</span>
+        {(['80mm', '58mm', 'a4'] as const).map(size => (
+          <button
+            key={size}
+            onClick={() => setPrinterSize(size)}
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              border: `1px solid ${printerSize === size ? '#1c1917' : '#e7e5e4'}`,
+              background: printerSize === size ? '#1c1917' : '#fff',
+              color: printerSize === size ? '#fff' : '#44403c',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            {size === 'a4' ? 'A4' : size}
+          </button>
+        ))}
+      </div>
+
       {/* Status filter row */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         {['all', 'pending', 'confirmed', 'ready', 'completed'].map((status) => (
@@ -738,6 +851,7 @@ function OrdersTab({ venueId, token }: { venueId: number; token: string }) {
               <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total</th>
               <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</th>
               <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Time</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#57534e', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Print</th>
             </tr>
           </thead>
           <tbody>
@@ -847,10 +961,27 @@ function OrdersTab({ venueId, token }: { venueId: number; token: string }) {
                     <td style={{ padding: '14px 16px', color: '#78716c', fontSize: '12px' }}>
                       {new Date(order.createdAt).toLocaleTimeString()}
                     </td>
+                    <td style={{ padding: '14px 16px' }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => printReceipt(order, venue, printerSize)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 6,
+                          border: '1px solid #e7e5e4',
+                          background: '#fafaf9',
+                          color: '#44403c',
+                          fontSize: 12,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        🖨️ Print
+                      </button>
+                    </td>
                   </tr>
                   {isExpanded && (
                     <tr style={{ borderBottom: '1px solid #f5f5f4', background: '#f8fffe' }}>
-                      <td colSpan={6} style={{ padding: '0 16px 14px 36px' }}>
+                      <td colSpan={7} style={{ padding: '0 16px 14px 36px' }}>
                         {!selectedOrderItems ? (
                           <div style={{ fontSize: 12, color: '#a8a29e', paddingTop: 8 }}>Loading items...</div>
                         ) : selectedOrderItems.length === 0 ? (
@@ -872,7 +1003,7 @@ function OrdersTab({ venueId, token }: { venueId: number; token: string }) {
               );
             }) : (
               <tr>
-                <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#78716c' }}>
+                <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#78716c' }}>
                   {orderSearch ? 'No orders match your search' : 'No orders found'}
                 </td>
               </tr>
@@ -5465,6 +5596,7 @@ function ProfileTab({ token, staff }: { token: string; staff: { id: number; name
               onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
             />
+            <PasswordStrengthBar password={pwForm.newPw} />
           </div>
           <div>
             <label style={labelSt}>Confirm New Password</label>

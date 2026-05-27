@@ -8,6 +8,7 @@ import { compare, hash } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
 import { sendEmail } from "./lib/email";
+import { checkRateLimit } from "./lib/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -29,6 +30,8 @@ export const staffAuthRouter = createRouter({
     password: z.string().min(1),
     venueId: z.number().int().positive(),
   })).mutation(async ({ input }) => {
+    const allowed = checkRateLimit(`login:${input.venueId}:${input.username.toLowerCase()}`, 5, 15 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many login attempts. Please try again in 15 minutes." });
     const db = getDb();
     const venueResults = await db.select().from(venues).where(eq(venues.id, input.venueId)).limit(1);
     const venue = venueResults[0];
@@ -146,6 +149,8 @@ export const staffAuthRouter = createRouter({
     email: z.string().email(),
     venueId: z.number().int().positive(),
   })).mutation(async ({ input }) => {
+    const allowed = checkRateLimit(`reset:${input.email.toLowerCase()}`, 3, 60 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many reset attempts. Please try again in 1 hour." });
     const db = getDb();
     const [staff] = await db.select().from(staffAccounts)
       .where(and(eq(staffAccounts.email, input.email), eq(staffAccounts.venueId, input.venueId)))
@@ -337,13 +342,21 @@ export const staffAuthRouter = createRouter({
       emailVerifyToken, emailVerifyExpiry,
     }).returning({ id: staffAccounts.id });
 
-    // Send welcome email
+    // Send welcome email — set-password link instead of plaintext password
     if (input.email) {
-      const verifyUrl = `${env.appUrl}/staff-login?verify=${emailVerifyToken}&venue=${venueId}`;
+      const setPasswordToken = generateToken(32);
+      const setPasswordExpiry = new Date(Date.now() + 72 * 60 * 60 * 1000);
+      await db.update(staffAccounts).set({ resetToken: setPasswordToken, resetTokenExpiry: setPasswordExpiry })
+        .where(eq(staffAccounts.id, newStaff.id));
+
+      const setPasswordUrl = `${env.appUrl}/staff-login?reset=${setPasswordToken}&venue=${venueId}`;
       await sendEmail({
         to: input.email,
-        subject: "Welcome to B1 Platform — Your account is ready",
-        html: `<p>Hi ${input.name},</p><p>Your staff account has been created.</p><ul><li><strong>Username:</strong> ${input.username}</li><li><strong>Password:</strong> ${input.password}</li><li><strong>Venue ID:</strong> ${venueId}</li></ul><p>Please verify your email: <a href="${verifyUrl}">${verifyUrl}</a></p><p>Login at: ${env.appUrl}/staff-login</p>`,
+        subject: "Welcome to B1 Platform — Set your password",
+        html: `<p>Hi ${input.name},</p><p>Your staff account has been created at <strong>${env.appUrl}</strong>.</p>
+<ul><li><strong>Username:</strong> ${input.username}</li><li><strong>Venue ID:</strong> ${venueId}</li></ul>
+<p><a href="${setPasswordUrl}" style="background:#1c1917;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Set Your Password</a></p>
+<p>This link expires in 72 hours.</p>`,
       }).catch(() => {});
     }
 

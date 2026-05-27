@@ -7,6 +7,7 @@ import { nodeHTTPRequestHandler } from "@trpc/server/adapters/node-http";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { addSseClient, removeSseClient } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders } from "@db/schema";
 import { eq, and, gte, isNull, lte } from "drizzle-orm";
@@ -340,6 +341,32 @@ app.post("/api/webhooks/menulog", async (c) => {
   } catch {
     return c.json({ received: true });
   }
+});
+
+// Server-Sent Events — real-time order updates for KDS
+app.get("/api/sse/orders/:venueId", async (c) => {
+  const venueId = Number(c.req.param("venueId"));
+  if (!venueId) return c.text("Bad venueId", 400);
+
+  const res = c.env.outgoing;
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.write(": connected\n\n");
+
+  addSseClient(venueId, res);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(": ping\n\n"); } catch { clearInterval(heartbeat); }
+  }, 25000);
+
+  res.on("close", () => {
+    clearInterval(heartbeat);
+    removeSseClient(venueId, res);
+  });
 });
 
 // Health check

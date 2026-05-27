@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import Stripe from "stripe";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchiseeAccounts, franchiseePayouts, orders, venues } from "@db/schema";
@@ -148,11 +149,112 @@ export const franchiseeRouter = createRouter({
       status: "pending",
     }).returning();
 
+    // Attempt real Stripe transfer if Connect account is ready
+    let stripePayoutId: string | null = null;
+    if (config.stripeConnectAccountId && env.stripeSecretKey && netPayout > 0) {
+      try {
+        const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+        const account = await stripe.accounts.retrieve(config.stripeConnectAccountId);
+        if (account.charges_enabled && account.payouts_enabled) {
+          const transfer = await stripe.transfers.create({
+            amount: Math.round(netPayout * 100), // cents
+            currency: "aud",
+            destination: config.stripeConnectAccountId,
+            description: `B1 Platform payout — ${periodStart.toLocaleDateString("en-AU")} to ${periodEnd.toLocaleDateString("en-AU")}`,
+            metadata: {
+              venueId: String(venueId),
+              payoutId: String(payout.id),
+              periodStart: periodStart.toISOString(),
+              periodEnd: periodEnd.toISOString(),
+            },
+          });
+          stripePayoutId = transfer.id;
+          await db.update(franchiseePayouts).set({
+            status: "processing",
+            stripePayoutId: transfer.id,
+          }).where(eq(franchiseePayouts.id, payout.id));
+        }
+      } catch (e: any) {
+        // Transfer failed — leave as pending, don't throw
+        console.error("Stripe transfer failed:", e.message);
+      }
+    }
+
     return {
       id: payout.id,
       grossRevenue: Math.round(grossRevenue * 100) / 100,
       platformFee: Math.round(platformFee * 100) / 100,
       netPayout: Math.round(netPayout * 100) / 100,
+      stripeTransferId: stripePayoutId,
+      transferInitiated: !!stripePayoutId,
     };
+  }),
+
+  // Create (or retrieve) a Stripe Express connected account and return an onboarding URL
+  createConnectAccountLink: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+
+    if (!env.stripeSecretKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+
+    const [config] = await db.select().from(franchiseeAccounts)
+      .where(eq(franchiseeAccounts.venueId, venueId)).limit(1);
+    if (!config) throw new TRPCError({ code: "NOT_FOUND", message: "Set up franchisee config first" });
+
+    let accountId = config.stripeConnectAccountId;
+
+    if (!accountId) {
+      // Fetch venue + owner email for pre-fill
+      const [venue] = await db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
+      const account = await stripe.accounts.create({
+        type: "express",
+        country: "AU",
+        capabilities: { transfers: { requested: true } },
+        business_profile: { name: venue?.name },
+      });
+      accountId = account.id;
+      await db.update(franchiseeAccounts).set({ stripeConnectAccountId: accountId, updatedAt: new Date() })
+        .where(eq(franchiseeAccounts.venueId, venueId));
+    }
+
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${env.appUrl}/dashboard?tab=franchisee&reauth=1`,
+      return_url: `${env.appUrl}/dashboard?tab=franchisee&connected=stripe`,
+      type: "account_onboarding",
+    });
+
+    return { url: link.url, accountId };
+  }),
+
+  // Check if the Stripe Connect account is fully onboarded and ready for transfers
+  getConnectStatus: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+
+    const [config] = await db.select().from(franchiseeAccounts)
+      .where(eq(franchiseeAccounts.venueId, venueId)).limit(1);
+    if (!config?.stripeConnectAccountId) return { ready: false, accountId: null, message: "No Stripe account linked" };
+
+    if (!env.stripeSecretKey) return { ready: false, accountId: config.stripeConnectAccountId, message: "Stripe not configured" };
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+
+    try {
+      const account = await stripe.accounts.retrieve(config.stripeConnectAccountId);
+      const ready = account.charges_enabled && account.payouts_enabled && !account.requirements?.currently_due?.length;
+      return {
+        ready: !!ready,
+        accountId: config.stripeConnectAccountId,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        requirementsDue: account.requirements?.currently_due ?? [],
+        message: ready ? "Account verified and ready for payouts" : "Onboarding incomplete",
+      };
+    } catch {
+      return { ready: false, accountId: config.stripeConnectAccountId, message: "Could not retrieve account status" };
+    }
   }),
 });

@@ -46,15 +46,35 @@ export default function KitchenDisplay() {
   })
   const [loginInput, setLoginInput] = useState({ username: '', password: '' })
   const [loginError, setLoginError] = useState('')
-  const [tick, setTick] = useState(0)
   const prevOrderIds = useRef<Set<number>>(new Set())
   const audioCtx = useRef<AudioContext | null>(null)
 
-  // Auto-tick every 8 seconds for polling
+  const utils = trpc.useUtils()
+  const playChimeRef = useRef<() => void>(() => {})
+
+  // SSE connection for real-time order updates
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 8000)
-    return () => clearInterval(id)
-  }, [])
+    if (!venueId) return
+    const es = new EventSource(`/api/sse/orders/${venueId}`)
+
+    const refresh = () => {
+      utils.venue.listOrders.invalidate()
+    }
+
+    es.addEventListener('order_update', refresh)
+    es.addEventListener('order_new', () => {
+      refresh()
+      playChimeRef.current()
+    })
+
+    // Fallback poll every 30s in case SSE drops
+    const fallback = setInterval(refresh, 30000)
+
+    return () => {
+      es.close()
+      clearInterval(fallback)
+    }
+  }, [venueId])
 
   // Tick every second for "time since" counter
   const [, setSecond] = useState(0)
@@ -66,7 +86,7 @@ export default function KitchenDisplay() {
   const staffLoginMut = trpc.staffAuth.login.useMutation()
   const ordersQuery = trpc.venue.listOrders.useQuery(
     { venueId: venueId!, statuses: ['pending', 'confirmed', 'ready'], limit: 100 },
-    { enabled: !!token && !!venueId, refetchInterval: 8000 }
+    { enabled: !!token && !!venueId, staleTime: 0, refetchOnWindowFocus: true }
   )
   const updateStatus = trpc.venue.updateOrderStatus.useMutation()
 
@@ -102,6 +122,7 @@ export default function KitchenDisplay() {
       osc.stop(ctx.currentTime + 0.4)
     } catch { /* audio blocked */ }
   }
+  playChimeRef.current = playChime
 
   // Detect new orders and chime
   useEffect(() => {

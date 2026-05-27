@@ -17,6 +17,8 @@ export default function KioskMode() {
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
+  const [tipPercent, setTipPercent] = useState<0 | 10 | 15 | 20 | 'custom'>(0)
+  const [customTip, setCustomTip] = useState('')
   const [successCountdown, setSuccessCountdown] = useState(30)
   const [idle, setIdle] = useState(false)
 
@@ -42,6 +44,8 @@ export default function KioskMode() {
       setCart([])
       setCustomerName('')
       setCustomerPhone('')
+      setTipPercent(0)
+      setCustomTip('')
       let remaining = 30
       setSuccessCountdown(remaining)
       successTimer.current = setInterval(() => {
@@ -105,6 +109,10 @@ export default function KioskMode() {
 
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0)
   const cartTotal = cart.reduce((s, c) => s + c.price * c.quantity, 0)
+  const kioskTipAmount = tipPercent === 'custom'
+    ? Number(customTip) || 0
+    : tipPercent === 0 ? 0
+    : (cartTotal * (tipPercent as number)) / 100
 
   const addToCart = (item: { id: number; name: string; price: string }) => {
     setCart(prev => {
@@ -131,6 +139,7 @@ export default function KioskMode() {
       pickupTime: 'Now',
       items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
       paymentMethod: 'pickup',
+      tipAmount: kioskTipAmount,
     })
   }
 
@@ -411,9 +420,74 @@ export default function KioskMode() {
                 <span style={{ color: '#6b7280', fontSize: '0.95rem' }}>Subtotal</span>
                 <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>${cartTotal.toFixed(2)}</span>
               </div>
+              {kioskTipAmount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: '#6b7280', fontSize: '0.95rem' }}>Tip</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>+${kioskTipAmount.toFixed(2)}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                 <span style={{ fontWeight: 700, fontSize: '1.2rem', color: '#181818' }}>Total</span>
-                <span style={{ fontWeight: 800, fontSize: '1.2rem', color: primaryColor }}>${cartTotal.toFixed(2)}</span>
+                <span style={{ fontWeight: 800, fontSize: '1.2rem', color: primaryColor }}>${(cartTotal + kioskTipAmount).toFixed(2)}</span>
+              </div>
+
+              {/* Tip selector */}
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: '#1c1917' }}>Add a tip?</p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {([0, 10, 15, 20] as const).map(pct => (
+                    <button
+                      key={pct}
+                      onClick={() => setTipPercent(pct)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: 8,
+                        border: `2px solid ${tipPercent === pct ? '#1c1917' : '#e7e5e4'}`,
+                        background: tipPercent === pct ? '#1c1917' : '#fff',
+                        color: tipPercent === pct ? '#fff' : '#1c1917',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {pct === 0 ? 'No tip' : `${pct}%${pct > 0 ? ` ($${((cartTotal * pct) / 100).toFixed(2)})` : ''}`}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setTipPercent('custom')}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      border: `2px solid ${tipPercent === 'custom' ? '#1c1917' : '#e7e5e4'}`,
+                      background: tipPercent === 'custom' ? '#1c1917' : '#fff',
+                      color: tipPercent === 'custom' ? '#fff' : '#1c1917',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Custom
+                  </button>
+                </div>
+                {tipPercent === 'custom' && (
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, color: '#44403c' }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.50"
+                      value={customTip}
+                      onChange={e => setCustomTip(e.target.value)}
+                      placeholder="0.00"
+                      style={{ width: 80, padding: '8px 12px', borderRadius: 8, border: '1px solid #e7e5e4', fontSize: 14 }}
+                    />
+                  </div>
+                )}
+                {kioskTipAmount > 0 && (
+                  <p style={{ fontSize: 12, color: '#78716c', marginTop: 6 }}>
+                    Tip: ${kioskTipAmount.toFixed(2)} — 100% goes to the team
+                  </p>
+                )}
               </div>
 
               <div style={{ marginBottom: 12, padding: '8px 12px', background: 'rgba(94,139,139,0.08)', borderRadius: 8, fontSize: '0.8rem', color: '#5E8B8B', textAlign: 'center' }}>

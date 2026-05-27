@@ -79,6 +79,34 @@ function SuccessBanner({ msg }: { msg: string }) {
   );
 }
 
+// ─── Password Strength ───
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  if (!password) return { score: 0, label: '', color: '#e7e5e4' };
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  if (score <= 1) return { score, label: 'Weak', color: '#ef4444' };
+  if (score === 2) return { score, label: 'Fair', color: '#f59e0b' };
+  if (score === 3) return { score, label: 'Good', color: '#3b82f6' };
+  return { score, label: 'Strong', color: '#10b981' };
+}
+
+function PasswordStrengthBar({ password }: { password: string }) {
+  const { score, label, color } = getPasswordStrength(password);
+  if (!password) return null;
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ height: 4, borderRadius: 2, background: '#e7e5e4', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${(score / 5) * 100}%`, background: color, transition: 'width 0.3s, background 0.3s', borderRadius: 2 }} />
+      </div>
+      <span style={{ fontSize: 11, color, marginTop: 3, display: 'block' }}>{label}</span>
+    </div>
+  );
+}
+
 export default function StaffLogin() {
   const { login } = useStaffAuth();
 
@@ -338,6 +366,7 @@ export default function StaffLogin() {
                         onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
                         onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
                       />
+                      <PasswordStrengthBar password={resetNewPw} />
                     </div>
                     <div>
                       <label style={labelStyle}>Confirm Password</label>

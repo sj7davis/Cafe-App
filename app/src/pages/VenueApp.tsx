@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import {
@@ -27,10 +27,62 @@ export default function VenueApp() {
   const [customerPhone, setCustomerPhone] = useState('')
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
 
-  const { data: venue, isLoading } = trpc.venue.getBySlug.useQuery(
+  // ── A: Add-to-Home-Screen prompt ──────────────────────────────────────────
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      const dismissed = localStorage.getItem('b1-install-dismissed');
+      if (!dismissed) setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setShowInstallBanner(false);
+    setInstallPrompt(null);
+  };
+
+  const dismissInstall = () => {
+    setShowInstallBanner(false);
+    localStorage.setItem('b1-install-dismissed', '1');
+  };
+
+  // ── B: Offline indicator ──────────────────────────────────────────────────
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const online = () => setIsOnline(true);
+    const offline = () => setIsOnline(false);
+    window.addEventListener('online', online);
+    window.addEventListener('offline', offline);
+    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline); };
+  }, []);
+
+  const { data: venue, isLoading: venueLoading } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
     { enabled: !!slug }
   )
+
+  // ── C: Theme color from venue ──────────────────────────────────────────────
+  useEffect(() => {
+    if ((venue as { primaryColor?: string } | undefined)?.primaryColor) {
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        (meta as HTMLMetaElement).name = 'theme-color';
+        document.head.appendChild(meta);
+      }
+      (meta as HTMLMetaElement).content = (venue as { primaryColor?: string }).primaryColor!;
+    }
+  }, [(venue as { primaryColor?: string } | undefined)?.primaryColor]);
 
   const { data: menuItems } = trpc.venue.listMenu.useQuery(
     { venueId: venue?.id || 0 },
@@ -75,12 +127,21 @@ export default function VenueApp() {
     })
   }
 
-  if (isLoading) {
+  // ── D: Splash screen while loading ────────────────────────────────────────
+  if (venueLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 size={28} className="animate-spin" style={{ color: TEAL }} />
+      <div style={{
+        minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#1c1917', gap: 16,
+      }}>
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: '#5E8B8B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ color: '#fff', fontSize: 24, fontWeight: 700 }}>B1</span>
+        </div>
+        <div style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#5E8B8B', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
-    )
+    );
   }
 
   if (!venue) {
@@ -98,6 +159,37 @@ export default function VenueApp() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+          background: '#ef4444', color: '#fff', padding: '8px 16px',
+          textAlign: 'center', fontSize: 13, fontWeight: 600,
+        }}>
+          ⚠️ You're offline — some features may be unavailable
+        </div>
+      )}
+
+      {/* Add-to-Home-Screen install banner */}
+      {showInstallBanner && (
+        <div style={{
+          position: 'fixed', bottom: 80, left: 12, right: 12, zIndex: 100,
+          background: '#1c1917', color: '#fff', borderRadius: 16,
+          padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        }}>
+          <span style={{ fontSize: 24 }}>📱</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>Add to Home Screen</p>
+            <p style={{ fontSize: 11, color: '#a8a29e', margin: '2px 0 0' }}>Get the app for faster ordering</p>
+          </div>
+          <button onClick={handleInstall} style={{ background: '#5E8B8B', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            Install
+          </button>
+          <button onClick={dismissInstall} style={{ background: 'none', border: 'none', color: '#78716c', fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>×</button>
+        </div>
+      )}
+
       {/* Top Bar */}
       <header style={{ background: primaryColor, color: '#fff', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
         {(venue as { logoUrl?: string }).logoUrl ? (

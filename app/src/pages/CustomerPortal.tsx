@@ -83,7 +83,7 @@ export default function CustomerPortal() {
 
       {/* Content */}
       <div className="max-w-lg mx-auto pb-24 md:pb-8 px-4 pt-6">
-        {activeTab === 'orders' && <OrdersTab venueId={venueId} phone={phone} venue={venue as { slug?: string } | null | undefined} />}
+        {activeTab === 'orders' && <OrdersTab venueId={venueId} phone={phone} venue={venue as { slug?: string; name?: string } | null | undefined} />}
         {activeTab === 'loyalty' && <LoyaltyTab venueId={venueId} phone={phone} />}
         {activeTab === 'favourites' && <FavouritesTab venueId={venueId} phone={phone} venue={venue as { slug?: string } | null | undefined} />}
         {activeTab === 'profile' && <ProfileTab customer={customer as Record<string, unknown>} />}
@@ -119,67 +119,164 @@ export default function CustomerPortal() {
   )
 }
 
+// ─── Customer Receipt Print ───────────────────────────────────────────────────
+function printCustomerReceipt(order: any, venueName: string) {
+  const width = '302px'
+  const itemsHtml = (() => {
+    try {
+      const items = typeof order.itemsJson === 'string' ? JSON.parse(order.itemsJson) : (order.items || [])
+      return items.map((item: any) =>
+        `<tr><td>${item.name || item.itemName}${item.note ? `<br><small>${item.note}</small>` : ''}</td><td style="text-align:right">×${item.quantity || item.qty || 1}</td><td style="text-align:right">$${((item.unitPrice || item.price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}</td></tr>`
+      ).join('')
+    } catch { return '<tr><td colspan="3">Items unavailable</td></tr>' }
+  })()
+  const tip = Number(order.tipAmount || 0)
+  const discount = Number(order.discountAmount || 0)
+  const total = Number(order.totalAmount || 0)
+  const html = `<!DOCTYPE html><html><head><title>Receipt</title><style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 12px; width: ${width}; padding: 8px; }
+    .center { text-align: center; } .bold { font-weight: bold; } .lg { font-size: 16px; }
+    hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; } td { padding: 2px 0; vertical-align: top; }
+    .total-row td { font-weight: bold; border-top: 1px solid #000; padding-top: 4px; }
+    @media print { @page { margin: 0; size: ${width} auto; } }
+  </style></head><body>
+  <div class="center bold lg">${venueName}</div>
+  <hr>
+  <div>Order #${order.orderNumber}</div>
+  <div>${new Date(order.createdAt).toLocaleString('en-AU')}</div>
+  ${order.tableNumber ? `<div>Table: ${order.tableNumber}</div>` : ''}
+  ${order.pickupTime ? `<div>Pickup: ${order.pickupTime}</div>` : ''}
+  <hr>
+  <table><tbody>${itemsHtml}</tbody></table>
+  <hr>
+  <table>
+    ${discount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-$${discount.toFixed(2)}</td></tr>` : ''}
+    ${tip > 0 ? `<tr><td>Tip</td><td style="text-align:right">$${tip.toFixed(2)}</td></tr>` : ''}
+    <tr class="total-row"><td class="bold">TOTAL</td><td style="text-align:right" class="bold">$${total.toFixed(2)} AUD</td></tr>
+  </table>
+  <hr>
+  <div class="center" style="font-size:10px">${order.paymentMethod === 'online' ? 'Paid online' : 'Pay at pickup'}</div>
+  <div class="center bold" style="margin-top:8px">Thank you!</div>
+  <div style="margin-top:24px"></div>
+  <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
+  </body></html>`
+  const w = window.open('', '_blank', 'width=400,height=600')
+  if (w) { w.document.write(html); w.document.close() }
+}
+
 // ─── Orders Tab ───────────────────────────────────────────────────────────────
-function OrdersTab({ venueId, phone, venue }: { venueId: number; phone: string; venue: { slug?: string } | null | undefined }) {
+function OrdersTab({ venueId, phone, venue }: { venueId: number; phone: string; venue: { slug?: string; name?: string } | null | undefined }) {
   const navigate = useNavigate()
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+
   const { data: orders, isLoading } = trpc.venue.listOrders.useQuery(
-    { venueId, customerPhone: phone, limit: 20, statuses: ['pending', 'confirmed', 'ready', 'completed'] },
+    { venueId, customerPhone: phone, limit: 30, statuses: ['pending', 'confirmed', 'ready', 'completed', 'cancelled'] },
     { enabled: !!venueId && !!phone }
   )
 
+  const STATUS_COLORS: Record<string, string> = {
+    pending: '#f59e0b', confirmed: '#3b82f6', ready: '#10b981', completed: '#6b7280', cancelled: '#ef4444',
+  }
+
   if (isLoading) return <div className="flex justify-center py-10"><Loader2 size={24} className="animate-spin" style={{ color: TEAL }} /></div>
+
   if (!orders || orders.length === 0) return (
-    <div className="text-center py-12 text-gray-400">
-      <ShoppingBag size={40} className="mx-auto mb-3 opacity-30" />
-      <p style={{ fontSize: 14 }}>No orders yet</p>
+    <div style={{ textAlign: 'center', padding: '48px 0' }}>
+      <ShoppingBag size={40} style={{ margin: '0 auto 12px', opacity: 0.25, color: '#9ca3af', display: 'block' }} />
+      <p style={{ fontSize: 14, color: '#9ca3af', marginBottom: 16 }}>No orders yet — place your first order!</p>
+      {venue?.slug && (
+        <a
+          href={`/v/${venue.slug}`}
+          style={{ fontSize: 13, padding: '8px 20px', borderRadius: 8, background: TEAL, color: '#fff', fontWeight: 600, textDecoration: 'none' }}
+        >
+          Order Now
+        </a>
+      )}
     </div>
   )
 
-  const STATUS_COLORS: Record<string, string> = {
-    pending: '#f59e0b', confirmed: '#3b82f6', ready: '#10b981', completed: '#6b7280',
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {(orders as { id: number; orderNumber: string; createdAt: string; status: string; totalAmount: string | number; items?: { name: string }[] }[]).map(order => (
-        <div key={order.id} style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-            <div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#181818' }}>#{order.orderNumber}</span>
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                {new Date(order.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+      {(orders as any[]).map(order => {
+        const isExpanded = expandedId === order.id
+        let parsedItems: any[] = []
+        try {
+          parsedItems = typeof order.itemsJson === 'string' ? JSON.parse(order.itemsJson) : (order.items || [])
+        } catch { parsedItems = [] }
+
+        return (
+          <div
+            key={order.id}
+            style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}
+          >
+            {/* Header row — click to expand */}
+            <div
+              onClick={() => setExpandedId(isExpanded ? null : order.id)}
+              style={{ padding: 16, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#181818' }}>#{order.orderNumber}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '2px 8px',
+                    background: `${STATUS_COLORS[order.status] || '#6b7280'}20`,
+                    color: STATUS_COLORS[order.status] || '#6b7280',
+                    textTransform: 'capitalize',
+                  }}>
+                    {order.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>
+                  {new Date(order.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#181818' }}>${Number(order.totalAmount).toFixed(2)}</span>
+                <span style={{ fontSize: 11, color: '#9ca3af' }}>{isExpanded ? '▲ Hide' : '▼ Details'}</span>
               </div>
             </div>
-            <span style={{
-              fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '3px 10px',
-              background: `${STATUS_COLORS[order.status] || '#6b7280'}20`,
-              color: STATUS_COLORS[order.status] || '#6b7280',
-              textTransform: 'capitalize',
-            }}>
-              {order.status}
-            </span>
-          </div>
-          {order.items && order.items.length > 0 && (
-            <p style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 8 }}>
-              {order.items.map((i: { name: string }) => i.name).join(', ')}
-            </p>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#181818' }}>${Number(order.totalAmount).toFixed(2)}</span>
-            {venue?.slug && (
-              <button
-                onClick={() => {
-                  localStorage.setItem('b1-reorder', JSON.stringify({ orderId: order.id }))
-                  navigate(`/v/${venue.slug}`)
-                }}
-                style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: 'none', background: TEAL, color: '#fff', fontWeight: 600, cursor: 'pointer' }}
-              >
-                Reorder
-              </button>
+
+            {/* Expanded items */}
+            {isExpanded && (
+              <div style={{ borderTop: '1px solid #f3f4f6', padding: '12px 16px 16px' }}>
+                {parsedItems.length > 0 ? (
+                  <ul style={{ listStyle: 'none', margin: '0 0 12px', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {parsedItems.map((item: any, i: number) => (
+                      <li key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#44403c' }}>
+                        <span>{item.quantity || item.qty || 1}× {item.name || item.itemName}</span>
+                        <span style={{ color: '#78716c' }}>${((item.unitPrice || item.price || 0) * (item.quantity || item.qty || 1)).toFixed(2)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 12 }}>Total: ${Number(order.totalAmount).toFixed(2)}</p>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => printCustomerReceipt(order, venue?.name || 'Cafe')}
+                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: '1px solid #e7e5e4', background: '#fafaf9', color: '#44403c', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    🖨️ Receipt
+                  </button>
+                  {venue?.slug && (
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('b1-reorder', JSON.stringify({ orderId: order.id }))
+                        navigate(`/v/${venue.slug}`)
+                      }}
+                      style={{ fontSize: 12, padding: '6px 14px', borderRadius: 8, border: 'none', background: TEAL, color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Reorder
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
