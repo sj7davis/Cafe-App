@@ -10,7 +10,7 @@ export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -110,6 +110,7 @@ export default function OwnerDashboard() {
             { id: 'smsmarketing' as const, label: 'SMS Marketing', icon: MessageSquare },
             { id: 'franchisee' as const, label: 'Franchisee', icon: Percent },
             { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
+            { id: 'website' as const, label: 'Website', icon: Globe },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
               <tab.icon size={14} /> {tab.label}
@@ -142,6 +143,7 @@ export default function OwnerDashboard() {
         {activeTab === 'smsmarketing' && <SmsMarketingTab />}
         {activeTab === 'franchisee' && <FranchiseeTab />}
         {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
+        {activeTab === 'website' && <WebsiteTab venue={venue} />}
       </div>
     </div>
   );
@@ -721,6 +723,144 @@ function PLTab({ venue }: { venue: any }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function WebsiteTab({ venue }: { venue: any }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [form, setForm] = useState({
+    heroImageUrl: (venue as any).heroImageUrl || '',
+    tagline: (venue as any).tagline || '',
+    aboutTitle: (venue as any).aboutTitle || 'Our Story',
+    aboutText: (venue as any).aboutText || '',
+    instagramUrl: (venue as any).instagramUrl || '',
+    facebookUrl: (venue as any).facebookUrl || '',
+  });
+  const [gallery, setGallery] = useState<{url:string;caption:string}[]>(
+    Array.isArray((venue as any).galleryImages) ? (venue as any).galleryImages : []
+  );
+  const [newImgUrl, setNewImgUrl] = useState('');
+  const [newImgCaption, setNewImgCaption] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
+  const updateMutation = trpc.venue.update.useMutation({ onSuccess: () => setSaveMsg('Website saved!') });
+  const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' } as const;
+
+  const handleSave = () => {
+    setSaveMsg('');
+    updateMutation.mutate({ token, data: { ...form, galleryImages: gallery } });
+  };
+
+  const addGalleryImage = () => {
+    if (!newImgUrl.trim()) return;
+    setGallery(g => [...g, { url: newImgUrl.trim(), caption: newImgCaption.trim() }]);
+    setNewImgUrl('');
+    setNewImgCaption('');
+  };
+
+  const removeGalleryImage = (i: number) => {
+    setGallery(g => g.filter((_, idx) => idx !== i));
+  };
+
+  const publicUrl = `${window.location.origin}/v/${venue.slug}`;
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      {/* Live preview link */}
+      <div className="border p-4 flex items-center justify-between" style={{ borderColor: 'rgba(24,24,24,0.08)', background: 'rgba(94,139,139,0.06)' }}>
+        <div>
+          <div className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E8B8B' }}>Your public website</div>
+          <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.875rem', color: '#181818', textDecoration: 'underline' }}>{publicUrl}</a>
+        </div>
+        <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', textDecoration: 'none' }}>
+          <Globe size={13} /> Preview
+        </a>
+      </div>
+
+      {/* Hero */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Hero Banner</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Hero Image URL</label>
+            <input type="url" value={form.heroImageUrl} onChange={e => setForm({ ...form, heroImageUrl: e.target.value })} className={inputCls} style={inputStyle} placeholder="https://images.unsplash.com/..." />
+            {form.heroImageUrl && (
+              <div className="mt-2 relative" style={{ height: 160, overflow: 'hidden', borderRadius: 4 }}>
+                <img src={form.heroImageUrl} alt="Hero preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => (e.currentTarget.style.display = 'none')} />
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Tagline</label>
+            <input type="text" value={form.tagline} onChange={e => setForm({ ...form, tagline: e.target.value })} className={inputCls} style={inputStyle} placeholder="Specialty coffee & fresh food in the heart of the city" />
+          </div>
+        </div>
+      </div>
+
+      {/* About */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>About Section</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Section Title</label>
+            <input type="text" value={form.aboutTitle} onChange={e => setForm({ ...form, aboutTitle: e.target.value })} className={inputCls} style={inputStyle} placeholder="Our Story" />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>About Text</label>
+            <textarea value={form.aboutText} onChange={e => setForm({ ...form, aboutText: e.target.value })} rows={5} className={inputCls} style={inputStyle} placeholder="Tell your customers your story — your coffee philosophy, team, and what makes you special..." />
+          </div>
+        </div>
+      </div>
+
+      {/* Gallery */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Photo Gallery</h2>
+        <p style={{ fontSize: '0.8rem', color: '#5E5E5E', marginBottom: 16 }}>Add up to 9 photos. Paste an image URL from Unsplash, your CDN, or any direct image link.</p>
+        {gallery.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+            {gallery.map((img, i) => (
+              <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 4, overflow: 'hidden', border: '1px solid rgba(24,24,24,0.1)' }}>
+                <img src={img.url} alt={img.caption} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {img.caption && (
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '3px 6px' }}>{img.caption}</div>
+                )}
+                <button onClick={() => removeGalleryImage(i)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        {gallery.length < 9 && (
+          <div className="flex gap-2">
+            <input type="url" value={newImgUrl} onChange={e => setNewImgUrl(e.target.value)} placeholder="Image URL" className="flex-1 bg-transparent border px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'rgba(24,24,24,0.15)', borderRadius: 0 }} />
+            <input type="text" value={newImgCaption} onChange={e => setNewImgCaption(e.target.value)} placeholder="Caption (optional)" style={{ width: 160, padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: '0.875rem', background: 'transparent' }} />
+            <button onClick={addGalleryImage} className="px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>Add</button>
+          </div>
+        )}
+      </div>
+
+      {/* Social */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Social Links</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Instagram URL</label>
+            <input type="url" value={form.instagramUrl} onChange={e => setForm({ ...form, instagramUrl: e.target.value })} className={inputCls} style={inputStyle} placeholder="https://instagram.com/yourcafe" />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Facebook URL</label>
+            <input type="url" value={form.facebookUrl} onChange={e => setForm({ ...form, facebookUrl: e.target.value })} className={inputCls} style={inputStyle} placeholder="https://facebook.com/yourcafe" />
+          </div>
+        </div>
+      </div>
+
+      {/* Save */}
+      <div className="flex items-center gap-4">
+        <button onClick={handleSave} disabled={updateMutation.isPending} className="px-6 py-3 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+          {updateMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Website</>}
+        </button>
+        {saveMsg && <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>{saveMsg}</span>}
+      </div>
     </div>
   );
 }

@@ -205,6 +205,13 @@ export const venueRouter = createRouter({
       primaryColor: z.string().optional(),
       accentColor: z.string().optional(),
       settingsJson: z.any().optional(),
+      heroImageUrl: z.string().optional(),
+      tagline: z.string().optional(),
+      aboutTitle: z.string().optional(),
+      aboutText: z.string().optional(),
+      galleryImages: z.any().optional(),
+      instagramUrl: z.string().optional(),
+      facebookUrl: z.string().optional(),
     }),
   })).mutation(async ({ input }) => {
     const db = getDb();

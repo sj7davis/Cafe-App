@@ -1602,26 +1602,86 @@ export default function VenuePublic() {
         </button>
       )}
 
-      {/* Header */}
-      <header className="border-b" style={{ borderColor: `${primaryColor}15` }}>
-        <div className="content-container py-8 text-center">
-          {venue.logoUrl ? (
-            <img src={venue.logoUrl} alt={venue.name} className="h-16 w-auto mx-auto mb-4" />
-          ) : (
-            <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{ background: primaryColor }}>
-              <Coffee size={28} style={{ color: '#F3F2EE' }} />
-            </div>
-          )}
-          <h1 style={{ fontWeight: 400, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: primaryColor }}>
-            {venue.name}
-          </h1>
-          {venue.description && (
-            <p className="mt-3 mx-auto" style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#5E5E5E', maxWidth: '500px' }}>
-              {venue.description}
-            </p>
-          )}
+      {/* Hero / Header */}
+      {(venue as any).heroImageUrl ? (
+        <div style={{ position: 'relative', height: 'clamp(280px, 42vw, 520px)', overflow: 'hidden' }}>
+          <img
+            src={(venue as any).heroImageUrl}
+            alt={venue.name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.62) 100%)' }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 'clamp(20px,4vw,48px)', textAlign: 'center' }}>
+            {venue.logoUrl && (
+              <img src={venue.logoUrl} alt={venue.name} style={{ height: 52, width: 'auto', objectFit: 'contain', margin: '0 auto 12px', display: 'block', filter: 'brightness(0) invert(1)' }} />
+            )}
+            <h1 style={{ fontWeight: 400, fontSize: 'clamp(1.8rem, 5vw, 3.2rem)', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#fff', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+              {venue.name}
+            </h1>
+            {(venue as any).tagline && (
+              <p style={{ marginTop: 10, fontSize: 'clamp(0.875rem, 2vw, 1.1rem)', color: 'rgba(255,255,255,0.9)', fontStyle: 'italic', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                {(venue as any).tagline}
+              </p>
+            )}
+          </div>
         </div>
-      </header>
+      ) : (
+        <header className="border-b" style={{ borderColor: `${primaryColor}15` }}>
+          <div className="content-container py-8 text-center">
+            {venue.logoUrl ? (
+              <img src={venue.logoUrl} alt={venue.name} className="h-16 w-auto mx-auto mb-4" />
+            ) : (
+              <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{ background: primaryColor }}>
+                <Coffee size={28} style={{ color: '#F3F2EE' }} />
+              </div>
+            )}
+            <h1 style={{ fontWeight: 400, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: primaryColor }}>
+              {venue.name}
+            </h1>
+            {(venue as any).tagline ? (
+              <p className="mt-2 mx-auto" style={{ fontSize: '1rem', fontStyle: 'italic', color: primaryColor, opacity: 0.8, maxWidth: '500px' }}>
+                {(venue as any).tagline}
+              </p>
+            ) : venue.description && (
+              <p className="mt-3 mx-auto" style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#5E5E5E', maxWidth: '500px' }}>
+                {venue.description}
+              </p>
+            )}
+          </div>
+        </header>
+      )}
+
+      {/* About Section */}
+      {(venue as any).aboutText && (
+        <section style={{ background: '#fff', borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
+          <div className="content-container py-10" style={{ maxWidth: 720 }}>
+            <h2 style={{ fontWeight: 400, fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)', textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#181818', marginBottom: 16 }}>
+              {(venue as any).aboutTitle || 'Our Story'}
+            </h2>
+            <p style={{ fontSize: '0.9375rem', lineHeight: 1.75, color: '#5E5E5E', whiteSpace: 'pre-line' }}>
+              {(venue as any).aboutText}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* Gallery */}
+      {Array.isArray((venue as any).galleryImages) && (venue as any).galleryImages.length > 0 && (
+        <section style={{ background: '#F3F2EE', borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
+          <div className="content-container py-8">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+              {((venue as any).galleryImages as {url:string;caption:string}[]).map((img, i) => (
+                <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 4, overflow: 'hidden' }}>
+                  <img src={img.url} alt={img.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {img.caption && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, padding: '4px 8px' }}>{img.caption}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Table mode banner */}
       {tableNumber && (
@@ -1696,15 +1756,31 @@ export default function VenuePublic() {
 
       {/* Book a Table button */}
       {(venue?.settingsJson as { reservationsEnabled?: boolean } | null)?.reservationsEnabled !== false && (
-        <div style={{ textAlign: 'center', padding: '10px 16px' }}>
+        <div style={{ textAlign: 'center', padding: '14px 16px' }}>
           <a
             href={`/book/${slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#5E8B8B', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontSize: '13px', fontWeight: 500 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 22px', background: primaryColor, color: '#fff', borderRadius: '8px', textDecoration: 'none', fontSize: '14px', fontWeight: 600 }}
           >
             📅 Book a Table
           </a>
+        </div>
+      )}
+
+      {/* Social links */}
+      {((venue as any).instagramUrl || (venue as any).facebookUrl) && (
+        <div style={{ textAlign: 'center', padding: '8px 16px 4px', display: 'flex', justifyContent: 'center', gap: 16 }}>
+          {(venue as any).instagramUrl && (
+            <a href={(venue as any).instagramUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#5E5E5E', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+              📷 Instagram
+            </a>
+          )}
+          {(venue as any).facebookUrl && (
+            <a href={(venue as any).facebookUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#5E5E5E', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+              👥 Facebook
+            </a>
+          )}
         </div>
       )}
 

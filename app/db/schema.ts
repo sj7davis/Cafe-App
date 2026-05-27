@@ -54,6 +54,15 @@ export const venues = pgTable("venues", {
   // Settings
   settingsJson: json("settings_json"),
 
+  // Website builder
+  heroImageUrl: varchar("hero_image_url", { length: 500 }),
+  tagline: varchar("tagline", { length: 255 }),
+  aboutTitle: varchar("about_title", { length: 255 }),
+  aboutText: text("about_text"),
+  galleryImages: json("gallery_images"),
+  instagramUrl: varchar("instagram_url", { length: 255 }),
+  facebookUrl: varchar("facebook_url", { length: 255 }),
+
   // Status
   isActive: boolean("is_active").default(true),
   isPublic: boolean("is_public").default(true),

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router'
 import { trpc } from '@/providers/trpc'
 
-const TEAL = '#5E8B8B'
+const TEAL = '#5E8B8B' // fallback; primaryColor used below once venue loads
 const TODAY = new Date().toISOString().slice(0, 10)
 
 const TIME_SLOTS: string[] = (() => {
@@ -38,11 +38,12 @@ export default function BookingPage() {
   const [confirmed, setConfirmed] = useState(false)
   const [formError, setFormError] = useState('')
 
-  const { data: venue } = trpc.venue.getBySlug.useQuery(
+  const { data: venue, isLoading: venueLoading, isError: venueError } = trpc.venue.getBySlug.useQuery(
     { slug: slug || '' },
     { enabled: !!slug }
   )
   const venueId = venue?.id
+  const primaryColor = venue?.primaryColor || '#5E8B8B'
 
   const { data: availabilityData } = trpc.reservations.getAvailability.useQuery(
     { venueId: venueId!, date: selectedDate },
@@ -87,6 +88,29 @@ export default function BookingPage() {
 
   const isInIframe = typeof window !== 'undefined' && window.self !== window.top
   const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+
+  if (venueLoading) {
+    return (
+      <div style={{ maxWidth: 512, margin: '0 auto', padding: 24, minHeight: '100vh', background: '#fff', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', border: `3px solid ${primaryColor}30`, borderTopColor: primaryColor, animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ fontSize: 14, color: '#5E5E5E' }}>Loading booking page…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (venueError || (slug && !venueLoading && !venue)) {
+    return (
+      <div style={{ maxWidth: 512, margin: '0 auto', padding: 24, minHeight: '100vh', background: '#fff', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>😕</div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#181818', marginBottom: 8 }}>Venue not found</h2>
+          <p style={{ fontSize: 14, color: '#5E5E5E' }}>This booking page isn't available. Please check the link and try again.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 512, margin: '0 auto', padding: 24, minHeight: '100vh', background: '#fff', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
@@ -148,7 +172,7 @@ export default function BookingPage() {
                     onClick={() => setSelectedTime(slot)}
                     style={{
                       padding: '8px 4px', borderRadius: 8, border: isSelected ? 'none' : '1px solid rgba(24,24,24,0.15)',
-                      background: isSelected ? TEAL : '#fff',
+                      background: isSelected ? primaryColor : '#fff',
                       color: isSelected ? '#fff' : '#181818',
                       fontSize: 12, fontWeight: isSelected ? 600 : 400, cursor: 'pointer',
                       textAlign: 'center', lineHeight: 1.3,
@@ -226,7 +250,7 @@ export default function BookingPage() {
                 disabled={createReservation.isPending}
                 style={{
                   width: '100%', padding: '14px 0', borderRadius: 8, border: 'none',
-                  background: TEAL, color: '#fff', fontSize: 15, fontWeight: 700,
+                  background: primaryColor, color: '#fff', fontSize: 15, fontWeight: 700,
                   cursor: createReservation.isPending ? 'not-allowed' : 'pointer',
                   opacity: createReservation.isPending ? 0.7 : 1,
                   marginTop: 4,
