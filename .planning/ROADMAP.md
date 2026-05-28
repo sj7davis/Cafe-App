@@ -256,12 +256,20 @@ Plans:
   8. Customer can enter a discount code at checkout and, when the code is valid, the order total is reduced by the configured amount before payment
   9. Customer can choose to redeem loyalty points at checkout; the points balance is decremented and the order total is reduced accordingly
 
-**Plans**: 4 plans
-Plans:
+**Plans**: 4 plansPlans:
+**Wave 1**
+
 - [ ] 08-01-PLAN.md — Backend: Connect application fee on order checkout + webhook persists confirmed order with line items (PAY-01/02/06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 08-02-PLAN.md — Backend: gift card + pass Stripe checkout sessions + webhook fulfilment + loyalty redemption decrement (PAY-03/04, CHK-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 08-03-PLAN.md — Customer: VenuePublic Stripe redirect checkout, loyalty/discount reductions, gift card + pass purchase, return verification (PAY-01..04, CHK-01/02)
 - [ ] 08-04-PLAN.md — Owner/admin: Connect onboarding + payout balance in Integrations tab, platform fee visibility in admin panel (PAY-05/06/07, CHK-01)
+
 **UI hint**: yes
 
 ### Phase 9: Real-Time Orders & Staff Scheduling
