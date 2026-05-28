@@ -1690,25 +1690,30 @@ export default function VenuePublic() {
         </div>
       )}
 
-      {/* Floating Cart Button */}
-      {cartCount > 0 && !showCart && (
-        <button
-          onClick={() => setShowCart(true)}
-          style={{
-            position: 'fixed', bottom: 24, right: 24, zIndex: 100,
-            background: primaryColor, color: '#F3F2EE',
-            borderRadius: 50, padding: '14px 20px',
-            border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 10,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-            fontSize: 14, fontWeight: 600,
-          }}
-        >
-          <ShoppingBag size={18} />
-          {cartCount} item{cartCount !== 1 ? 's' : ''}
-          <span style={{ marginLeft: 4 }}>${cartTotal.toFixed(2)}</span>
-          <ChevronRight size={16} />
-        </button>
+      {/* Floating Cart Button — mobile-first full-width bar, hidden on large screens */}
+      {cart.length > 0 && !showCart && (
+        <>
+          <style>{`@media (min-width: 1024px) { .b1-floating-cart { display: none !important; } }`}</style>
+          <button
+            className="b1-floating-cart"
+            onClick={() => setShowCart(true)}
+            style={{
+              position: 'fixed', bottom: 16, left: 16, right: 16, zIndex: 100,
+              background: accentColor || '#181818', color: '#fff',
+              borderRadius: 12, padding: '14px 20px',
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+              fontSize: 15, fontWeight: 700,
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <ShoppingBag size={18} />
+              <span>{cartCount} item{cartCount !== 1 ? 's' : ''} · View Cart</span>
+            </span>
+            <span>${cartTotal.toFixed(2)}</span>
+          </button>
+        </>
       )}
 
       {/* Website blocks (from block editor) OR fallback hero/about/gallery */}
