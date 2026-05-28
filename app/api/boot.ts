@@ -26,7 +26,12 @@ const SQUARE_API_BASE = process.env.SQUARE_ENV === "production"
 // ─── Image uploads ────────────────────────────────────────────────────────────
 const UPLOAD_JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 const UPLOADS_DIR = join(process.cwd(), "uploads");
-try { mkdirSync(UPLOADS_DIR, { recursive: true }); } catch { /* dir already exists */ }
+try {
+  mkdirSync(UPLOADS_DIR, { recursive: true });
+  console.log(`[uploads] directory ready: ${UPLOADS_DIR}`);
+} catch (e) {
+  console.warn(`[uploads] could not create directory ${UPLOADS_DIR}:`, e);
+}
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 

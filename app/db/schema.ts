@@ -64,6 +64,9 @@ export const venues = pgTable("venues", {
   instagramUrl: varchar("instagram_url", { length: 255 }),
   facebookUrl: varchar("facebook_url", { length: 255 }),
 
+  // Tablet POS PIN (4-6 digits, set by owner, used for counter iPad access)
+  tabletPin: varchar("tablet_pin", { length: 8 }),
+
   // Status
   isActive: boolean("is_active").default(true),
   isPublic: boolean("is_public").default(true),

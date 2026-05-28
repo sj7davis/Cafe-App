@@ -213,6 +213,7 @@ export const venueRouter = createRouter({
       instagramUrl: z.string().optional(),
       facebookUrl: z.string().optional(),
       websiteBlocks: z.any().optional(),
+      tabletPin: z.string().max(8).optional().nullable(),
     }),
   })).mutation(async ({ input }) => {
     const db = getDb();
@@ -669,6 +670,43 @@ export const venueRouter = createRouter({
       )
     );
     return { success: true };
+  }),
+
+  // ─── Tablet POS ───
+  getTabletVenue: publicQuery.input(z.object({
+    slug: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const result = await db.select({
+      id: venues.id,
+      name: venues.name,
+      slug: venues.slug,
+      logoUrl: venues.logoUrl,
+      primaryColor: venues.primaryColor,
+      accentColor: venues.accentColor,
+      tabletPin: venues.tabletPin,
+    }).from(venues).where(eq(venues.slug, input.slug)).limit(1);
+    if (!result[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    // Don't expose the PIN itself — just whether one is set
+    const { tabletPin, ...safe } = result[0];
+    return { ...safe, hasPinSet: !!tabletPin };
+  }),
+
+  verifyTabletPin: publicQuery.input(z.object({
+    slug: z.string(),
+    pin: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const result = await db.select({ id: venues.id, tabletPin: venues.tabletPin }).from(venues).where(eq(venues.slug, input.slug)).limit(1);
+    if (!result[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    if (!result[0].tabletPin) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No tablet PIN set for this venue" });
+    if (result[0].tabletPin !== input.pin) throw new TRPCError({ code: "UNAUTHORIZED", message: "Incorrect PIN" });
+    // Return a long-lived tablet JWT so it can call order procedures
+    const token = await new SignJWT({ venueId: result[0].id, role: "tablet" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("30d")
+      .sign(JWT_SECRET);
+    return { success: true, venueId: result[0].id, token };
   }),
 
   createMenuItem: publicQuery.input(z.object({
