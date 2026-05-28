@@ -2883,27 +2883,13 @@ function MenuTab({ venue }: { venue: any }) {
               />
             </div>
 
-            {/* Image URL — full width */}
+            {/* Photo upload — full width */}
             <div className="md:col-span-2">
-              <label className="font-data block mb-1.5" style={labelStyle}>Image URL</label>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <input
-                  type="url"
-                  value={form.image}
-                  onChange={(e) => setForm({ ...form, image: e.target.value })}
-                  className={inputCls}
-                  style={{ ...inputStyle, flex: 1 }}
-                  placeholder="https://..."
-                />
-                {form.image && (form.image.startsWith('http') || /\.(jpe?g|png|webp|gif)$/i.test(form.image)) && (
-                  <img
-                    src={form.image}
-                    alt="Preview"
-                    style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4, border: '1px solid rgba(24,24,24,0.12)', flexShrink: 0 }}
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                  />
-                )}
-              </div>
+              <ImageUpload
+                label="Item Photo"
+                value={form.image}
+                onChange={(url) => setForm({ ...form, image: url })}
+              />
               <p className="font-data mt-1" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
                 Leave blank to hide image on your public menu.
               </p>
