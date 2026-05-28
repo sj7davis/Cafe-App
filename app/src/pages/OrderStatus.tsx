@@ -148,29 +148,44 @@ export default function OrderStatus() {
               </div>
             </div>
           ) : (
-            <div data-testid="status-stepper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              {STEPS.map((step, idx) => {
-                const isDone = idx <= currentStepIdx;
-                const isCurrent = idx === currentStepIdx;
-                const colour = STEP_COLORS[step];
-                return (
-                  <div key={step} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: '50%',
-                      background: isDone ? colour.bg : '#e7e5e4',
-                      color: isDone ? colour.text : '#a8a29e',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 700, fontSize: 14,
-                      border: isCurrent ? `2px solid ${colour.text}` : '2px solid transparent',
-                    }}>
-                      {isDone ? <CheckCircle size={18} /> : idx + 1}
+            <div data-testid="status-stepper">
+              {/* Progress track + animated fill */}
+              <div style={{ position: 'relative', height: 6, background: '#e7e5e4', borderRadius: 99, marginBottom: 20, overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, height: '100%',
+                  width: `${currentStepIdx >= 0 ? (currentStepIdx / (STEPS.length - 1)) * 100 : 0}%`,
+                  background: currentStepIdx >= 0 ? STEP_COLORS[STEPS[currentStepIdx]]?.text ?? '#5E8B8B' : '#5E8B8B',
+                  borderRadius: 99,
+                  transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1), background 0.3s ease',
+                }} />
+              </div>
+              {/* Step circles + labels */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                {STEPS.map((step, idx) => {
+                  const isDone = idx <= currentStepIdx;
+                  const isCurrent = idx === currentStepIdx;
+                  const colour = STEP_COLORS[step];
+                  const LABELS: Record<string, string> = { pending: 'Pending', confirmed: 'Confirmed', ready: 'Ready', completed: 'Picked Up' };
+                  return (
+                    <div key={step} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: isDone ? colour.bg : '#e7e5e4',
+                        color: isDone ? colour.text : '#a8a29e',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 700, fontSize: 14,
+                        border: isCurrent ? `2px solid ${colour.text}` : '2px solid transparent',
+                        transition: 'background 0.3s ease, border-color 0.3s ease',
+                      }}>
+                        {isDone ? <CheckCircle size={18} /> : idx + 1}
+                      </div>
+                      <div style={{ fontSize: 11, marginTop: 6, color: isDone ? '#181818' : '#a8a29e', fontWeight: isCurrent ? 600 : 400 }}>
+                        {LABELS[step] ?? step}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, marginTop: 6, textTransform: 'capitalize', color: isDone ? '#181818' : '#a8a29e', fontWeight: isCurrent ? 600 : 400 }}>
-                      {step}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
