@@ -77,6 +77,12 @@ export default function OwnerDashboard() {
             <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 8px', background: venue.subscriptionStatus === 'trial' ? 'rgba(196,149,58,0.12)' : 'rgba(94,139,94,0.12)', color: venue.subscriptionStatus === 'trial' ? '#C4953A' : '#5E8B5E' }}>
               {venue.subscriptionStatus === 'trial' ? 'TRIAL' : (venue.subscriptionTier || '').toUpperCase()}
             </span>
+            <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" title="View Public Website" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all flex items-center gap-1.5" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', textDecoration: 'none', fontSize: '0.625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <Globe size={13} /> Site
+            </a>
+            <a href={`/book/${venue.slug}`} target="_blank" rel="noopener noreferrer" title="Booking Page" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all flex items-center gap-1.5" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', textDecoration: 'none', fontSize: '0.625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <MapPin size={13} /> Book
+            </a>
             <button onClick={logout} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818' }} title="Log Out">
               <LogOut size={16} />
             </button>
@@ -84,72 +90,98 @@ export default function OwnerDashboard() {
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="border-b" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <div className="content-container flex gap-6">
-          {[
-            { id: 'overview' as const, label: 'Overview', icon: BarChart3 },
-            { id: 'analytics' as const, label: 'Analytics', icon: TrendingUp },
-            { id: 'pl' as const, label: 'P&L', icon: DollarSign },
-            { id: 'menu' as const, label: 'Menu', icon: Coffee },
-            { id: 'settings' as const, label: 'Settings', icon: Settings },
-            { id: 'billing' as const, label: 'Billing', icon: CreditCard },
-            { id: 'integrations' as const, label: 'Integrations', icon: Link2 },
-            { id: 'reviews' as const, label: 'Reviews', icon: Star },
-            { id: 'giftcards' as const, label: 'Gift Cards', icon: Gift },
-            { id: 'passes' as const, label: 'Passes', icon: Ticket },
-            { id: 'locations' as const, label: 'Locations', icon: MapPin },
-            { id: 'catering' as const, label: 'Catering', icon: Briefcase },
-            { id: 'promo' as const, label: 'Promos', icon: Tag },
-            { id: 'bundles' as const, label: 'Bundles', icon: Gift },
-            { id: 'campaigns' as const, label: 'Campaigns', icon: Send },
-            { id: 'loyalty' as const, label: 'Loyalty', icon: Star },
-            { id: 'delivery' as const, label: 'Delivery', icon: Globe },
-            { id: 'audit' as const, label: 'Audit', icon: Shield },
-            { id: 'allvenues' as const, label: 'All Venues', icon: Building2 },
-            { id: 'smsmarketing' as const, label: 'SMS Marketing', icon: MessageSquare },
-            { id: 'franchisee' as const, label: 'Franchisee', icon: Percent },
-            { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
-            { id: 'website' as const, label: 'Website', icon: Globe },
-          ].map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}` }}>
-              <tab.icon size={14} /> {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Sidebar + Content */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100vh - 72px)' }}>
 
-      {/* Content */}
-      <div className="content-container py-8">
-        {activeTab === 'overview' && <OverviewTab venue={venue} setActiveTab={setActiveTab} />}
-        {activeTab === 'analytics' && <AnalyticsTab />}
-        {activeTab === 'pl' && venue && <PLTab venue={venue} />}
-        {activeTab === 'menu' && <MenuTab venue={venue} />}
-        {activeTab === 'settings' && <SettingsTab venue={venue} />}
-        {activeTab === 'billing' && <BillingTab />}
-        {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
-        {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
-        {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
-        {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
-        {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
-        {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
-        {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
-        {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
-        {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
-        {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
-        {activeTab === 'delivery' && <DeliveryTab />}
-        {activeTab === 'audit' && <AuditTab />}
-        {activeTab === 'allvenues' && <AllVenuesTab />}
-        {activeTab === 'smsmarketing' && <SmsMarketingTab />}
-        {activeTab === 'franchisee' && <FranchiseeTab />}
-        {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
-        {activeTab === 'website' && <WebsiteTab venue={venue} />}
+        {/* Sidebar */}
+        <nav style={{ width: 220, flexShrink: 0, background: '#fff', borderRight: '1px solid rgba(24,24,24,0.08)', overflowY: 'auto' }}>
+          {([
+            { group: 'OVERVIEW', items: [
+              { id: 'overview' as const, label: 'Overview', icon: BarChart3 },
+              { id: 'analytics' as const, label: 'Analytics', icon: TrendingUp },
+              { id: 'pl' as const, label: 'P&L', icon: DollarSign },
+            ]},
+            { group: 'VENUE', items: [
+              { id: 'menu' as const, label: 'Menu', icon: Coffee },
+              { id: 'locations' as const, label: 'Locations', icon: MapPin },
+              { id: 'bundles' as const, label: 'Bundles', icon: Gift },
+              { id: 'catering' as const, label: 'Catering', icon: Briefcase },
+              { id: 'delivery' as const, label: 'Delivery', icon: Globe },
+            ]},
+            { group: 'CUSTOMERS', items: [
+              { id: 'loyalty' as const, label: 'Loyalty', icon: Star },
+              { id: 'reviews' as const, label: 'Reviews', icon: Star },
+              { id: 'giftcards' as const, label: 'Gift Cards', icon: Gift },
+              { id: 'passes' as const, label: 'Passes', icon: Ticket },
+            ]},
+            { group: 'MARKETING', items: [
+              { id: 'campaigns' as const, label: 'Campaigns', icon: Send },
+              { id: 'smsmarketing' as const, label: 'SMS Marketing', icon: MessageSquare },
+              { id: 'promo' as const, label: 'Promos', icon: Tag },
+            ]},
+            { group: 'OPERATIONS', items: [
+              { id: 'audit' as const, label: 'Audit Log', icon: Shield },
+              { id: 'allvenues' as const, label: 'All Venues', icon: Building2 },
+              { id: 'franchisee' as const, label: 'Franchisee', icon: Percent },
+            ]},
+            { group: 'FINANCE', items: [
+              { id: 'billing' as const, label: 'Billing', icon: CreditCard },
+            ]},
+            { group: 'SETTINGS', items: [
+              { id: 'website' as const, label: 'Website', icon: Globe },
+              { id: 'settings' as const, label: 'Settings', icon: Settings },
+              { id: 'integrations' as const, label: 'Integrations', icon: Link2 },
+              { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
+            ]},
+          ] as const).map(({ group, items }) => (
+            <div key={group}>
+              <div style={{ padding: '16px 16px 4px', fontFamily: 'Geist Mono', fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9a9a9a' }}>{group}</div>
+              {items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 16px', background: isActive ? 'rgba(24,24,24,0.06)' : 'transparent', border: 'none', borderLeft: `3px solid ${isActive ? '#181818' : 'transparent'}`, cursor: 'pointer', fontSize: '0.8125rem', color: isActive ? '#181818' : '#5E5E5E', fontWeight: isActive ? 600 : 400, textAlign: 'left', transition: 'all 0.12s' }}>
+                    <Icon size={14} />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        {/* Content */}
+        <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto', background: '#F3F2EE', minWidth: 0 }}>
+          {activeTab === 'overview' && <OverviewTab venue={venue} setActiveTab={setActiveTab} />}
+          {activeTab === 'analytics' && <AnalyticsTab />}
+          {activeTab === 'pl' && venue && <PLTab venue={venue} />}
+          {activeTab === 'menu' && <MenuTab venue={venue} />}
+          {activeTab === 'settings' && <SettingsTab venue={venue} />}
+          {activeTab === 'billing' && <BillingTab />}
+          {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
+          {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
+          {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
+          {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
+          {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
+          {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
+          {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
+          {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
+          {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
+          {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
+          {activeTab === 'delivery' && <DeliveryTab />}
+          {activeTab === 'audit' && <AuditTab />}
+          {activeTab === 'allvenues' && <AllVenuesTab />}
+          {activeTab === 'smsmarketing' && <SmsMarketingTab />}
+          {activeTab === 'franchisee' && <FranchiseeTab />}
+          {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
+          {activeTab === 'website' && <WebsiteTab venue={venue} />}
+        </main>
       </div>
     </div>
   );
 }
 
-function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes') => void }) {
+function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: any) => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
@@ -765,6 +797,85 @@ function WebsiteTab({ venue }: { venue: any }) {
 
   const publicUrl = `${window.location.origin}/v/${venue.slug}`;
 
+  const TEMPLATES = [
+    {
+      id: 'dawn',
+      name: 'Dawn',
+      desc: 'Clean & minimal',
+      preview: '#F8F5F0',
+      data: {
+        primaryColor: '#1c1917',
+        accentColor: '#78716c',
+        heroImageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1400&q=80',
+        tagline: 'Specialty coffee, served with care.',
+        aboutTitle: 'Our Philosophy',
+        aboutText: 'We believe great coffee starts with great relationships — with our farmers, our team, and you. Every cup is crafted with intention.',
+        instagramUrl: '', facebookUrl: '',
+      },
+    },
+    {
+      id: 'craft',
+      name: 'Craft',
+      desc: 'Warm & artisan',
+      preview: '#3D2B1F',
+      data: {
+        primaryColor: '#3D2B1F',
+        accentColor: '#C4953A',
+        heroImageUrl: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1400&q=80',
+        tagline: 'Handcrafted coffee & fresh baked goods.',
+        aboutTitle: 'Made With Hands',
+        aboutText: 'Everything on our menu is made from scratch, every morning. No shortcuts, no compromises — just honest food and honest coffee.',
+        instagramUrl: '', facebookUrl: '',
+      },
+    },
+    {
+      id: 'city',
+      name: 'City Roast',
+      desc: 'Modern & urban',
+      preview: '#18181B',
+      data: {
+        primaryColor: '#18181B',
+        accentColor: '#5E8B8B',
+        heroImageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1400&q=80',
+        tagline: 'Bold coffee for bold mornings.',
+        aboutTitle: 'City Grown',
+        aboutText: 'Born in the city, brewed for it. We source single-origin beans and roast them to perfection right here in our space.',
+        instagramUrl: '', facebookUrl: '',
+      },
+    },
+    {
+      id: 'bloom',
+      name: 'Bloom',
+      desc: 'Fresh & bright',
+      preview: '#4A7C59',
+      data: {
+        primaryColor: '#4A7C59',
+        accentColor: '#A8C5A0',
+        heroImageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1400&q=80',
+        tagline: 'Fresh food. Good coffee. Happy people.',
+        aboutTitle: 'Growing Together',
+        aboutText: 'We source locally, bake daily, and grow with our community. Our menu changes with the seasons — always fresh, always delicious.',
+        instagramUrl: '', facebookUrl: '',
+      },
+    },
+    {
+      id: 'prestige',
+      name: 'Prestige',
+      desc: 'Premium & refined',
+      preview: '#1E2B4A',
+      data: {
+        primaryColor: '#1E2B4A',
+        accentColor: '#C4953A',
+        heroImageUrl: 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=1400&q=80',
+        tagline: 'An exceptional coffee experience.',
+        aboutTitle: 'The Art of Coffee',
+        aboutText: 'We\'ve spent years refining every detail — from bean selection to your final sip. Prestige is not just coffee; it\'s an experience.',
+        instagramUrl: '', facebookUrl: '',
+      },
+    },
+  ];
+  const [showTemplates, setShowTemplates] = useState(false);
+
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Live preview link */}
@@ -774,8 +885,49 @@ function WebsiteTab({ venue }: { venue: any }) {
           <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.875rem', color: '#181818', textDecoration: 'underline' }}>{publicUrl}</a>
         </div>
         <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', textDecoration: 'none' }}>
-          <Globe size={13} /> Preview
+          <Link2 size={13} /> Open Preview
         </a>
+      </div>
+
+      {/* Templates */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#fff' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', margin: 0 }}>Quick Templates</h2>
+            <p style={{ fontSize: '0.8rem', color: '#5E5E5E', margin: '4px 0 0' }}>Start from a design template — you can customise everything after applying.</p>
+          </div>
+          <button onClick={() => setShowTemplates(v => !v)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase', color: '#181818' }}>
+            {showTemplates ? 'Hide' : 'Browse Templates'}
+          </button>
+        </div>
+        {showTemplates && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+            {TEMPLATES.map(t => (
+              <div key={t.id} style={{ border: '2px solid rgba(24,24,24,0.1)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#181818')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(24,24,24,0.1)')}
+              >
+                <div style={{ height: 72, background: t.preview, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 32, height: 4, background: 'rgba(255,255,255,0.6)', borderRadius: 2, marginBottom: 4 }} />
+                </div>
+                <div style={{ padding: '10px 12px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: '#181818' }}>{t.name}</div>
+                  <div style={{ fontSize: 11, color: '#5E5E5E', marginBottom: 8 }}>{t.desc}</div>
+                  <button
+                    onClick={() => {
+                      setForm(f => ({ ...f, heroImageUrl: t.data.heroImageUrl, tagline: t.data.tagline, aboutTitle: t.data.aboutTitle, aboutText: t.data.aboutText, instagramUrl: t.data.instagramUrl, facebookUrl: t.data.facebookUrl }));
+                      setShowTemplates(false);
+                      setSaveMsg('Template applied — click Save Website to publish.');
+                    }}
+                    style={{ width: '100%', padding: '6px 0', background: '#181818', color: '#fff', border: 'none', fontSize: 11, fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Hero */}
