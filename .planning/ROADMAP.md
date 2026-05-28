@@ -175,16 +175,60 @@ Plans:
 
 **Plans**: TBD
 
+---
+
+## v2.0 Dual Identity UI/UX Overhaul
+
+**Milestone Goal:** Full visual and UX redesign using a "Dual Identity" approach — operator tools get a professional SaaS shell (dark sidebar nav, dense data tables, analytics), while customer-facing pages stay warm but get a proper component refresh (better cards, mobile-first ordering, smoother flows). New features woven in where they add the most value.
+
+### Phase 7: Dual Identity UI Refresh
+
+**Goal**: Redesign all pages into two distinct design languages — operator SaaS shell and refreshed customer experience — plus add analytics, activity feed, and mobile ordering improvements.
+**Depends on**: Phases 1–6 (all complete)
+**Design Direction**: Dual Identity
+- **Operator side** (OwnerDashboard, StaffDashboard, StaffLogin, KitchenDisplay, TabletPos, SuperAdmin): collapsible sidebar nav, white/slate content area, card-based analytics with charts, dark mode toggle, dense data tables
+- **Customer side** (VenuePublic, VenueApp, OrderStatus, Review, GiftCardLanding, BookingPage, GroupOrder, CustomerPortal): warm aesthetic preserved, sharper type hierarchy, sticky cart UX, mobile-first layout
+- **Marketing/auth** (Landing, Login, Onboarding): modern SaaS landing hero, trust-building sections, clean auth forms
+
+**Design Tokens:**
+- Operator: bg `#FAFAFA` / `#111111` (dark), sidebar `#18181B`, accent teal `#5E8B8B`, text `#09090B`
+- Customer: bg `#F3F2EE`, cards `#FFFFFF`, accent from venue `accentColor`, warm neutrals
+- Shared: Geist Sans headings, Geist Mono labels/stats, 4px base radius → 12px cards → 16px modals
+
+**New Features (woven in):**
+- Analytics tab in OwnerDashboard: revenue chart (7d/30d), top items by orders, hourly heatmap
+- Activity feed: recent orders, new reviews, low-stock alerts in sidebar
+- Sticky floating cart on VenuePublic mobile
+- Order progress animation on OrderStatus page
+- Empty-state illustrations throughout
+
+**Success Criteria** (what must be TRUE):
+1. OwnerDashboard has a persistent left sidebar with icon + label nav (Menu, Orders, Analytics, Staff, Bookings, Settings) that collapses to icon-only on narrow screens
+2. OwnerDashboard Analytics tab shows a revenue line chart for 7d/30d and a top-5 items table
+3. All operator-side pages (Staff, Kitchen, Tablet) use the same sidebar/shell component
+4. VenuePublic ordering flow works smoothly on 375px mobile — cart is accessible without scrolling
+5. OrderStatus shows animated step progress (Pending → Confirmed → Ready → Picked Up)
+6. Landing page has a hero, feature grid, and social proof section that reads as a proper SaaS product page
+7. Dark mode toggle in OwnerDashboard persists to localStorage and applies across operator pages
+
+**Plans:**
+- [ ] 07-01-PLAN.md — Design system + operator shell (sidebar nav component, design tokens, dark mode context, shared layout wrapper)
+- [ ] 07-02-PLAN.md — Re-shell OwnerDashboard with AppShell (collapsible sidebar + dark mode), add getActivityFeed + activity feed, 7d/30d analytics with top-5 table
+- [ ] 07-03-PLAN.md — Customer-facing refresh: VenuePublic mobile-first + sticky cart, VenueApp cards, OrderStatus animation, Review page polish
+- [ ] 07-04-PLAN.md — Marketing + auth refresh: Landing hero + feature grid, Login/Onboarding clean forms, StaffLogin, SuperAdmin table layout
+
+---
+
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6
-Phase 4 and Phase 5 both depend on Phase 2 and Phase 1 respectively and can be planned in parallel after Phase 2 completes. Phase 6 should follow Phase 3.
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 1. Owner Access & Menu Management | 3/3 | Complete   | 2026-05-23 | - |
-| 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete    | 2026-05-24 |
-| 3. Customer Engagement | v1.1 | 3/3 | Complete    | 2026-05-25 |
-| 4. Monetisation | v1.1 | 3/3 | Complete    | 2026-05-25 |
-| 5. Venue Expansion | v1.1 | 3/3 | Complete    | 2026-05-25 |
-| 6. Marketing & Notifications | v1.1 | 3/3 | Complete    | 2026-05-25 |
+| Phase | Milestone | Plans | Status | Completed |
+|-------|-----------|-------|--------|-----------|
+| 1. Owner Access & Menu Management | v1.1 | 3/3 | Complete | 2026-05-23 |
+| 2. Order Tracking & Staff Dashboard | v1.1 | 3/3 | Complete | 2026-05-24 |
+| 3. Customer Engagement | v1.1 | 3/3 | Complete | 2026-05-25 |
+| 4. Monetisation | v1.1 | 3/3 | Complete | 2026-05-25 |
+| 5. Venue Expansion | v1.1 | 3/3 | Complete | 2026-05-25 |
+| 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
+| 7. Dual Identity UI Refresh | v2.0 | 0/4 | Planned | — |
