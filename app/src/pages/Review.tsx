@@ -106,19 +106,20 @@ export default function Review() {
   }
 
   return (
-    <div style={{ background: '#F3F2EE', minHeight: '100dvh', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', padding: '32px 16px' }}>
-      <div style={{ maxWidth: 600, margin: '0 auto' }}>
+    <div style={{ background: '#F3F2EE', minHeight: '100dvh', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', padding: '40px 16px' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, color: '#5E5E5E', textTransform: 'uppercase', letterSpacing: 0.5 }}>Order Review</div>
-          <h1 style={{ fontSize: 28, fontWeight: 600, color: '#181818', margin: '4px 0 0' }}>Leave a Review</h1>
+        <div style={{ marginBottom: 20, textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: '#5E5E5E', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Order Review</div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: '#1A1A1A', margin: 0 }}>Leave a Review</h1>
         </div>
 
         {/* Review form card */}
         <div style={{
           background: '#fff',
           borderRadius: 12,
-          padding: 28,
+          padding: '28px 24px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
           border: '1px solid rgba(24,24,24,0.06)',
         }}>
           <h2 style={{ fontSize: 16, fontWeight: 600, color: '#181818', marginBottom: 8 }}>
@@ -129,7 +130,7 @@ export default function Review() {
           </p>
 
           {/* Star picker row */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 24 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 24, justifyContent: 'center' }}>
             {[1, 2, 3, 4, 5].map((i) => (
               <button
                 key={i}

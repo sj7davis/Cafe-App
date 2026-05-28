@@ -113,7 +113,7 @@ export default function BookingPage() {
   }
 
   return (
-    <div style={{ maxWidth: 512, margin: '0 auto', padding: 24, minHeight: '100vh', background: '#fff', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+    <div style={{ maxWidth: 512, margin: '0 auto', padding: '32px 20px', minHeight: '100dvh', background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
       {/* Header */}
       <div style={{ marginBottom: 28, textAlign: 'center' }}>
         {venue?.name && (
@@ -126,7 +126,7 @@ export default function BookingPage() {
 
       {confirmed ? (
         /* ── Confirmation Card ── */
-        <div style={{ textAlign: 'center', padding: '32px 16px', background: 'rgba(94,139,139,0.08)', borderRadius: 12, border: `1px solid ${TEAL}30` }}>
+        <div style={{ textAlign: 'center', padding: '32px 16px', background: '#fff', borderRadius: 12, border: `1px solid ${TEAL}30`, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: '#181818', marginBottom: 8 }}>Reservation Confirmed!</h2>
           <p style={{ fontSize: 14, color: '#5E5E5E', marginBottom: 4 }}>
@@ -142,7 +142,7 @@ export default function BookingPage() {
           </button>
         </div>
       ) : (
-        <>
+        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)', border: '1px solid rgba(24,24,24,0.06)' }}>
           {/* ── Date picker ── */}
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#181818', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -260,7 +260,7 @@ export default function BookingPage() {
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* ── Embed code (hidden inside iframe) ── */}

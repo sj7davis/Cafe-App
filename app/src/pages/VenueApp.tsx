@@ -159,9 +159,9 @@ export default function VenueApp() {
 
   if (!venue) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-center p-8">
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F3F2EE', textAlign: 'center', padding: 32 }}>
         <div>
-          <Coffee size={40} style={{ color: TEAL }} className="mx-auto mb-4" />
+          <Coffee size={40} style={{ color: TEAL, margin: '0 auto 16px', display: 'block' }} />
           <h1 style={{ fontSize: 18, fontWeight: 700, color: '#181818' }}>Cafe Not Found</h1>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function VenueApp() {
   const primaryColor = (venue as { primaryColor?: string }).primaryColor || TEAL
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
       {/* Offline indicator */}
       {!isOnline && (
         <div style={{
@@ -369,8 +369,8 @@ function OrderTab({
       {categories.map(cat => (
         <div key={cat} style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>{cat}</span>
-            <div style={{ flex: 1, height: 1, background: `${accentColor}25` }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: accentColor, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>{cat}</span>
+            <div style={{ flex: 1, height: 1, background: `${accentColor}30` }} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {menuItems.filter(i => i.category === cat).map(item => {
@@ -378,7 +378,7 @@ function OrderTab({
               const isAvailable = invAvailMap[item.id] !== undefined ? invAvailMap[item.id] : true
               const soldOut = !isAvailable
               return (
-                <div key={item.id} style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', position: 'relative', opacity: soldOut ? 0.75 : 1, display: 'flex', flexDirection: 'column' }}>
+                <div key={item.id} style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)', position: 'relative', opacity: soldOut ? 0.75 : 1, display: 'flex', flexDirection: 'column' }}>
                   {soldOut && (
                     <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>
                       Sold Out

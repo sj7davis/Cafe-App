@@ -37,7 +37,7 @@ export default function CustomerPortal() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F3F2EE' }}>
         <Loader2 size={28} className="animate-spin" style={{ color: TEAL }} />
       </div>
     )
@@ -46,7 +46,7 @@ export default function CustomerPortal() {
   if (!customer) return null
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+    <div style={{ minHeight: '100dvh', background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
       {/* Header */}
       <header style={{ background: TEAL, color: '#fff', padding: '16px 20px' }}>
         <div className="max-w-lg mx-auto flex items-center justify-between">
@@ -209,7 +209,7 @@ function OrdersTab({ venueId, phone, venue }: { venueId: number; phone: string; 
         return (
           <div
             key={order.id}
-            style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}
+            style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)', overflow: 'hidden', border: '1px solid rgba(24,24,24,0.06)' }}
           >
             {/* Header row — click to expand */}
             <div
@@ -309,7 +309,7 @@ function LoyaltyTab({ venueId, phone }: { venueId: number; phone: string }) {
 
       {/* Stamp card */}
       {cheapestReward && (
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 12 }}>
             Progress to next reward ({stampsFilled}/{stampsTotal})
           </div>
@@ -336,7 +336,7 @@ function LoyaltyTab({ venueId, phone }: { venueId: number; phone: string }) {
 
       {/* Available rewards */}
       {rewards && rewards.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 10 }}>Available Rewards</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(rewards as { id: number; name: string; description?: string; pointsCost: number }[]).map(r => (
@@ -366,7 +366,7 @@ function LoyaltyTab({ venueId, phone }: { venueId: number; phone: string }) {
 
       {/* Recent transactions */}
       {txns && (txns as unknown[]).length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 10 }}>Recent Transactions</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {(txns as { id: number; points: number; description?: string; createdAt: string }[]).slice(0, 10).map(t => (
@@ -407,7 +407,7 @@ function FavouritesTab({ venueId, phone, venue }: { venueId: number; phone: stri
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {(favs as { id: number; label: string; totalAmount: string | number; itemsJson: string }[]).map(fav => (
-        <div key={fav.id} style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div key={fav.id} style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fav.label}</div>
             <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>${Number(fav.totalAmount).toFixed(2)}</div>
@@ -458,7 +458,7 @@ function ProfileTab({ customer }: { customer: Record<string, unknown> }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 14 }}>Profile Details</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
@@ -491,7 +491,7 @@ function ProfileTab({ customer }: { customer: Record<string, unknown> }) {
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 14 }}>Change Password</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input type="password" placeholder="Current password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} style={inputStyle} />
@@ -506,7 +506,7 @@ function ProfileTab({ customer }: { customer: Record<string, unknown> }) {
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444', marginBottom: 8 }}>Delete Account</div>
         <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>To request account deletion, please contact support.</p>
         <a href="mailto:support@b1platform.com" style={{ fontSize: 13, color: TEAL, fontWeight: 600 }}>support@b1platform.com</a>
