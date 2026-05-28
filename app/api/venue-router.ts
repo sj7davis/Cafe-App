@@ -2650,4 +2650,33 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
       .orderBy(desc(orders.createdAt))
       .limit(input.limit);
   }),
+
+  // ─── Activity Feed (owner dashboard sidebar widget) ───────────────────────
+  getActivityFeed: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+
+    // 5 most recent orders for this venue
+    const recentOrders = await db.select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      createdAt: orders.createdAt,
+    }).from(orders)
+      .where(eq(orders.venueId, venueId))
+      .orderBy(desc(orders.createdAt))
+      .limit(5);
+
+    // "unread" = reviews created in the last 7 days (reviews table has no read/seen boolean column)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [unreadResult] = await db.select({ total: count() }).from(reviews)
+      .where(and(eq(reviews.venueId, venueId), gte(reviews.createdAt, sevenDaysAgo)));
+    const unreadReviews = Number(unreadResult?.total ?? 0);
+
+    return { recentOrders, unreadReviews };
+  }),
 });

@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical, Bell } from 'lucide-react';
+import { AppShell } from '@/components/layout/AppShell';
+import { ThemeProvider } from '@/components/layout/ThemeContext';
+import type { SidebarNavGroup } from '@/components/layout/SidebarNav';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -28,6 +31,54 @@ export default function OwnerDashboard() {
     },
   });
 
+  // ── Activity feed ──────────────────────────────────────────────────────────
+  const [activityOpen, setActivityOpen] = useState(false);
+  const { data: activityFeed } = trpc.venue.getActivityFeed.useQuery(
+    { token },
+    { enabled: !!token, refetchInterval: 30000 }
+  );
+
+  // ── Sidebar nav groups ─────────────────────────────────────────────────────
+  const NAV_GROUPS: SidebarNavGroup[] = [
+    { group: 'Overview', items: [
+      { id: 'overview', label: 'Dashboard', icon: BarChart3 },
+      { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+      { id: 'pl', label: 'P&L Report', icon: DollarSign },
+    ]},
+    { group: 'Venue', items: [
+      { id: 'menu', label: 'Menu', icon: Coffee },
+      { id: 'locations', label: 'Locations', icon: MapPin },
+      { id: 'bundles', label: 'Bundles', icon: Gift },
+      { id: 'catering', label: 'Catering', icon: Briefcase },
+      { id: 'delivery', label: 'Delivery', icon: Globe },
+    ]},
+    { group: 'Customers', items: [
+      { id: 'loyalty', label: 'Loyalty Program', icon: Star },
+      { id: 'reviews', label: 'Reviews', icon: Star },
+      { id: 'giftcards', label: 'Gift Cards', icon: Gift },
+      { id: 'passes', label: 'Passes', icon: Ticket },
+    ]},
+    { group: 'Marketing', items: [
+      { id: 'campaigns', label: 'Campaigns', icon: Send },
+      { id: 'smsmarketing', label: 'SMS Marketing', icon: MessageSquare },
+      { id: 'promo', label: 'Promotions', icon: Tag },
+    ]},
+    { group: 'Operations', items: [
+      { id: 'audit', label: 'Audit Log', icon: Shield },
+      { id: 'allvenues', label: 'All Venues', icon: Building2 },
+      { id: 'franchisee', label: 'Franchisee', icon: Percent },
+    ]},
+    { group: 'Finance', items: [
+      { id: 'billing', label: 'Billing & Plans', icon: CreditCard },
+    ]},
+    { group: 'Settings', items: [
+      { id: 'website', label: 'Website Builder', icon: Globe },
+      { id: 'settings', label: 'Venue Settings', icon: Settings },
+      { id: 'integrations', label: 'Integrations', icon: Link2 },
+      { id: 'qrcodes', label: 'QR Codes', icon: QrCode },
+    ]},
+  ];
+
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#F3F2EE' }}>
@@ -50,171 +101,129 @@ export default function OwnerDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif', background: '#F7F8FA' }}>
-
-      {/* Top Header Bar */}
-      <header style={{ height: 56, background: '#fff', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', paddingInline: 20, gap: 16, flexShrink: 0, zIndex: 40, position: 'sticky', top: 0 }}>
-        {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 220, flexShrink: 0 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Coffee size={15} color="#fff" />
-          </div>
-          <span style={{ fontWeight: 700, fontSize: 14, color: '#111827', letterSpacing: '-0.02em' }}>B1 Platform</span>
-        </div>
-
-        {/* Venue name + switcher */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 1, height: 20, background: '#E5E7EB' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
-            <span style={{ fontWeight: 600, fontSize: 13, color: '#111827' }}>{venue.name}</span>
-          </div>
-          {myVenues && myVenues.length > 1 && (
-            <select
-              defaultValue={venue.id}
-              onChange={(e) => {
-                const selectedId = e.target.value;
-                if (selectedId && Number(selectedId) !== venue.id) switchVenue.mutate({ token, venueId: Number(selectedId) });
-              }}
-              style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}
+    <ThemeProvider>
+      <AppShell
+        groups={NAV_GROUPS}
+        activeId={activeTab}
+        onSelect={(id) => setActiveTab(id as typeof activeTab)}
+        topBarLeft={
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--op-sidebar,#18181B)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Coffee size={15} color="#fff" />
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--op-text,#09090B)', letterSpacing: '-0.02em' }}>B1 Platform</span>
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--op-card-border,#E4E4E7)', margin: '0 4px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
+              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--op-text,#09090B)' }}>{venue.name}</span>
+            </div>
+            {myVenues && myVenues.length > 1 && (
+              <select
+                defaultValue={venue.id}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  if (selectedId && Number(selectedId) !== venue.id) switchVenue.mutate({ token, venueId: Number(selectedId) });
+                }}
+                style={{ background: 'var(--op-bg,#FAFAFA)', color: 'var(--op-text,#09090B)', border: '1px solid var(--op-card-border,#E4E4E7)', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}
+              >
+                {myVenues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+            )}
+            <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: venue.subscriptionStatus === 'trial' ? '#FEF3C7' : '#D1FAE5', color: venue.subscriptionStatus === 'trial' ? '#92400E' : '#065F46' }}>
+              {venue.subscriptionStatus === 'trial' ? 'Trial' : (venue.subscriptionTier || 'Active')}
+            </span>
+          </>
+        }
+        topBarRight={
+          <>
+            {/* Activity bell with unread-reviews badge */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setActivityOpen(o => !o)}
+                title="Recent activity"
+                style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid var(--op-card-border,#E4E4E7)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--op-text-secondary,#71717A)', position: 'relative' }}
+              >
+                <Bell size={15} />
+                {activityFeed && activityFeed.unreadReviews > 0 && (
+                  <span style={{ position: 'absolute', top: -3, right: -3, width: 16, height: 16, borderRadius: '50%', background: '#5E8B8B', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: '1' }}>
+                    {activityFeed.unreadReviews}
+                  </span>
+                )}
+              </button>
+              {activityOpen && (
+                <div style={{ position: 'absolute', top: 42, right: 0, width: 300, background: 'var(--op-card-bg,#FFFFFF)', border: '1px solid var(--op-card-border,#E4E4E7)', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, padding: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--op-text,#09090B)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Recent Activity
+                    {activityFeed && activityFeed.unreadReviews > 0 && (
+                      <span style={{ padding: '2px 8px', borderRadius: 99, background: '#5E8B8B', color: '#fff', fontSize: 10 }}>
+                        {activityFeed.unreadReviews} new {activityFeed.unreadReviews === 1 ? 'review' : 'reviews'}
+                      </span>
+                    )}
+                  </div>
+                  {activityFeed && activityFeed.recentOrders.length > 0 ? activityFeed.recentOrders.map((order) => (
+                    <div key={order.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--op-card-border,#E4E4E7)' }}>
+                      <div>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--op-text,#09090B)' }}>#{order.orderNumber}</span>
+                        <span style={{ fontSize: 11, color: 'var(--op-text-secondary,#71717A)', marginLeft: 8 }}>{order.status}</span>
+                      </div>
+                      <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--op-text,#09090B)' }}>${order.totalAmount}</span>
+                    </div>
+                  )) : (
+                    <p style={{ fontSize: 12, color: 'var(--op-text-secondary,#71717A)', textAlign: 'center', padding: '8px 0' }}>No recent orders</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--op-card-border,#E4E4E7)', background: 'transparent', fontSize: 12, fontWeight: 500, color: 'var(--op-text-secondary,#71717A)', textDecoration: 'none' }}>
+              <Globe size={13} /> View Site
+            </a>
+            <a href={`/book/${venue.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--op-card-border,#E4E4E7)', background: 'transparent', fontSize: 12, fontWeight: 500, color: 'var(--op-text-secondary,#71717A)', textDecoration: 'none' }}>
+              <MapPin size={13} /> Bookings
+            </a>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px', borderRadius: 8, border: '1px solid var(--op-card-border,#E4E4E7)', background: 'transparent', cursor: 'default' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--op-sidebar,#18181B)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{(owner.name || owner.email || 'U').charAt(0).toUpperCase()}</span>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--op-text,#09090B)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{owner.name || owner.email}</span>
+            </div>
+            <button onClick={logout} title="Sign out" style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid var(--op-card-border,#E4E4E7)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--op-text-secondary,#71717A)', transition: 'all 0.12s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.color = '#DC2626'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--op-card-border,#E4E4E7)'; e.currentTarget.style.color = 'var(--op-text-secondary,#71717A)'; }}
             >
-              {myVenues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
-          )}
-          <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: venue.subscriptionStatus === 'trial' ? '#FEF3C7' : '#D1FAE5', color: venue.subscriptionStatus === 'trial' ? '#92400E' : '#065F46' }}>
-            {venue.subscriptionStatus === 'trial' ? 'Trial' : (venue.subscriptionTier || 'Active')}
-          </span>
+              <LogOut size={15} />
+            </button>
+          </>
+        }
+      >
+        <div style={{ padding: '28px 32px', maxWidth: 1280, margin: '0 auto' }}>
+          {activeTab === 'overview' && <OverviewTab venue={venue} owner={owner} setActiveTab={setActiveTab} />}
+          {activeTab === 'analytics' && <AnalyticsTab />}
+          {activeTab === 'pl' && venue && <PLTab venue={venue} />}
+          {activeTab === 'menu' && <MenuTab venue={venue} />}
+          {activeTab === 'settings' && <SettingsTab venue={venue} />}
+          {activeTab === 'billing' && <BillingTab />}
+          {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
+          {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
+          {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
+          {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
+          {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
+          {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
+          {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
+          {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
+          {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
+          {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
+          {activeTab === 'delivery' && <DeliveryTab />}
+          {activeTab === 'audit' && <AuditTab />}
+          {activeTab === 'allvenues' && <AllVenuesTab />}
+          {activeTab === 'smsmarketing' && <SmsMarketingTab />}
+          {activeTab === 'franchisee' && <FranchiseeTab />}
+          {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
+          {activeTab === 'website' && <WebsiteTab venue={venue} />}
         </div>
-
-        {/* Right actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, fontWeight: 500, color: '#374151', textDecoration: 'none', transition: 'all 0.12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.borderColor = '#D1D5DB'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; }}
-          >
-            <Globe size={13} /> View Site
-          </a>
-          <a href={`/book/${venue.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, fontWeight: 500, color: '#374151', textDecoration: 'none', transition: 'all 0.12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.borderColor = '#D1D5DB'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; }}
-          >
-            <MapPin size={13} /> Bookings
-          </a>
-          {/* User avatar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', cursor: 'default' }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{(owner.name || owner.email || 'U').charAt(0).toUpperCase()}</span>
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 500, color: '#374151', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{owner.name || owner.email}</span>
-          </div>
-          <button onClick={logout} title="Sign out" style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', transition: 'all 0.12s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.color = '#DC2626'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#9CA3AF'; }}
-          >
-            <LogOut size={15} />
-          </button>
-        </div>
-      </header>
-
-      {/* Body: Sidebar + Content */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: 'calc(100vh - 56px)' }}>
-
-        {/* Sidebar */}
-        <nav style={{ width: 240, flexShrink: 0, background: '#111827', display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingBottom: 16 }}>
-          {([
-            { group: 'Overview', items: [
-              { id: 'overview' as const, label: 'Dashboard', icon: BarChart3 },
-              { id: 'analytics' as const, label: 'Analytics', icon: TrendingUp },
-              { id: 'pl' as const, label: 'P&L Report', icon: DollarSign },
-            ]},
-            { group: 'Venue', items: [
-              { id: 'menu' as const, label: 'Menu', icon: Coffee },
-              { id: 'locations' as const, label: 'Locations', icon: MapPin },
-              { id: 'bundles' as const, label: 'Bundles', icon: Gift },
-              { id: 'catering' as const, label: 'Catering', icon: Briefcase },
-              { id: 'delivery' as const, label: 'Delivery', icon: Globe },
-            ]},
-            { group: 'Customers', items: [
-              { id: 'loyalty' as const, label: 'Loyalty Program', icon: Star },
-              { id: 'reviews' as const, label: 'Reviews', icon: Star },
-              { id: 'giftcards' as const, label: 'Gift Cards', icon: Gift },
-              { id: 'passes' as const, label: 'Passes', icon: Ticket },
-            ]},
-            { group: 'Marketing', items: [
-              { id: 'campaigns' as const, label: 'Campaigns', icon: Send },
-              { id: 'smsmarketing' as const, label: 'SMS Marketing', icon: MessageSquare },
-              { id: 'promo' as const, label: 'Promotions', icon: Tag },
-            ]},
-            { group: 'Operations', items: [
-              { id: 'audit' as const, label: 'Audit Log', icon: Shield },
-              { id: 'allvenues' as const, label: 'All Venues', icon: Building2 },
-              { id: 'franchisee' as const, label: 'Franchisee', icon: Percent },
-            ]},
-            { group: 'Finance', items: [
-              { id: 'billing' as const, label: 'Billing & Plans', icon: CreditCard },
-            ]},
-            { group: 'Settings', items: [
-              { id: 'website' as const, label: 'Website Builder', icon: Globe },
-              { id: 'settings' as const, label: 'Venue Settings', icon: Settings },
-              { id: 'integrations' as const, label: 'Integrations', icon: Link2 },
-              { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
-            ]},
-          ] as const).map(({ group, items }) => (
-            <div key={group} style={{ marginTop: 8 }}>
-              <div style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{group}</div>
-              {items.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 16px', background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent', border: 'none', borderLeft: `3px solid ${isActive ? '#5E8B8B' : 'transparent'}`, cursor: 'pointer', fontSize: 13, color: isActive ? '#fff' : 'rgba(255,255,255,0.55)', fontWeight: isActive ? 600 : 400, textAlign: 'left', transition: 'all 0.1s' }}
-                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; } }}
-                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; } }}
-                  >
-                    <Icon size={14} />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-
-          {/* Sidebar footer */}
-          <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>B1 Platform</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>cafe-app-production</div>
-          </div>
-        </nav>
-
-        {/* Main Content */}
-        <main style={{ flex: 1, overflowY: 'auto', background: '#F7F8FA', minWidth: 0 }}>
-          <div style={{ padding: '28px 32px', maxWidth: 1280, margin: '0 auto' }}>
-            {activeTab === 'overview' && <OverviewTab venue={venue} owner={owner} setActiveTab={setActiveTab} />}
-            {activeTab === 'analytics' && <AnalyticsTab />}
-            {activeTab === 'pl' && venue && <PLTab venue={venue} />}
-            {activeTab === 'menu' && <MenuTab venue={venue} />}
-            {activeTab === 'settings' && <SettingsTab venue={venue} />}
-            {activeTab === 'billing' && <BillingTab />}
-            {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
-            {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
-            {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
-            {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
-            {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
-            {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
-            {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
-            {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
-            {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
-            {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
-            {activeTab === 'delivery' && <DeliveryTab />}
-            {activeTab === 'audit' && <AuditTab />}
-            {activeTab === 'allvenues' && <AllVenuesTab />}
-            {activeTab === 'smsmarketing' && <SmsMarketingTab />}
-            {activeTab === 'franchisee' && <FranchiseeTab />}
-            {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
-            {activeTab === 'website' && <WebsiteTab venue={venue} />}
-          </div>
-        </main>
-      </div>
-    </div>
+      </AppShell>
+    </ThemeProvider>
   );
 }
 
@@ -380,7 +389,7 @@ function AnalyticsTab() {
     { token, days: selectedDays as 7 | 30 | 90 }, { enabled: !!token }
   );
   const { data: topItems } = trpc.analytics.getTopItems.useQuery(
-    { token, days: selectedDays, limit: 10 }, { enabled: !!token }
+    { token, days: selectedDays, limit: 5 }, { enabled: !!token }
   );
   const { data: hourlyDist } = trpc.analytics.getHourlyDistribution.useQuery(
     { token, days: selectedDays as 7 | 30 | 90 }, { enabled: !!token }
