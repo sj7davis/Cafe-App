@@ -42,105 +42,126 @@ export default function OwnerDashboard() {
   }
 
   return (
-    <div className="min-h-[100dvh]" style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
-      {/* Header */}
-      <header className="border-b" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#F3F2EE' }}>
-        <div className="content-container py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/')} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818' }}>
-              <ArrowLeft size={16} />
-            </button>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 style={{ fontWeight: 400, fontSize: '1.25rem', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#181818' }}>{venue.name}</h1>
-                {myVenues && myVenues.length > 1 && (
-                  <select
-                    defaultValue={venue.id}
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      if (selectedId && Number(selectedId) !== venue.id) {
-                        switchVenue.mutate({ token, venueId: Number(selectedId) });
-                      }
-                    }}
-                    style={{ background: '#292524', color: '#fafaf9', border: '1px solid #44403c', borderRadius: '6px', padding: '4px 8px', fontSize: '13px' }}
-                  >
-                    {myVenues.map((v) => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <span className="font-data" style={{ color: '#5E5E5E' }}>OWNER DASHBOARD</span>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif', background: '#F7F8FA' }}>
+
+      {/* Top Header Bar */}
+      <header style={{ height: 56, background: '#fff', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', paddingInline: 20, gap: 16, flexShrink: 0, zIndex: 40, position: 'sticky', top: 0 }}>
+        {/* Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 220, flexShrink: 0 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Coffee size={15} color="#fff" />
+          </div>
+          <span style={{ fontWeight: 700, fontSize: 14, color: '#111827', letterSpacing: '-0.02em' }}>B1 Platform</span>
+        </div>
+
+        {/* Venue name + switcher */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 1, height: 20, background: '#E5E7EB' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
+            <span style={{ fontWeight: 600, fontSize: 13, color: '#111827' }}>{venue.name}</span>
+          </div>
+          {myVenues && myVenues.length > 1 && (
+            <select
+              defaultValue={venue.id}
+              onChange={(e) => {
+                const selectedId = e.target.value;
+                if (selectedId && Number(selectedId) !== venue.id) switchVenue.mutate({ token, venueId: Number(selectedId) });
+              }}
+              style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}
+            >
+              {myVenues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          )}
+          <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: venue.subscriptionStatus === 'trial' ? '#FEF3C7' : '#D1FAE5', color: venue.subscriptionStatus === 'trial' ? '#92400E' : '#065F46' }}>
+            {venue.subscriptionStatus === 'trial' ? 'Trial' : (venue.subscriptionTier || 'Active')}
+          </span>
+        </div>
+
+        {/* Right actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, fontWeight: 500, color: '#374151', textDecoration: 'none', transition: 'all 0.12s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.borderColor = '#D1D5DB'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; }}
+          >
+            <Globe size={13} /> View Site
+          </a>
+          <a href={`/book/${venue.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, fontWeight: 500, color: '#374151', textDecoration: 'none', transition: 'all 0.12s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.borderColor = '#D1D5DB'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; }}
+          >
+            <MapPin size={13} /> Bookings
+          </a>
+          {/* User avatar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px 4px 4px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', cursor: 'default' }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{(owner.name || owner.email || 'U').charAt(0).toUpperCase()}</span>
             </div>
+            <span style={{ fontSize: 12, fontWeight: 500, color: '#374151', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{owner.name || owner.email}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 8px', background: venue.subscriptionStatus === 'trial' ? 'rgba(196,149,58,0.12)' : 'rgba(94,139,94,0.12)', color: venue.subscriptionStatus === 'trial' ? '#C4953A' : '#5E8B5E' }}>
-              {venue.subscriptionStatus === 'trial' ? 'TRIAL' : (venue.subscriptionTier || '').toUpperCase()}
-            </span>
-            <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" title="View Public Website" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all flex items-center gap-1.5" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', textDecoration: 'none', fontSize: '0.625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              <Globe size={13} /> Site
-            </a>
-            <a href={`/book/${venue.slug}`} target="_blank" rel="noopener noreferrer" title="Booking Page" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all flex items-center gap-1.5" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', textDecoration: 'none', fontSize: '0.625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              <MapPin size={13} /> Book
-            </a>
-            <button onClick={logout} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818' }} title="Log Out">
-              <LogOut size={16} />
-            </button>
-          </div>
+          <button onClick={logout} title="Sign out" style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', transition: 'all 0.12s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.color = '#DC2626'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#9CA3AF'; }}
+          >
+            <LogOut size={15} />
+          </button>
         </div>
       </header>
 
-      {/* Sidebar + Content */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 'calc(100vh - 72px)' }}>
+      {/* Body: Sidebar + Content */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', height: 'calc(100vh - 56px)' }}>
 
         {/* Sidebar */}
-        <nav style={{ width: 220, flexShrink: 0, background: '#fff', borderRight: '1px solid rgba(24,24,24,0.08)', overflowY: 'auto' }}>
+        <nav style={{ width: 240, flexShrink: 0, background: '#111827', display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingBottom: 16 }}>
           {([
-            { group: 'OVERVIEW', items: [
-              { id: 'overview' as const, label: 'Overview', icon: BarChart3 },
+            { group: 'Overview', items: [
+              { id: 'overview' as const, label: 'Dashboard', icon: BarChart3 },
               { id: 'analytics' as const, label: 'Analytics', icon: TrendingUp },
-              { id: 'pl' as const, label: 'P&L', icon: DollarSign },
+              { id: 'pl' as const, label: 'P&L Report', icon: DollarSign },
             ]},
-            { group: 'VENUE', items: [
+            { group: 'Venue', items: [
               { id: 'menu' as const, label: 'Menu', icon: Coffee },
               { id: 'locations' as const, label: 'Locations', icon: MapPin },
               { id: 'bundles' as const, label: 'Bundles', icon: Gift },
               { id: 'catering' as const, label: 'Catering', icon: Briefcase },
               { id: 'delivery' as const, label: 'Delivery', icon: Globe },
             ]},
-            { group: 'CUSTOMERS', items: [
-              { id: 'loyalty' as const, label: 'Loyalty', icon: Star },
+            { group: 'Customers', items: [
+              { id: 'loyalty' as const, label: 'Loyalty Program', icon: Star },
               { id: 'reviews' as const, label: 'Reviews', icon: Star },
               { id: 'giftcards' as const, label: 'Gift Cards', icon: Gift },
               { id: 'passes' as const, label: 'Passes', icon: Ticket },
             ]},
-            { group: 'MARKETING', items: [
+            { group: 'Marketing', items: [
               { id: 'campaigns' as const, label: 'Campaigns', icon: Send },
               { id: 'smsmarketing' as const, label: 'SMS Marketing', icon: MessageSquare },
-              { id: 'promo' as const, label: 'Promos', icon: Tag },
+              { id: 'promo' as const, label: 'Promotions', icon: Tag },
             ]},
-            { group: 'OPERATIONS', items: [
+            { group: 'Operations', items: [
               { id: 'audit' as const, label: 'Audit Log', icon: Shield },
               { id: 'allvenues' as const, label: 'All Venues', icon: Building2 },
               { id: 'franchisee' as const, label: 'Franchisee', icon: Percent },
             ]},
-            { group: 'FINANCE', items: [
-              { id: 'billing' as const, label: 'Billing', icon: CreditCard },
+            { group: 'Finance', items: [
+              { id: 'billing' as const, label: 'Billing & Plans', icon: CreditCard },
             ]},
-            { group: 'SETTINGS', items: [
-              { id: 'website' as const, label: 'Website', icon: Globe },
-              { id: 'settings' as const, label: 'Settings', icon: Settings },
+            { group: 'Settings', items: [
+              { id: 'website' as const, label: 'Website Builder', icon: Globe },
+              { id: 'settings' as const, label: 'Venue Settings', icon: Settings },
               { id: 'integrations' as const, label: 'Integrations', icon: Link2 },
               { id: 'qrcodes' as const, label: 'QR Codes', icon: QrCode },
             ]},
           ] as const).map(({ group, items }) => (
-            <div key={group}>
-              <div style={{ padding: '16px 16px 4px', fontFamily: 'Geist Mono', fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9a9a9a' }}>{group}</div>
+            <div key={group} style={{ marginTop: 8 }}>
+              <div style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>{group}</div>
               {items.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
-                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 16px', background: isActive ? 'rgba(24,24,24,0.06)' : 'transparent', border: 'none', borderLeft: `3px solid ${isActive ? '#181818' : 'transparent'}`, cursor: 'pointer', fontSize: '0.8125rem', color: isActive ? '#181818' : '#5E5E5E', fontWeight: isActive ? 600 : 400, textAlign: 'left', transition: 'all 0.12s' }}>
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 16px', background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent', border: 'none', borderLeft: `3px solid ${isActive ? '#5E8B8B' : 'transparent'}`, cursor: 'pointer', fontSize: 13, color: isActive ? '#fff' : 'rgba(255,255,255,0.55)', fontWeight: isActive ? 600 : 400, textAlign: 'left', transition: 'all 0.1s' }}
+                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; } }}
+                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; } }}
+                  >
                     <Icon size={14} />
                     {item.label}
                   </button>
@@ -148,40 +169,48 @@ export default function OwnerDashboard() {
               })}
             </div>
           ))}
+
+          {/* Sidebar footer */}
+          <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>B1 Platform</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>cafe-app-production</div>
+          </div>
         </nav>
 
-        {/* Content */}
-        <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto', background: '#F3F2EE', minWidth: 0 }}>
-          {activeTab === 'overview' && <OverviewTab venue={venue} setActiveTab={setActiveTab} />}
-          {activeTab === 'analytics' && <AnalyticsTab />}
-          {activeTab === 'pl' && venue && <PLTab venue={venue} />}
-          {activeTab === 'menu' && <MenuTab venue={venue} />}
-          {activeTab === 'settings' && <SettingsTab venue={venue} />}
-          {activeTab === 'billing' && <BillingTab />}
-          {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
-          {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
-          {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
-          {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
-          {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
-          {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
-          {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
-          {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
-          {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
-          {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
-          {activeTab === 'delivery' && <DeliveryTab />}
-          {activeTab === 'audit' && <AuditTab />}
-          {activeTab === 'allvenues' && <AllVenuesTab />}
-          {activeTab === 'smsmarketing' && <SmsMarketingTab />}
-          {activeTab === 'franchisee' && <FranchiseeTab />}
-          {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
-          {activeTab === 'website' && <WebsiteTab venue={venue} />}
+        {/* Main Content */}
+        <main style={{ flex: 1, overflowY: 'auto', background: '#F7F8FA', minWidth: 0 }}>
+          <div style={{ padding: '28px 32px', maxWidth: 1280, margin: '0 auto' }}>
+            {activeTab === 'overview' && <OverviewTab venue={venue} owner={owner} setActiveTab={setActiveTab} />}
+            {activeTab === 'analytics' && <AnalyticsTab />}
+            {activeTab === 'pl' && venue && <PLTab venue={venue} />}
+            {activeTab === 'menu' && <MenuTab venue={venue} />}
+            {activeTab === 'settings' && <SettingsTab venue={venue} />}
+            {activeTab === 'billing' && <BillingTab />}
+            {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
+            {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
+            {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
+            {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
+            {activeTab === 'locations' && venue && <LocationsTab venue={venue} />}
+            {activeTab === 'catering' && venue && <CateringTab venueId={venue.id} />}
+            {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
+            {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
+            {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
+            {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
+            {activeTab === 'delivery' && <DeliveryTab />}
+            {activeTab === 'audit' && <AuditTab />}
+            {activeTab === 'allvenues' && <AllVenuesTab />}
+            {activeTab === 'smsmarketing' && <SmsMarketingTab />}
+            {activeTab === 'franchisee' && <FranchiseeTab />}
+            {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
+            {activeTab === 'website' && <WebsiteTab venue={venue} />}
+          </div>
         </main>
       </div>
     </div>
   );
 }
 
-function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: any) => void }) {
+function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner: any; setActiveTab: (tab: any) => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
@@ -198,108 +227,112 @@ function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 
     });
   };
 
+  const cardStyle: CSSProperties = { background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' };
+
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* Page header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.03em' }}>Dashboard</h1>
+        <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>Welcome back{owner?.name ? `, ${owner.name}` : ''}. Here's what's happening today.</p>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Your Site', value: `v/${venue.slug}`, icon: Globe },
-          { label: 'Plan', value: (venue.subscriptionTier || 'trial').toUpperCase(), icon: CreditCard },
-          { label: 'Status', value: (venue.subscriptionStatus || 'trial').toUpperCase(), icon: Shield },
-          { label: 'Square', value: venue.squareEnabled ? 'Connected' : 'Not Connected', icon: Zap },
+          { label: 'Your Site', value: `/${venue.slug}`, icon: Globe, color: '#5E8B8B', bg: '#F0F9F9' },
+          { label: 'Plan', value: (venue.subscriptionTier || 'Trial'), icon: CreditCard, color: '#7C3AED', bg: '#F5F3FF' },
+          { label: 'Status', value: (venue.subscriptionStatus || 'trial'), icon: Shield, color: '#059669', bg: '#ECFDF5' },
+          { label: 'POS', value: venue.squareEnabled ? 'Square ✓' : 'Not connected', icon: Zap, color: '#D97706', bg: '#FFFBEB' },
         ].map((s) => (
-          <div key={s.label} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
-            <s.icon size={18} style={{ color: '#5E5E5E' }} className="mb-3" />
-            <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>{s.label}</span>
-            <span style={{ fontFamily: 'Inter', fontWeight: 500, fontSize: '1rem', color: '#181818' }}>{s.value}</span>
+          <div key={s.label} style={cardStyle}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <s.icon size={16} style={{ color: s.color }} />
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>{s.value}</div>
           </div>
         ))}
       </div>
-      <div className="border p-6 mb-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <a href={`/v/${venue.slug}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', textDecoration: 'none' }}>
-            <Coffee size={16} /> View Your Live Site
-          </a>
-          <button onClick={() => setActiveTab('settings')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
-            <Users size={16} /> Manage Staff
-          </button>
-          <button onClick={() => setActiveTab('overview')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
-            <BarChart3 size={16} /> View Analytics
-          </button>
-          <button onClick={() => setActiveTab('menu')} className="flex items-center gap-3 p-3 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all text-left" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
-            <Settings size={16} /> Edit Menu
-          </button>
+
+      {/* Quick Actions */}
+      <div style={{ ...cardStyle, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: '#111827', margin: '0 0 16px' }}>Quick Actions</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+          {[
+            { label: 'View Live Site', icon: Globe, href: `/v/${venue.slug}` },
+            { label: 'Edit Menu', icon: Coffee, tab: 'menu' as const },
+            { label: 'Analytics', icon: BarChart3, tab: 'analytics' as const },
+            { label: 'Website Builder', icon: Settings, tab: 'website' as const },
+          ].map((action) => action.href ? (
+            <a key={action.label} href={action.href} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#FAFAFA', textDecoration: 'none', color: '#374151', fontSize: 13, fontWeight: 500, transition: 'all 0.12s', cursor: 'pointer' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.borderColor = '#D1D5DB'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#FAFAFA'; e.currentTarget.style.borderColor = '#E5E7EB'; }}
+            >
+              <action.icon size={14} style={{ color: '#5E8B8B' }} /> {action.label}
+            </a>
+          ) : (
+            <button key={action.label} onClick={() => setActiveTab(action.tab!)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#FAFAFA', color: '#374151', fontSize: 13, fontWeight: 500, transition: 'all 0.12s', cursor: 'pointer' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.borderColor = '#D1D5DB'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#FAFAFA'; e.currentTarget.style.borderColor = '#E5E7EB'; }}
+            >
+              <action.icon size={14} style={{ color: '#5E8B8B' }} /> {action.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Today at a Glance */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <TrendingUp size={18} style={{ color: '#5E5E5E' }} />
-            <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Today at a Glance</h2>
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: '#111827', margin: 0 }}>Today at a Glance</h2>
             {summary?.date && (
-              <span className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>
-                {new Date(summary.date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
-              </span>
+              <p style={{ fontSize: 12, color: '#9CA3AF', margin: '3px 0 0' }}>
+                {new Date(summary.date).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            {emailStatus === 'sent' && (
-              <span className="font-data flex items-center gap-1" style={{ fontSize: '0.625rem', color: '#5E8B5E', letterSpacing: '0.08em' }}>
-                <Check size={10} /> SENT
-              </span>
-            )}
-            {emailStatus === 'error' && (
-              <span className="font-data flex items-center gap-1" style={{ fontSize: '0.625rem', color: '#B85450', letterSpacing: '0.08em' }}>
-                <AlertCircle size={10} /> FAILED
-              </span>
-            )}
-            <button
-              onClick={handleSendEmail}
-              disabled={sendEmail.isPending}
-              className="flex items-center gap-2 px-4 py-2 font-button"
-              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: sendEmail.isPending ? 'not-allowed' : 'pointer', opacity: sendEmail.isPending ? 0.6 : 1 }}
-            >
-              {sendEmail.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-              Send Summary Email
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {emailStatus === 'sent' && <span style={{ fontSize: 12, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Sent</span>}
+            {emailStatus === 'error' && <span style={{ fontSize: 12, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={12} /> Failed</span>}
+            <button onClick={handleSendEmail} disabled={sendEmail.isPending} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, fontWeight: 500, color: '#374151', cursor: sendEmail.isPending ? 'not-allowed' : 'pointer', opacity: sendEmail.isPending ? 0.6 : 1 }}>
+              {sendEmail.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Email Summary
             </button>
           </div>
         </div>
 
         {summaryLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+            <Loader2 size={22} className="animate-spin" style={{ color: '#9CA3AF' }} />
           </div>
         )}
 
         {!summaryLoading && summary && (
           <div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
               {[
-                { label: 'Total Orders', value: String(summary.orderCount ?? 0) },
-                { label: 'Completed', value: String(summary.completedCount ?? 0) },
-                { label: 'Pending', value: String(summary.pendingCount ?? 0) },
-                { label: 'Revenue', value: `$${Number(summary.totalRevenue ?? 0).toFixed(2)}` },
+                { label: 'Total Orders', value: summary.orderCount ?? 0, prefix: '', color: '#5E8B8B' },
+                { label: 'Completed', value: summary.completedCount ?? 0, prefix: '', color: '#059669' },
+                { label: 'Pending', value: summary.pendingCount ?? 0, prefix: '', color: '#D97706' },
+                { label: 'Revenue', value: Number(summary.totalRevenue ?? 0).toFixed(2), prefix: '$', color: '#7C3AED' },
               ].map((stat) => (
-                <div key={stat.label} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
-                  <span className="font-data block mb-2" style={{ fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>{stat.label}</span>
-                  <span style={{ fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' }}>{stat.value}</span>
+                <div key={stat.label} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 8, background: '#F9FAFB', border: '1px solid #F3F4F6' }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: stat.color, letterSpacing: '-0.03em', lineHeight: 1 }}>{stat.prefix}{stat.value}</div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4, fontWeight: 500 }}>{stat.label}</div>
                 </div>
               ))}
             </div>
 
             {summary.topItems && summary.topItems.length > 0 && (
               <div>
-                <span className="font-data block mb-3" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Top Items Today</span>
-                <div className="space-y-2">
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Top Items Today</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {summary.topItems.slice(0, 5).map((item: { name: string; qty: number }, idx: number) => (
-                    <div key={item.name} className="flex items-center gap-3">
-                      <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', width: '1.25rem', textAlign: 'right' }}>{idx + 1}.</span>
-                      <div className="flex-1 flex items-center justify-between border-b py-1" style={{ borderColor: 'rgba(24,24,24,0.06)' }}>
-                        <span style={{ fontSize: '0.875rem', color: '#181818' }}>{item.name}</span>
-                        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>{item.qty} sold</span>
-                      </div>
+                    <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderRadius: 6, background: idx === 0 ? '#F0F9F9' : 'transparent' }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: idx === 0 ? '#5E8B8B' : '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: idx === 0 ? '#fff' : '#9CA3AF', flexShrink: 0 }}>{idx + 1}</span>
+                      <span style={{ flex: 1, fontSize: 13, color: '#374151', fontWeight: idx === 0 ? 600 : 400 }}>{item.name}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: idx === 0 ? '#5E8B8B' : '#9CA3AF' }}>{item.qty} sold</span>
                     </div>
                   ))}
                 </div>
@@ -307,13 +340,15 @@ function OverviewTab({ venue, setActiveTab }: { venue: any; setActiveTab: (tab: 
             )}
 
             {(!summary.topItems || summary.topItems.length === 0) && summary.orderCount === 0 && (
-              <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E', textAlign: 'center', padding: '1.5rem 0' }}>No orders yet today.</p>
+              <div style={{ textAlign: 'center', padding: '24px 0', color: '#9CA3AF', fontSize: 13 }}>
+                No orders yet today. Share your site link to start taking orders!
+              </div>
             )}
           </div>
         )}
 
         {!summaryLoading && !summary && (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>Could not load today's summary.</p>
+          <div style={{ textAlign: 'center', padding: '24px 0', color: '#9CA3AF', fontSize: 13 }}>Could not load today's summary.</div>
         )}
       </div>
     </div>
