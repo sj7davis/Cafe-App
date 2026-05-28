@@ -1,6 +1,6 @@
 # B1 Platform — Requirements
 
-## Milestone v1.1 Requirements
+## Milestone v1.1 Requirements (Complete)
 
 ### Auth & Owner Access
 
@@ -57,7 +57,7 @@
 - [x] **PASS-01**: Venue owner can configure a coffee pass (e.g. 10 coffees for $45)
 - [x] **PASS-02**: Customer can purchase a subscription pass by phone number
 - [x] **PASS-03**: Customer can use a credit from their pass at checkout
-- [x] **PASS-04**: Remaining credits are displayed and decremented correctly on each use
+- [x] **PASS-04**: Remaining credits are decremented correctly on each use
 
 ---
 
@@ -104,23 +104,88 @@
 
 ---
 
-## Future Requirements (v1.2+)
+---
 
-- Push notification subscriptions (web push) — schema exists
-- Corporate account billing and invoicing
-- Referral code tracking UI
-- Square POS OAuth callback UI
-- Mobile app (white-label, Enterprise tier)
-- S3/Cloudflare R2 image upload (replace URL input)
+## Milestone v2.1 Requirements — Revenue & Operations
+
+### Payments (Stripe)
+
+- [ ] **PAY-01**: Customer pays for an order online via Stripe Checkout before the order is confirmed
+- [ ] **PAY-02**: After successful Stripe payment the order is confirmed and customer receives a receipt
+- [ ] **PAY-03**: Customer can purchase a gift card via Stripe Checkout; card is created on payment success
+- [ ] **PAY-04**: Customer can purchase a subscription coffee pass via Stripe Checkout
+- [ ] **PAY-05**: Venue owner connects their Stripe account from the Integrations tab in OwnerDashboard
+- [ ] **PAY-06**: Platform charges a fee per transaction via Stripe Connect
+- [ ] **PAY-07**: Venue payouts are handled via Stripe Connect; owner can see payout status in dashboard
 
 ---
 
-## Out of Scope (v1.1)
+### Checkout Enhancements
 
-- Stripe payment processing — subscription tier changes are manual (admin panel)
-- Square POS real-time sync — OAuth scaffolding exists, full sync deferred
-- Native mobile app — web-first
-- SMS notifications — email only for v1.1
+- [ ] **CHK-01**: Customer can enter a discount code at checkout; valid codes reduce the order total
+- [ ] **CHK-02**: Customer can redeem loyalty points for a discount at checkout
+
+---
+
+### Staff Scheduling
+
+- [ ] **SCHED-01**: Venue owner can create, edit, and delete shifts for staff members
+- [ ] **SCHED-02**: Staff member can view their upcoming shifts from the staff dashboard
+- [ ] **SCHED-03**: Staff member can set their availability preferences (days/hours they can work)
+- [ ] **SCHED-04**: Staff member can submit a shift swap request targeting another staff member
+- [ ] **SCHED-05**: Venue owner can approve or deny pending swap requests from the dashboard
+- [ ] **SCHED-06**: Staff member can submit a time-off request with a date range and reason
+- [ ] **SCHED-07**: Venue owner can approve or deny time-off requests from the dashboard
+
+---
+
+### Real-Time Orders (SSE)
+
+- [ ] **RT-01**: Staff dashboard receives new orders via SSE instead of 20-second polling
+- [ ] **RT-02**: Kitchen display updates in real time via SSE when order status changes
+- [ ] **RT-03**: OwnerDashboard activity feed updates live via SSE
+
+---
+
+### Table Ordering / Dine-In
+
+- [ ] **DINE-01**: Scanning a table QR code pre-fills the table number in the ordering flow
+- [ ] **DINE-02**: Dine-in orders are tagged with a table number and visible as such in kitchen display
+- [ ] **DINE-03**: Venue owner can generate per-table QR codes from the Integrations tab
+
+---
+
+### Bookings Dashboard
+
+- [ ] **BOOK-01**: Venue owner can view all upcoming reservations in OwnerDashboard
+- [ ] **BOOK-02**: Owner can confirm, mark as seated, or cancel a reservation from the dashboard
+- [ ] **BOOK-03**: Today's reservations are shown on the OwnerDashboard overview panel
+
+---
+
+### Automated Marketing Triggers
+
+- [ ] **AUTO-01**: System sends a re-engagement email/SMS to customers who have not ordered in 30 days
+- [ ] **AUTO-02**: System sends a birthday greeting email/SMS to customers on their birthday
+- [ ] **AUTO-03**: System sends a pass-expiry nudge to customers with 1 credit remaining on their pass
+- [ ] **AUTO-04**: Venue owner can enable or disable each automated trigger per venue from the dashboard
+
+---
+
+### Square POS Integration
+
+- [ ] **SQ-01**: Venue owner can connect their Square account via OAuth from the Integrations tab
+- [ ] **SQ-02**: Owner can trigger a menu sync that imports items from the Square catalog into B1
+- [ ] **SQ-03**: Square OAuth token is stored securely and auto-refreshed before expiry
+
+---
+
+## Out of Scope (v2.1)
+
+- Square order push (B1 → Square) — sync is one-way (Square → B1) for v2.1
+- Native mobile app
+- Web push notifications
+- Corporate invoicing
 
 ---
 
@@ -170,3 +235,11 @@
 | EMAIL-02 | Phase 6 | Complete |
 | EMAIL-03 | Phase 6 | Complete |
 | EMAIL-04 | Phase 6 | Complete |
+| PAY-01..07 | Phase 8 (TBD) | Planned |
+| CHK-01..02 | Phase 8 (TBD) | Planned |
+| SCHED-01..07 | Phase 9 (TBD) | Planned |
+| RT-01..03 | Phase 10 (TBD) | Planned |
+| DINE-01..03 | Phase 10 (TBD) | Planned |
+| BOOK-01..03 | Phase 11 (TBD) | Planned |
+| AUTO-01..04 | Phase 11 (TBD) | Planned |
+| SQ-01..03 | Phase 12 (TBD) | Planned |
