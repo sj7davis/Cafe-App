@@ -9,6 +9,13 @@ import { env } from "./lib/env";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
+function calculateTier(totalLifetimePoints: number): 'bronze' | 'silver' | 'gold' | 'platinum' {
+  if (totalLifetimePoints >= 5000) return 'platinum';
+  if (totalLifetimePoints >= 2000) return 'gold';
+  if (totalLifetimePoints >= 500) return 'silver';
+  return 'bronze';
+}
+
 export const loyaltyRouter = createRouter({
   // Public: get account by phone
   getAccount: publicQuery.input(z.object({
@@ -47,10 +54,11 @@ export const loyaltyRouter = createRouter({
     const db = getDb();
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    return db.select().from(loyaltyAccounts)
+    const accounts = await db.select().from(loyaltyAccounts)
       .where(eq(loyaltyAccounts.venueId, venueId))
       .orderBy(desc(loyaltyAccounts.totalLifetimePoints))
       .limit(input.limit);
+    return accounts.map(acc => ({ ...acc, tier: calculateTier(acc.totalLifetimePoints) }));
   }),
 
   // Owner/staff: manually adjust points
@@ -117,5 +125,23 @@ export const loyaltyRouter = createRouter({
     }
     const discount = Number((input.pointsToRedeem / 10).toFixed(2));
     return { discount, pointsBalance: avail };
+  }),
+
+  getTierInfo: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().min(1),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const [acc] = await db.select().from(loyaltyAccounts)
+      .where(and(eq(loyaltyAccounts.venueId, input.venueId), eq(loyaltyAccounts.phone, input.phone)))
+      .limit(1);
+    if (!acc) return null;
+    const tier = calculateTier(acc.totalLifetimePoints);
+    const thresholds = { bronze: 0, silver: 500, gold: 2000, platinum: 5000 };
+    const nextTiers = { bronze: 'silver', silver: 'gold', gold: 'platinum', platinum: null };
+    const nextTier = nextTiers[tier] as string | null;
+    const nextThreshold = nextTier ? thresholds[nextTier as keyof typeof thresholds] : null;
+    const pointsToNext = nextThreshold ? Math.max(0, nextThreshold - acc.totalLifetimePoints) : 0;
+    return { tier, pointsBalance: acc.pointsBalance, totalLifetimePoints: acc.totalLifetimePoints, nextTier, pointsToNext };
   }),
 });

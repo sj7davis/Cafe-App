@@ -133,6 +133,8 @@ export const menuItems = pgTable("menu_items", {
   activeTo: timestamp("active_to"),
   isLimitedTime: boolean("is_limited_time").default(false),
   limitedTimeLabel: varchar("limited_time_label", { length: 64 }),
+  allergens: json("allergens").$type<string[]>().default([]),
+  dietaryTags: json("dietary_tags").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type MenuItem = typeof menuItems.$inferSelect;
@@ -241,6 +243,7 @@ export const loyaltyAccounts = pgTable("loyalty_accounts", {
   pastriesRedeemed: integer("pastries_redeemed").notNull().default(0),
   breadRedeemed: integer("bread_redeemed").notNull().default(0),
   referralCredit: numeric("referral_credit", { precision: 10, scale: 2 }).notNull().default("0"),
+  birthday: varchar("birthday", { length: 5 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
 });

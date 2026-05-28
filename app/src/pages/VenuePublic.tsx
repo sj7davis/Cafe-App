@@ -330,6 +330,19 @@ export default function VenuePublic() {
     { enabled: !!venue?.id }
   );
 
+  const { data: inventoryRows } = trpc.venue.getInventory.useQuery(
+    { venueId: venue?.id || 0 },
+    { enabled: !!venue?.id }
+  );
+
+  // Build availability map from inventory
+  const invAvailMap: Record<number, boolean> = {};
+  if (inventoryRows) {
+    for (const row of inventoryRows) {
+      invAvailMap[row.menuItemId] = row.isAvailable;
+    }
+  }
+
   const { data: bundles } = trpc.venue.listBundlesPublic.useQuery(
     { venueId: venue?.id || 0 },
     { enabled: !!venue?.id }
@@ -2002,6 +2015,7 @@ export default function VenuePublic() {
                   cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
                   onRemove={() => removeFromCart(cartKey(item.id))}
                   nowMs={now}
+                  isAvailable={invAvailMap[item.id] !== undefined ? invAvailMap[item.id] : true}
                 />
               ))}
             </div>
@@ -2028,6 +2042,7 @@ export default function VenuePublic() {
                   cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
                   onRemove={() => removeFromCart(cartKey(item.id))}
                   nowMs={now}
+                  isAvailable={invAvailMap[item.id] !== undefined ? invAvailMap[item.id] : true}
                 />
               ))}
             </div>
@@ -2054,6 +2069,7 @@ export default function VenuePublic() {
                   cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
                   onRemove={() => removeFromCart(cartKey(item.id))}
                   nowMs={now}
+                  isAvailable={invAvailMap[item.id] !== undefined ? invAvailMap[item.id] : true}
                 />
               ))}
             </div>
@@ -2645,6 +2661,7 @@ function MenuCard({
   cartQty,
   onRemove,
   nowMs,
+  isAvailable,
 }: {
   item: MenuItemWithExtras;
   accentColor: string;
@@ -2652,7 +2669,9 @@ function MenuCard({
   cartQty: number;
   onRemove: () => void;
   nowMs: number;
+  isAvailable?: boolean;
 }) {
+  const soldOut = isAvailable === false;
   const dietaryTags = item.dietary ? item.dietary.split(',').map(d => d.trim()).filter(Boolean) : [];
 
   const countdown = item.activeTo && new Date(item.activeTo).getTime() > nowMs
@@ -2664,7 +2683,14 @@ function MenuCard({
       border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8,
       background: 'white', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
+      position: 'relative',
+      opacity: soldOut ? 0.75 : 1,
     }}>
+      {soldOut && (
+        <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>
+          Sold Out
+        </div>
+      )}
       {item.image && (
         <img
           src={item.image}
@@ -2697,7 +2723,26 @@ function MenuCard({
           {item.description && (
             <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 8, lineHeight: 1.4 }}>{item.description}</div>
           )}
-          <div style={{ fontWeight: 700, fontSize: 15, color: accentColor, marginBottom: dietaryTags.length > 0 ? 6 : 0 }}>
+          {((item as any).dietaryTags || []).length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+              {((item as any).dietaryTags as string[]).map(tag => (
+                <span key={tag} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          {((item as any).allergens || []).length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
+              <span style={{ fontSize: 9, color: '#9CA3AF', marginRight: 2 }}>Contains:</span>
+              {((item as any).allergens as string[]).map(a => (
+                <span key={a} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 99, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', fontWeight: 500 }}>
+                  {a}
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ fontWeight: 700, fontSize: 15, color: accentColor, marginBottom: dietaryTags.length > 0 ? 6 : 0, marginTop: 6 }}>
             ${Number(item.price).toFixed(2)}
           </div>
           {dietaryTags.length > 0 && (
@@ -2715,7 +2760,7 @@ function MenuCard({
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {cartQty > 0 && (
+          {cartQty > 0 && !soldOut && (
             <>
               <button
                 onClick={onRemove}
@@ -2731,9 +2776,11 @@ function MenuCard({
           )}
           <button
             onClick={onAdd}
+            disabled={soldOut}
             style={{
               width: 28, height: 28, borderRadius: 6, border: 'none',
-              background: '#181818', color: '#F3F2EE', cursor: 'pointer',
+              background: soldOut ? '#d1d5db' : '#181818', color: '#F3F2EE',
+              cursor: soldOut ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >

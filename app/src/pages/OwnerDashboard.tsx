@@ -361,6 +361,9 @@ const CHART_COLORS = ['#5E8B8B', '#C4953A', '#5E8B5E', '#B85450', '#8B7355', '#5
 function AnalyticsTab() {
   const token = localStorage.getItem('b1-owner-token') || '';
   const [selectedDays, setSelectedDays] = useState(30);
+  const [triggerExport, setTriggerExport] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data: overview, isLoading: overviewLoading } = trpc.analytics.getOverview.useQuery(
     { token, days: selectedDays }, { enabled: !!token }
@@ -383,6 +386,20 @@ function AnalyticsTab() {
   const { data: selloutEvents } = trpc.analytics.getSelloutEvents.useQuery(
     { token, days: 30 }, { enabled: !!token }
   );
+  const { data: ordersExportData, isFetching: exporting } = trpc.audit.exportOrders.useQuery(
+    { token, fromDate: thirtyDaysAgo, toDate: today },
+    { enabled: triggerExport && !!token }
+  );
+  useEffect(() => {
+    if (ordersExportData && (ordersExportData as any).csv) {
+      setTriggerExport(false);
+      const blob = new Blob([(ordersExportData as any).csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'orders-export.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, [ordersExportData]);
 
   const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
   const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
@@ -418,8 +435,8 @@ function AnalyticsTab() {
 
   return (
     <div className="space-y-6">
-      {/* Days selector */}
-      <div className="flex items-center gap-2">
+      {/* Days selector + Export */}
+      <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
         <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PERIOD:</span>
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setSelectedDays(d)}
@@ -428,6 +445,15 @@ function AnalyticsTab() {
             {d}D
           </button>
         ))}
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={() => setTriggerExport(true)}
+          disabled={exporting}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', border: '1px solid rgba(24,24,24,0.15)', background: '#181818', color: '#F3F2EE', fontSize: 12, fontWeight: 500, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.6 : 1, borderRadius: 4 }}
+        >
+          {exporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+          Export CSV (30d)
+        </button>
       </div>
 
       {/* Overview stats */}
@@ -2425,6 +2451,8 @@ function MenuTab({ venue }: { venue: any }) {
     dietary: '',
     image: '',
   });
+  const [formAllergens, setFormAllergens] = useState<string[]>([]);
+  const [formDietaryTags, setFormDietaryTags] = useState<string[]>([]);
   const [saveMessage, setSaveMessage] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState('');
@@ -2471,6 +2499,8 @@ function MenuTab({ venue }: { venue: any }) {
 
   const startCreate = () => {
     setForm({ name: '', description: '', price: '', category: 'coffee', dietary: '', image: '' });
+    setFormAllergens([]);
+    setFormDietaryTags([]);
     setDeleteError('');
     setMode('create');
   };
@@ -2484,6 +2514,8 @@ function MenuTab({ venue }: { venue: any }) {
       dietary: item.dietary || '',
       image: item.image || '',
     });
+    setFormAllergens(Array.isArray(item.allergens) ? item.allergens : (item.allergens ? String(item.allergens).split(',').map((s: string) => s.trim()).filter(Boolean) : []));
+    setFormDietaryTags(Array.isArray(item.dietaryTags) ? item.dietaryTags : (item.dietaryTags ? String(item.dietaryTags).split(',').map((s: string) => s.trim()).filter(Boolean) : []));
     setDeleteError('');
     setMode({ type: 'edit', id: item.id });
   };
@@ -2504,6 +2536,8 @@ function MenuTab({ venue }: { venue: any }) {
         category: form.category,
         dietary: form.dietary || undefined,
         image: form.image || undefined,
+        allergens: formAllergens.length > 0 ? formAllergens : undefined,
+        dietaryTags: formDietaryTags.length > 0 ? formDietaryTags : undefined,
       });
     } else if (typeof mode === 'object' && mode.type === 'edit') {
       updateMutation.mutate({
@@ -2516,6 +2550,8 @@ function MenuTab({ venue }: { venue: any }) {
           category: form.category,
           dietary: form.dietary || undefined,
           image: form.image || undefined,
+          allergens: formAllergens.length > 0 ? formAllergens : undefined,
+          dietaryTags: formDietaryTags.length > 0 ? formDietaryTags : undefined,
         },
       });
     }
@@ -2627,6 +2663,17 @@ function MenuTab({ venue }: { venue: any }) {
                         </span>
                       )}
                     </div>
+                    {/* Allergen / dietary badges */}
+                    {((Array.isArray(item.allergens) && item.allergens.length > 0) || (Array.isArray(item.dietaryTags) && item.dietaryTags.length > 0)) && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                        {(Array.isArray(item.allergens) ? item.allergens : []).map((a: string) => (
+                          <span key={a} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>{a}</span>
+                        ))}
+                        {(Array.isArray(item.dietaryTags) ? item.dietaryTags : []).map((t: string) => (
+                          <span key={t} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>{t}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {/* Inventory inline */}
@@ -2860,6 +2907,36 @@ function MenuTab({ venue }: { venue: any }) {
               <p className="font-data mt-1" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
                 Leave blank to hide image on your public menu.
               </p>
+            </div>
+
+            {/* Allergens */}
+            <div className="md:col-span-2" style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Allergens</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                {['gluten', 'dairy', 'eggs', 'nuts', 'peanuts', 'soy', 'sesame', 'shellfish', 'fish', 'sulphites'].map(a => (
+                  <label key={a} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer', padding: '4px 8px', border: `1px solid ${formAllergens.includes(a) ? '#DC2626' : '#E5E7EB'}`, borderRadius: 5, background: formAllergens.includes(a) ? '#FEF2F2' : '#fff', color: formAllergens.includes(a) ? '#DC2626' : '#374151' }}>
+                    <input type="checkbox" checked={formAllergens.includes(a)}
+                      onChange={e => setFormAllergens(prev => e.target.checked ? [...prev, a] : prev.filter(x => x !== a))}
+                      style={{ display: 'none' }} />
+                    {a}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Dietary tags */}
+            <div className="md:col-span-2" style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Dietary</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                {['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'nut-free', 'halal', 'kosher', 'paleo', 'keto'].map(t => (
+                  <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer', padding: '4px 8px', border: `1px solid ${formDietaryTags.includes(t) ? '#16A34A' : '#E5E7EB'}`, borderRadius: 5, background: formDietaryTags.includes(t) ? '#F0FDF4' : '#fff', color: formDietaryTags.includes(t) ? '#16A34A' : '#374151' }}>
+                    <input type="checkbox" checked={formDietaryTags.includes(t)}
+                      onChange={e => setFormDietaryTags(prev => e.target.checked ? [...prev, t] : prev.filter(x => x !== t))}
+                      style={{ display: 'none' }} />
+                    {t}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -3737,9 +3814,11 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
 }
 
 // ─── Loyalty Tab (with Rewards Catalogue) ────────────────────────────────────
-function LoyaltyTab({ venueId }: { venueId: number }) {
+function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
   const utils = trpc.useUtils();
-  const { data: accounts, isLoading: accsLoading } = trpc.venue.listLoyaltyAccounts.useQuery({ venueId }, { enabled: !!venueId });
+  const loyaltyToken = localStorage.getItem('b1-owner-token') || '';
+  const { data: accounts, isLoading: accsLoading } = trpc.loyalty.listAccounts.useQuery({ token: loyaltyToken }, { enabled: !!loyaltyToken });
+  const [loyaltySearch, setLoyaltySearch] = useState('');
   const { data: rewards, isLoading: rewardsLoading } = trpc.loyaltyRewards.listAll.useQuery();
   const createReward = trpc.loyaltyRewards.create.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setShowRewardForm(false); resetRewardForm(); } });
   const updateReward = trpc.loyaltyRewards.update.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setEditRewardId(null); } });
@@ -3769,32 +3848,62 @@ function LoyaltyTab({ venueId }: { venueId: number }) {
       {/* Loyalty Accounts */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>Loyalty Accounts</h2>
+        {/* Tier thresholds info box */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: 14, padding: '10px 14px', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 7, fontSize: 12, color: '#374151', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 600, fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Tier Thresholds:</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF9C3', color: '#713F12', fontSize: 11, fontWeight: 600 }}>Bronze</span> 0 pts</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#F3F4F6', color: '#374151', fontSize: 11, fontWeight: 600 }}>Silver</span> 500 pts</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 600 }}>Gold</span> 2,000 pts</span>
+        </div>
+        {/* Search */}
+        <div style={{ marginBottom: 12 }}>
+          <input
+            type="text"
+            placeholder="Search by phone..."
+            value={loyaltySearch}
+            onChange={e => setLoyaltySearch(e.target.value)}
+            style={{ padding: '7px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%', maxWidth: 280 }}
+          />
+        </div>
         {accsLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
         {!accsLoading && (!accounts || (accounts as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No loyalty accounts yet.</p>}
-        {(accounts as any[] | undefined) && (accounts as any[]).length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
-                  {['Customer', 'Phone', 'Points', 'Tier', 'Joined'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(accounts as any[]).map((a) => (
-                  <tr key={a.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                    <td style={{ padding: '10px 10px', fontWeight: 500, color: '#181818' }}>{a.customerName || '—'}</td>
-                    <td style={{ padding: '10px 10px', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: 12 }}>{a.phone || '—'}</td>
-                    <td style={{ padding: '10px 10px', fontWeight: 600, color: '#181818' }}>{a.points ?? 0}</td>
-                    <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>{a.tier || 'bronze'}</td>
-                    <td style={{ padding: '10px 10px', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: 11 }}>{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
+        {(accounts as any[] | undefined) && (accounts as any[]).length > 0 && (() => {
+          const getTier = (pts: number) => pts >= 2000 ? { label: 'Gold', bg: '#FEF3C7', color: '#92400E' }
+            : pts >= 500 ? { label: 'Silver', bg: '#F3F4F6', color: '#374151' }
+            : { label: 'Bronze', bg: '#FEF9C3', color: '#713F12' };
+          const filtered = loyaltySearch
+            ? (accounts as any[]).filter(a => a.phone?.includes(loyaltySearch))
+            : (accounts as any[]);
+          return (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                    {['Phone', 'Points', 'Lifetime Pts', 'Tier', 'Joined'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {filtered.map((a: any) => {
+                    const tier = getTier(a.totalLifetimePoints ?? 0);
+                    return (
+                      <tr key={a.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                        <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: 12, color: '#374151' }}>{a.phone || '—'}</td>
+                        <td style={{ padding: '10px 10px', fontWeight: 600, color: '#181818' }}>{a.pointsBalance ?? 0}</td>
+                        <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>{a.totalLifetimePoints ?? 0}</td>
+                        <td style={{ padding: '10px 10px' }}>
+                          <span style={{ padding: '3px 10px', borderRadius: 99, background: tier.bg, color: tier.color, fontSize: 11, fontWeight: 600 }}>{tier.label}</span>
+                        </td>
+                        <td style={{ padding: '10px 10px', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: 11 }}>{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Rewards Catalogue */}

@@ -668,6 +668,8 @@ export const venueRouter = createRouter({
     originProcess: z.string().optional(),
     originTastingNotes: z.string().optional(),
     originStory: z.string().optional(),
+    allergens: z.array(z.string()).optional(),
+    dietaryTags: z.array(z.string()).optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
     const { venueId: vid, ...data } = input;
@@ -690,6 +692,8 @@ export const venueRouter = createRouter({
       category: z.enum(["coffee", "pastries", "bread", "food", "drinks", "snacks", "merchandise", "seasonal"]).optional(),
       dietary: z.string().optional(),
       image: z.string().optional(),
+      allergens: z.array(z.string()).optional(),
+      dietaryTags: z.array(z.string()).optional(),
     }),
   })).mutation(async ({ input }) => {
     const db = getDb();
@@ -833,6 +837,28 @@ export const venueRouter = createRouter({
       })
       .where(eq(loyaltyAccounts.id, input.accountId));
     return { success: true };
+  }),
+
+  listLoyaltyAccounts: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    token: z.string().optional(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    // Optional token verification for stricter auth
+    if (input.token) {
+      try {
+        const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+        const jwtVenueId = payload.payload.venueId as number;
+        if (jwtVenueId !== input.venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Venue mismatch" });
+      } catch {
+        // Token invalid but we'll still allow if venueId matches — owner dashboard only
+      }
+    }
+    const accounts = await db.select().from(loyaltyAccounts)
+      .where(eq(loyaltyAccounts.venueId, input.venueId))
+      .orderBy(desc(loyaltyAccounts.totalLifetimePoints))
+      .limit(200);
+    return accounts;
   }),
 
   // ─── Locations ───

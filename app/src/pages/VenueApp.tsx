@@ -89,6 +89,19 @@ export default function VenueApp() {
     { enabled: !!venue?.id }
   )
 
+  const { data: inventoryRows } = trpc.venue.getInventory.useQuery(
+    { venueId: venue?.id || 0 },
+    { enabled: !!venue?.id }
+  )
+
+  // Build availability map from inventory
+  const invAvailMap: Record<number, boolean> = {}
+  if (inventoryRows) {
+    for (const row of inventoryRows) {
+      invAvailMap[row.menuItemId] = row.isAvailable
+    }
+  }
+
   const createOrder = trpc.venue.createOrder.useMutation({
     onSuccess: (data) => {
       setCart([])
@@ -211,6 +224,7 @@ export default function VenueApp() {
             onAdd={addToCart}
             onRemove={removeFromCart}
             accentColor={primaryColor}
+            invAvailMap={invAvailMap}
           />
         )}
         {activeTab === 'my-orders' && (
@@ -339,13 +353,14 @@ export default function VenueApp() {
 
 // ─── Order Tab ────────────────────────────────────────────────────────────────
 function OrderTab({
-  menuItems, cart, onAdd, onRemove, accentColor,
+  menuItems, cart, onAdd, onRemove, accentColor, invAvailMap,
 }: {
   menuItems: { id: number; name: string; price: string; description: string | null; category: string; image: string | null }[]
   cart: CartItem[]
   onAdd: (item: { id: number; name: string; price: string }) => void
   onRemove: (id: number) => void
   accentColor: string
+  invAvailMap: Record<number, boolean>
 }) {
   const categories = [...new Set(menuItems.map(i => i.category))]
 
@@ -357,8 +372,15 @@ function OrderTab({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {menuItems.filter(i => i.category === cat).map(item => {
               const qty = cart.find(c => c.menuItemId === item.id)?.quantity ?? 0
+              const isAvailable = invAvailMap[item.id] !== undefined ? invAvailMap[item.id] : true
+              const soldOut = !isAvailable
               return (
-                <div key={item.id} style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <div key={item.id} style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', position: 'relative', opacity: soldOut ? 0.75 : 1 }}>
+                  {soldOut && (
+                    <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>
+                      Sold Out
+                    </div>
+                  )}
                   {item.image && (
                     <img src={item.image} alt={item.name} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover' }}
                       onError={e => { e.currentTarget.style.display = 'none' }} />
@@ -366,9 +388,28 @@ function OrderTab({
                   <div style={{ padding: '10px 10px 12px' }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#181818', marginBottom: 2 }}>{item.name}</div>
                     {item.description && <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.description}</div>}
-                    <div style={{ fontSize: 14, fontWeight: 700, color: accentColor, marginBottom: 8 }}>${Number(item.price).toFixed(2)}</div>
+                    {((item as any).dietaryTags || []).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                        {((item as any).dietaryTags as string[]).map((tag: string) => (
+                          <span key={tag} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {((item as any).allergens || []).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
+                        <span style={{ fontSize: 9, color: '#9CA3AF', marginRight: 2 }}>Contains:</span>
+                        {((item as any).allergens as string[]).map((a: string) => (
+                          <span key={a} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 99, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', fontWeight: 500 }}>
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: accentColor, marginBottom: 8, marginTop: 4 }}>${Number(item.price).toFixed(2)}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {qty > 0 && (
+                      {qty > 0 && !soldOut && (
                         <>
                           <button onClick={() => onRemove(item.id)} style={qtyBtn}><Minus size={12} /></button>
                           <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: 'center' }}>{qty}</span>
@@ -376,9 +417,10 @@ function OrderTab({
                       )}
                       <button
                         onClick={() => onAdd(item)}
-                        style={{ flex: qty === 0 ? 'unset' : undefined, width: qty === 0 ? '100%' : 28, height: 28, borderRadius: qty === 0 ? 8 : 6, border: 'none', background: '#181818', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: qty === 0 ? 600 : undefined }}
+                        disabled={soldOut}
+                        style={{ flex: qty === 0 ? 'unset' : undefined, width: qty === 0 ? '100%' : 28, height: 28, borderRadius: qty === 0 ? 8 : 6, border: 'none', background: soldOut ? '#d1d5db' : '#181818', color: '#fff', cursor: soldOut ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: qty === 0 ? 600 : undefined }}
                       >
-                        {qty === 0 ? 'Add' : <Plus size={12} />}
+                        {qty === 0 ? (soldOut ? 'Sold Out' : 'Add') : <Plus size={12} />}
                       </button>
                     </div>
                   </div>

@@ -9,7 +9,7 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { addSseClient, removeSseClient } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders } from "@db/schema";
+import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems } from "@db/schema";
 import { eq, and, gte, isNull, lte } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -785,6 +785,102 @@ cron.schedule("0 * * * *", async () => {
     }
   } catch (err) {
     console.error("Reservation reminder cron error:", err);
+  }
+});
+
+// ─── Inventory low-stock alert cron — every day at 8am ───────────────────────
+cron.schedule("0 8 * * *", async () => {
+  try {
+    const db = getDb();
+    const allVenues = await db.select({ id: venues.id, name: venues.name }).from(venues).where(eq(venues.isActive, true));
+
+    for (const venue of allVenues) {
+      try {
+        // Find sold-out items (isAvailable = false)
+        const soldOutRows = await db
+          .select({ itemName: menuItems.name })
+          .from(inventory)
+          .innerJoin(menuItems, eq(inventory.menuItemId, menuItems.id))
+          .where(and(eq(inventory.venueId, venue.id), eq(inventory.isAvailable, false)));
+
+        if (soldOutRows.length === 0) continue;
+
+        // Look up venue owner email
+        const ownerRow = await db
+          .select({ email: venueOwners.email, name: venueOwners.name })
+          .from(venueOwners)
+          .where(and(eq(venueOwners.venueId, venue.id), eq(venueOwners.isActive, true)))
+          .limit(1);
+        const owner = ownerRow[0];
+        if (!owner?.email) continue;
+
+        const itemListHtml = soldOutRows.map(r => `<li>${r.itemName}</li>`).join("");
+        await sendEmail({
+          to: owner.email,
+          subject: `Inventory Alert — ${soldOutRows.length} item${soldOutRows.length === 1 ? "" : "s"} sold out at ${venue.name}`,
+          html: `<h2>Inventory Alert — ${venue.name}</h2>
+<p>Hi ${owner.name ?? "there"},</p>
+<p>The following ${soldOutRows.length === 1 ? "item is" : "items are"} currently sold out:</p>
+<ul>${itemListHtml}</ul>
+<p>Please update your inventory in the dashboard.</p>`,
+        });
+      } catch (venueErr) {
+        console.error(`Inventory alert error for venue ${venue.id}:`, venueErr);
+      }
+    }
+  } catch (err) {
+    console.error("Inventory alert cron error:", err);
+  }
+});
+
+// ─── Loyalty birthday rewards cron — every day at 9am ────────────────────────
+// Checks loyaltyAccounts.birthday (MM-DD) for today's birthdays and awards 100 bonus points.
+cron.schedule("0 9 * * *", async () => {
+  try {
+    const db = getDb();
+    const today = new Date();
+    const mmdd = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const currentYear = today.getFullYear();
+
+    // Find loyalty accounts with birthday matching today's MM-DD
+    const birthdayAccounts = await db.select().from(loyaltyAccounts)
+      .where(eq(loyaltyAccounts.birthday, mmdd));
+
+    for (const acc of birthdayAccounts) {
+      try {
+        // Guard against sending twice in the same year: check if a birthday transaction
+        // already exists this year for this account
+        const yearStart = new Date(`${currentYear}-01-01T00:00:00.000Z`);
+        const txRows = await db.select({ description: loyaltyTransactions.description })
+          .from(loyaltyTransactions)
+          .where(and(
+            eq(loyaltyTransactions.accountId, acc.id),
+            gte(loyaltyTransactions.createdAt, yearStart),
+          ));
+        const alreadySent = txRows.some(tx => tx.description.includes("Birthday bonus"));
+        if (alreadySent) continue;
+
+        // Award 100 bonus points
+        await db.update(loyaltyAccounts).set({
+          pointsBalance: acc.pointsBalance + 100,
+          totalLifetimePoints: acc.totalLifetimePoints + 100,
+        }).where(eq(loyaltyAccounts.id, acc.id));
+
+        await db.insert(loyaltyTransactions).values({
+          venueId: acc.venueId,
+          accountId: acc.id,
+          type: "earn",
+          points: 100,
+          description: "🎂 Birthday bonus — 100 points!",
+        });
+
+        // TODO: send SMS when birthday phone number is available on loyaltyAccounts
+      } catch (err) {
+        console.error(`Loyalty birthday cron error for account ${acc.id}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("Loyalty birthday cron error:", err);
   }
 });
 
