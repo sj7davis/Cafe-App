@@ -1,4 +1,4 @@
-import { useState, useEffect, type CSSProperties } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
@@ -794,6 +794,143 @@ function PLTab({ venue }: { venue: any }) {
   );
 }
 
+// ─── Image upload component used inside the website block editor ─────────────
+const IMG_UPLOAD_INPUT: React.CSSProperties = {
+  width: '100%', padding: '7px 10px', border: '1px solid #E5E7EB',
+  borderRadius: 6, fontSize: 11, color: '#9CA3AF', background: '#fff',
+  boxSizing: 'border-box', outline: 'none', fontFamily: 'Inter, sans-serif',
+};
+const IMG_UPLOAD_LABEL: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 600, color: '#6B7280',
+  textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5,
+};
+
+function ImageUpload({
+  value, onChange, label = 'Image', compact = false,
+}: {
+  value: string; onChange: (url: string) => void; label?: string; compact?: boolean;
+}) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const doUpload = async (file: File) => {
+    setError('');
+    if (!file.type.startsWith('image/')) { setError('Please pick an image file.'); return; }
+    if (file.size > 5 * 1024 * 1024) { setError('Max 5 MB.'); return; }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('token', token);
+      fd.append('file', file);
+      const res = await fetch('/api/upload/image', { method: 'POST', body: fd });
+      const json = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !json.url) throw new Error(json.error || 'Upload failed');
+      onChange(json.url);
+    } catch (e: any) {
+      setError(e.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    const f = e.dataTransfer.files[0];
+    if (f) doUpload(f);
+  };
+
+  if (compact) {
+    // Square thumbnail for gallery grid
+    return (
+      <div
+        onClick={() => !uploading && fileRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        style={{
+          aspectRatio: '1', borderRadius: 8, overflow: 'hidden', cursor: uploading ? 'wait' : 'pointer',
+          border: `2px dashed ${dragOver ? '#5E8B8B' : '#D1D5DB'}`,
+          background: value ? 'transparent' : (dragOver ? '#F0F9F9' : '#F9FAFB'),
+          display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+        }}
+      >
+        {value && !uploading
+          ? <img src={value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : uploading
+            ? <div style={{ fontSize: 18 }}>⏳</div>
+            : <div style={{ fontSize: 22, color: '#9CA3AF' }}>📷</div>
+        }
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) doUpload(f); e.target.value = ''; }} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {label && <label style={IMG_UPLOAD_LABEL}>{label}</label>}
+
+      {/* Drop zone / preview */}
+      <div
+        onClick={() => !uploading && fileRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        style={{
+          width: '100%', height: value ? 110 : 78, borderRadius: 8, overflow: 'hidden',
+          border: `2px dashed ${dragOver ? '#5E8B8B' : '#D1D5DB'}`,
+          background: value ? 'transparent' : (dragOver ? '#F0F9F9' : '#F9FAFB'),
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: uploading ? 'wait' : 'pointer', position: 'relative',
+          transition: 'border-color 0.15s, background 0.15s',
+        }}
+      >
+        {value && !uploading ? (
+          <>
+            <img src={value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => (e.currentTarget.style.display = 'none')} />
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: 'rgba(0,0,0,0.55)', padding: '5px 10px',
+              fontSize: 11, color: '#fff', fontWeight: 600, textAlign: 'center',
+            }}>
+              Click or drag to replace
+            </div>
+          </>
+        ) : uploading ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div>
+            <div style={{ fontSize: 11, color: '#6B7280' }}>Uploading…</div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '0 16px' }}>
+            <div style={{ fontSize: 24, marginBottom: 4 }}>📷</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Upload photo</div>
+            <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>Drag & drop or click · JPG PNG WebP · max 5 MB</div>
+          </div>
+        )}
+      </div>
+
+      {error && <div style={{ fontSize: 11, color: '#DC2626' }}>{error}</div>}
+
+      {/* URL paste fallback */}
+      <input
+        style={IMG_UPLOAD_INPUT}
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Or paste a URL…"
+      />
+
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+        style={{ display: 'none' }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) doUpload(f); e.target.value = ''; }} />
+    </div>
+  );
+}
+
 function WebsiteTab({ venue }: { venue: any }) {
   const token = localStorage.getItem('b1-owner-token') || '';
 
@@ -1062,8 +1199,11 @@ function WebsiteTab({ venue }: { venue: any }) {
 
                 {editingBlock.type === 'hero' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div><label style={lStyle}>Image URL</label><input style={iStyle} value={editingBlock.data.imageUrl || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, imageUrl: e.target.value })} placeholder="https://images.unsplash.com/..." /></div>
-                    {editingBlock.data.imageUrl && <img src={editingBlock.data.imageUrl} alt="" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 6 }} onError={e => (e.currentTarget.style.display = 'none')} />}
+                    <ImageUpload
+                      label="Hero Image"
+                      value={editingBlock.data.imageUrl || ''}
+                      onChange={url => updateBlock(editingBlock.id, { ...editingBlock.data, imageUrl: url })}
+                    />
                     <div><label style={lStyle}>Headline</label><input style={iStyle} value={editingBlock.data.title || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, title: e.target.value })} placeholder="Your cafe name" /></div>
                     <div><label style={lStyle}>Tagline</label><input style={iStyle} value={editingBlock.data.tagline || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, tagline: e.target.value })} placeholder="Specialty coffee, served with care." /></div>
                     <div><label style={lStyle}>Button Text</label><input style={iStyle} value={editingBlock.data.ctaText || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, ctaText: e.target.value })} placeholder="Order Now" /></div>
@@ -1073,25 +1213,41 @@ function WebsiteTab({ venue }: { venue: any }) {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div><label style={lStyle}>Section Title</label><input style={iStyle} value={editingBlock.data.title || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, title: e.target.value })} placeholder="Our Story" /></div>
                     <div><label style={lStyle}>Body Text</label><textarea style={{ ...iStyle, minHeight: 100, resize: 'vertical' }} value={editingBlock.data.body || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, body: e.target.value })} placeholder="Tell your story..." /></div>
-                    <div><label style={lStyle}>Side Image URL (optional)</label><input style={iStyle} value={editingBlock.data.imageUrl || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, imageUrl: e.target.value })} placeholder="https://..." /></div>
+                    <ImageUpload
+                      label="Side Image (optional)"
+                      value={editingBlock.data.imageUrl || ''}
+                      onChange={url => updateBlock(editingBlock.id, { ...editingBlock.data, imageUrl: url })}
+                    />
                   </div>
                 )}
                 {editingBlock.type === 'gallery' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ fontSize: 12, color: '#6B7280' }}>Add up to 9 photo URLs</div>
-                    {((editingBlock.data.images || []) as { url: string; caption: string }[]).map((img, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <input style={{ ...iStyle, flex: 1 }} value={img.url} onChange={e => { const imgs = [...(editingBlock.data.images || [])]; imgs[i] = { ...img, url: e.target.value }; updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }} placeholder="Image URL" />
-                        <button onClick={() => { const imgs = (editingBlock.data.images || []).filter((_: any, idx: number) => idx !== i); updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }}
-                          style={{ width: 28, height: 28, border: '1px solid #E5E7EB', borderRadius: 6, background: '#fff', cursor: 'pointer', color: '#9CA3AF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X size={12} /></button>
-                      </div>
-                    ))}
-                    {(editingBlock.data.images || []).length < 9 && (
-                      <button onClick={() => { const imgs = [...(editingBlock.data.images || []), { url: '', caption: '' }]; updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }}
-                        style={{ padding: '8px', borderRadius: 7, border: '1.5px dashed #D1D5DB', background: '#F9FAFB', fontSize: 12, color: '#6B7280', cursor: 'pointer' }}>
-                        + Add Photo URL
-                      </button>
-                    )}
+                    <div style={{ fontSize: 12, color: '#6B7280' }}>Up to 9 photos — drag & drop or tap to upload</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                      {((editingBlock.data.images || []) as { url: string; caption: string }[]).map((img, i) => (
+                        <div key={i} style={{ position: 'relative' }}>
+                          <ImageUpload
+                            compact
+                            value={img.url}
+                            onChange={url => {
+                              const imgs = [...(editingBlock.data.images || [])];
+                              imgs[i] = { ...img, url };
+                              updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs });
+                            }}
+                          />
+                          <button
+                            onClick={() => { const imgs = (editingBlock.data.images || []).filter((_: any, idx: number) => idx !== i); updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }}
+                            style={{ position: 'absolute', top: -7, right: -7, width: 20, height: 20, borderRadius: '50%', background: '#EF4444', border: '2px solid #fff', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, lineHeight: 1 }}
+                          >×</button>
+                        </div>
+                      ))}
+                      {(editingBlock.data.images || []).length < 9 && (
+                        <button
+                          onClick={() => { const imgs = [...(editingBlock.data.images || []), { url: '', caption: '' }]; updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }}
+                          style={{ aspectRatio: '1', borderRadius: 8, border: '2px dashed #D1D5DB', background: '#F9FAFB', fontSize: 24, color: '#9CA3AF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >+</button>
+                      )}
+                    </div>
                   </div>
                 )}
                 {editingBlock.type === 'booking_cta' && (

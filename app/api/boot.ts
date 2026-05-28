@@ -14,10 +14,19 @@ import { eq, and, gte, isNull, lte } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import cron from "node-cron";
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { join, extname } from "path";
+import { randomBytes } from "crypto";
+import { jwtVerify } from "jose";
 
 const SQUARE_API_BASE = process.env.SQUARE_ENV === "production"
   ? "https://connect.squareup.com"
   : "https://connect.squareupsandbox.com";
+
+// ─── Image uploads ────────────────────────────────────────────────────────────
+const UPLOAD_JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
+const UPLOADS_DIR = join(process.cwd(), "uploads");
+try { mkdirSync(UPLOADS_DIR, { recursive: true }); } catch { /* dir already exists */ }
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -371,6 +380,62 @@ app.get("/api/sse/orders/:venueId", async (c) => {
 
 // Health check
 app.get("/api/health", (c) => c.json({ ok: true, ts: Date.now() }));
+
+// ─── Image upload endpoint ────────────────────────────────────────────────────
+// Accepts multipart/form-data: { token: string, file: File }
+// Validates the owner/staff JWT, saves to ./uploads/, returns { url: string }
+app.post("/api/upload/image", async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const token = body["token"] as string;
+    const file = body["file"] as File;
+    if (!token || !file || !(file instanceof File)) {
+      return c.json({ error: "Missing token or file" }, 400);
+    }
+    try {
+      await jwtVerify(token, UPLOAD_JWT_SECRET, { clockTolerance: 60 });
+    } catch {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return c.json({ error: "File too large — maximum 5 MB." }, 400);
+    }
+    const ext = extname(file.name).toLowerCase();
+    if (![".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext)) {
+      return c.json({ error: "Only JPG, PNG, WebP and GIF files are allowed." }, 400);
+    }
+    const filename = `${randomBytes(14).toString("hex")}${ext}`;
+    writeFileSync(join(UPLOADS_DIR, filename), Buffer.from(await file.arrayBuffer()));
+    return c.json({ url: `/uploads/${filename}` });
+  } catch (err) {
+    console.error("[upload] Error:", err);
+    return c.json({ error: "Upload failed" }, 500);
+  }
+});
+
+// Serve uploaded images at /uploads/:filename
+// (In production Railway needs a Volume mounted at /app/uploads for persistence across deploys)
+app.get("/uploads/:filename", (c) => {
+  const filename = c.req.param("filename");
+  // Prevent directory traversal
+  if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+    return c.notFound();
+  }
+  const filepath = join(UPLOADS_DIR, filename);
+  if (!existsSync(filepath)) return c.notFound();
+  const ext = extname(filename).toLowerCase();
+  const TYPES: Record<string, string> = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif",
+  };
+  const data = readFileSync(filepath);
+  return new Response(data, {
+    headers: {
+      "Content-Type": TYPES[ext] || "application/octet-stream",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  });
+});
 
 // 404 for unmatched /api/* routes (excluding /api/trpc which is handled below)
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
