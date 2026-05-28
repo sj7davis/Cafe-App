@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import { TRPCProvider } from '@/providers/trpc'
 import './index.css'
+import './styles/tokens.css'
 import App from './App.tsx'
 
 // Register service worker for push notifications

@@ -1,0 +1,52 @@
+/* Operator Design Tokens — B1 Platform "Dual Identity" design system
+   Use the --op-* prefix to avoid colliding with shadcn/ui CSS variables. */
+
+/* ─── Light mode (default) ──────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --op-bg: #FAFAFA;
+  --op-sidebar: #18181B;
+  --op-card-bg: #FFFFFF;
+
+  /* Borders */
+  --op-card-border: #E4E4E7;
+
+  /* Accent */
+  --op-accent: #5E8B8B;
+
+  /* Typography */
+  --op-text: #09090B;
+  --op-text-secondary: #71717A;
+
+  /* Sidebar text */
+  --op-sidebar-text-inactive: #A1A1AA;
+  --op-sidebar-text-active: #FAFAFA;
+
+  /* Radius scale */
+  --op-radius: 4px;
+  --op-radius-input: 8px;
+  --op-radius-card: 12px;
+  --op-radius-modal: 16px;
+
+  /* Shadow */
+  --op-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  /* Font families */
+  --op-font-sans: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --op-font-mono: 'Geist Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+/* ─── Dark mode overrides ────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --op-bg: #111111;
+  --op-sidebar: #0A0A0A;
+  --op-card-bg: #18181B;
+
+  /* Borders */
+  --op-card-border: #27272A;
+
+  /* Typography (accent stays unchanged) */
+  --op-text: #FAFAFA;
+  --op-text-secondary: #A1A1AA;
+}
