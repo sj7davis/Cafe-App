@@ -42,12 +42,12 @@ export default function Login() {
 
   const inputBase: React.CSSProperties = {
     width: '100%',
-    padding: '13px 16px',
-    border: '1px solid #e5e2de',
-    borderRadius: 10,
+    padding: '11px 14px',
+    border: '1px solid #E4E4E7',
+    borderRadius: 8,
     fontSize: 14,
-    color: '#1c1917',
-    background: '#fafaf9',
+    color: '#09090B',
+    background: '#FAFAFA',
     outline: 'none',
     boxSizing: 'border-box',
     fontFamily: 'Inter, sans-serif',
@@ -55,95 +55,31 @@ export default function Login() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#FAFAFA', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, -apple-system, sans-serif', padding: '40px 24px' }}>
 
-      {/* Left panel — branding */}
-      <div style={{
-        flex: '0 0 45%',
-        background: 'linear-gradient(160deg, #1c1917 0%, #292524 50%, #3D2B1F 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '48px 52px',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-        className="hidden md:flex"
-      >
-        {/* Background pattern */}
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'radial-gradient(circle at 2px 2px, #fff 1px, transparent 0)', backgroundSize: '28px 28px' }} />
+      <div style={{ width: '100%', maxWidth: 400 }}>
 
         {/* Logo */}
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F3F2EE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Coffee size={20} color="#1c1917" />
-            </div>
-            <div>
-              <div style={{ fontFamily: 'Geist Mono, monospace', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>B1 Platform</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>Venue Management</div>
-            </div>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#18181B', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <Coffee size={22} color="#FAFAFA" />
           </div>
-        </div>
-
-        {/* Headline */}
-        <div style={{ position: 'relative' }}>
-          <h1 style={{ fontSize: 'clamp(28px, 3.5vw, 40px)', fontWeight: 700, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.03em', margin: '0 0 16px' }}>
-            Run your cafe<br />
-            <span style={{ color: '#C4953A' }}>smarter.</span>
-          </h1>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.55)', lineHeight: 1.65, margin: 0, maxWidth: 340 }}>
-            Orders, loyalty, staff, analytics, and bookings — all in one place built for Australian cafes.
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#09090B', margin: '0 0 6px', letterSpacing: '-0.03em' }}>
+            Welcome back
+          </h2>
+          <p style={{ fontSize: 14, color: '#71717A', margin: 0 }}>
+            Sign in to your venue dashboard
           </p>
-
-          {/* Feature pills */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 28 }}>
-            {['Online Ordering', 'Loyalty Points', 'Staff Management', 'Real-time KDS', 'Booking System', 'Analytics'].map(f => (
-              <span key={f} style={{ padding: '6px 12px', borderRadius: 99, border: '1px solid rgba(255,255,255,0.12)', fontSize: 12, color: 'rgba(255,255,255,0.65)', background: 'rgba(255,255,255,0.05)' }}>
-                {f}
-              </span>
-            ))}
-          </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ position: 'relative', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
-          © 2026 B1 Platform · Built for Australian cafes
-        </div>
-      </div>
-
-      {/* Right panel — form */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#F8F6F3',
-        padding: '40px 24px',
-      }}>
-        <div style={{ width: '100%', maxWidth: 400 }}>
-
-          {/* Mobile logo */}
-          <div className="flex md:hidden" style={{ display: 'none', justifyContent: 'center', marginBottom: 32 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#1c1917', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Coffee size={22} color="#F3F2EE" />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: '#1c1917', margin: '0 0 6px', letterSpacing: '-0.03em' }}>
-              Welcome back
-            </h2>
-            <p style={{ fontSize: 14, color: '#78716c', margin: 0 }}>
-              Sign in to your venue dashboard
-            </p>
-          </div>
+        {/* Card */}
+        <div style={{ background: '#FFFFFF', borderRadius: 12, border: '1px solid #E4E4E7', padding: '32px', boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
 
           {error && (
             <div style={{
               background: '#fef2f2',
               border: '1px solid #fecaca',
-              borderRadius: 10,
+              borderRadius: 8,
               padding: '12px 14px',
               marginBottom: 20,
               display: 'flex',
@@ -159,7 +95,7 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#44403c', marginBottom: 6 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#09090B', marginBottom: 6 }}>
                 Email address
               </label>
               <input
@@ -169,14 +105,14 @@ export default function Login() {
                 placeholder="you@yourcafe.com.au"
                 autoComplete="email"
                 style={inputBase}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#a8a29e'; e.currentTarget.style.background = '#fff'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e2de'; e.currentTarget.style.background = '#fafaf9'; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#5E8B8B'; e.currentTarget.style.background = '#fff'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#E4E4E7'; e.currentTarget.style.background = '#FAFAFA'; }}
               />
             </div>
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: '#44403c' }}>Password</label>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#09090B' }}>Password</label>
               </div>
               <div style={{ position: 'relative' }}>
                 <input
@@ -186,8 +122,8 @@ export default function Login() {
                   placeholder="Enter your password"
                   autoComplete="current-password"
                   style={{ ...inputBase, paddingRight: 44 }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = '#a8a29e'; e.currentTarget.style.background = '#fff'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e2de'; e.currentTarget.style.background = '#fafaf9'; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#5E8B8B'; e.currentTarget.style.background = '#fff'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#E4E4E7'; e.currentTarget.style.background = '#FAFAFA'; }}
                 />
                 <button
                   type="button"
@@ -204,11 +140,11 @@ export default function Login() {
               disabled={loginMutation.isPending}
               style={{
                 width: '100%',
-                padding: '14px',
-                borderRadius: 10,
+                padding: '13px',
+                borderRadius: 8,
                 border: 'none',
-                background: loginMutation.isPending ? '#57534e' : '#1c1917',
-                color: '#F3F2EE',
+                background: loginMutation.isPending ? '#4a7070' : '#5E8B8B',
+                color: '#FFFFFF',
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: loginMutation.isPending ? 'not-allowed' : 'pointer',
@@ -220,8 +156,8 @@ export default function Login() {
                 transition: 'background 0.15s',
                 letterSpacing: '-0.01em',
               }}
-              onMouseEnter={(e) => { if (!loginMutation.isPending) e.currentTarget.style.background = '#292524'; }}
-              onMouseLeave={(e) => { if (!loginMutation.isPending) e.currentTarget.style.background = '#1c1917'; }}
+              onMouseEnter={(e) => { if (!loginMutation.isPending) e.currentTarget.style.background = '#4a7070'; }}
+              onMouseLeave={(e) => { if (!loginMutation.isPending) e.currentTarget.style.background = '#5E8B8B'; }}
             >
               {loginMutation.isPending ? (
                 <><Loader2 size={16} className="animate-spin" /> Signing in…</>
@@ -231,16 +167,16 @@ export default function Login() {
             </button>
           </form>
 
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #e8e5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to="/onboarding" style={{ fontSize: 13, color: '#5E8B8B', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}
+          <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid #E4E4E7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Link to="/onboarding" style={{ fontSize: 13, color: '#5E8B8B', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
               onMouseEnter={e => { e.currentTarget.style.color = '#3d6b6b'; }}
               onMouseLeave={e => { e.currentTarget.style.color = '#5E8B8B'; }}
             >
-              New venue? Register <ArrowRight size={13} />
+              New cafe? Start free <ArrowRight size={13} />
             </Link>
-            <Link to="/" style={{ fontSize: 13, color: '#a8a29e', textDecoration: 'none' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#57534e'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#a8a29e'; }}
+            <Link to="/" style={{ fontSize: 13, color: '#A1A1AA', textDecoration: 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#71717A'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#A1A1AA'; }}
             >
               ← Back
             </Link>

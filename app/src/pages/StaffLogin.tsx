@@ -6,12 +6,12 @@ import { Coffee, LogIn, AlertCircle, ArrowLeft, Shield, KeyRound, Mail } from 'l
 // ─── Shared styles ───
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '12px 14px',
-  borderRadius: '10px',
-  border: '1px solid #e7e5e4',
+  padding: '11px 14px',
+  borderRadius: '8px',
+  border: '1px solid #E4E4E7',
   fontSize: '14px',
-  color: '#1c1917',
-  background: '#fafaf9',
+  color: '#09090B',
+  background: '#FAFAFA',
   outline: 'none',
   boxSizing: 'border-box',
 };
@@ -20,17 +20,17 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: '13px',
   fontWeight: 600,
-  color: '#44403c',
+  color: '#09090B',
   marginBottom: '6px',
 };
 
 const btnPrimaryStyle: React.CSSProperties = {
   width: '100%',
-  padding: '14px',
-  borderRadius: '10px',
+  padding: '13px',
+  borderRadius: '8px',
   border: 'none',
-  background: '#1c1917',
-  color: '#fafaf9',
+  background: '#5E8B8B',
+  color: '#FFFFFF',
   fontSize: '14px',
   fontWeight: 600,
   cursor: 'pointer',
@@ -273,7 +273,7 @@ export default function StaffLogin() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#f5f5f4',
+      background: '#FAFAFA',
       fontFamily: "'Inter', -apple-system, sans-serif",
       padding: '20px',
     }}>
@@ -281,29 +281,29 @@ export default function StaffLogin() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '16px',
-            background: '#1c1917',
+            width: '56px',
+            height: '56px',
+            borderRadius: '12px',
+            background: '#18181B',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 16px',
           }}>
-            {requiresTwoFa ? <Shield size={32} color="#fafaf9" /> : isResetFlow ? <KeyRound size={32} color="#fafaf9" /> : <Coffee size={32} color="#fafaf9" />}
+            {requiresTwoFa ? <Shield size={28} color="#FAFAFA" /> : isResetFlow ? <KeyRound size={28} color="#FAFAFA" /> : <Coffee size={28} color="#FAFAFA" />}
           </div>
           <h1 style={{
             fontSize: '22px',
             fontWeight: 700,
-            color: '#1c1917',
+            color: '#09090B',
             margin: 0,
-            letterSpacing: '-0.5px',
+            letterSpacing: '-0.03em',
           }}>
             {requiresTwoFa ? 'Two-Factor Verification' : isResetFlow ? 'Reset Password' : isVerifyFlow ? 'Email Verification' : 'Staff Login'}
           </h1>
           <p style={{
             fontSize: '14px',
-            color: '#78716c',
+            color: '#71717A',
             margin: '6px 0 0',
           }}>
             {requiresTwoFa
@@ -318,10 +318,11 @@ export default function StaffLogin() {
 
         {/* Card */}
         <div style={{
-          background: '#ffffff',
-          borderRadius: '16px',
+          background: '#FFFFFF',
+          borderRadius: '12px',
+          border: '1px solid #E4E4E7',
           padding: '32px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
         }}>
 
           {/* ── Email verify screen ── */}
@@ -333,7 +334,7 @@ export default function StaffLogin() {
               {verifyMsg && <SuccessBanner msg={verifyMsg} />}
               {verifyError && <ErrorBanner msg={verifyError} />}
               {(verifyMsg || verifyError) && (
-                <a href="/staff-login" style={{ fontSize: '13px', color: '#1c1917', fontWeight: 600 }}>
+                <a href="/staff-login" style={{ fontSize: '13px', color: '#09090B', fontWeight: 600 }}>
                   Go to Login
                 </a>
               )}
@@ -346,7 +347,7 @@ export default function StaffLogin() {
               {resetMsg ? (
                 <div>
                   <SuccessBanner msg={resetMsg} />
-                  <a href="/staff-login" style={{ fontSize: '13px', color: '#1c1917', fontWeight: 600 }}>
+                  <a href="/staff-login" style={{ fontSize: '13px', color: '#09090B', fontWeight: 600 }}>
                     Back to Login
                   </a>
                 </div>
@@ -421,8 +422,8 @@ export default function StaffLogin() {
                       fontSize: '22px',
                       fontWeight: 700,
                     }}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#5E8B8B'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#E4E4E7'; }}
                   />
                 </div>
                 <button
@@ -450,7 +451,7 @@ export default function StaffLogin() {
                     background: 'none',
                     border: 'none',
                     fontSize: '13px',
-                    color: '#78716c',
+                    color: '#71717A',
                     cursor: 'pointer',
                     textDecoration: 'underline',
                   }}
@@ -475,8 +476,8 @@ export default function StaffLogin() {
                     placeholder="Enter your venue ID"
                     min={1}
                     style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#5E8B8B'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#E4E4E7'; }}
                   />
                 </div>
 
@@ -489,8 +490,8 @@ export default function StaffLogin() {
                     placeholder="Enter username"
                     autoComplete="username"
                     style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#5E8B8B'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#E4E4E7'; }}
                   />
                 </div>
 
@@ -503,8 +504,8 @@ export default function StaffLogin() {
                     placeholder="Enter password"
                     autoComplete="current-password"
                     style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#5E8B8B'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#E4E4E7'; }}
                   />
                 </div>
 
@@ -523,7 +524,7 @@ export default function StaffLogin() {
               </form>
 
               {/* Forgot password */}
-              <div style={{ marginTop: '20px', borderTop: '1px solid #f5f5f4', paddingTop: '16px' }}>
+              <div style={{ marginTop: '20px', borderTop: '1px solid #E4E4E7', paddingTop: '16px' }}>
                 <button
                   onClick={() => {
                     setShowForgotPw(v => !v);
@@ -534,7 +535,7 @@ export default function StaffLogin() {
                     background: 'none',
                     border: 'none',
                     fontSize: '13px',
-                    color: '#78716c',
+                    color: '#71717A',
                     cursor: 'pointer',
                     textDecoration: 'underline',
                     padding: 0,
@@ -573,8 +574,8 @@ export default function StaffLogin() {
                             padding: '10px',
                             borderRadius: '8px',
                             border: 'none',
-                            background: '#44403c',
-                            color: '#fafaf9',
+                            background: '#5E8B8B',
+                            color: '#FFFFFF',
                             fontSize: '13px',
                             fontWeight: 600,
                             cursor: forgotPasswordMutation.isPending ? 'not-allowed' : 'pointer',
@@ -603,12 +604,12 @@ export default function StaffLogin() {
                 alignItems: 'center',
                 gap: '6px',
                 fontSize: '13px',
-                color: '#78716c',
+                color: '#71717A',
                 textDecoration: 'none',
                 transition: 'color 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#44403c'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#78716c'; }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#09090B'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#71717A'; }}
             >
               <ArrowLeft size={14} />
               Back to home

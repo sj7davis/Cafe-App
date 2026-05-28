@@ -39,82 +39,127 @@ export default function SuperAdmin() {
     onSuccess: () => window.location.reload(),
   });
 
-  // Login form
+  // ── Login form ──────────────────────────────────────────────────────────────
   if (!token || !admin) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
-        <div className="w-full max-w-sm mx-4">
-          <div className="text-center mb-8">
-            <div className="w-10 h-10 flex items-center justify-center mx-auto mb-4" style={{ background: '#B85450' }}>
-              <Shield size={20} style={{ color: '#F3F2EE' }} />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAFA', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', padding: 24 }}>
+        <div style={{ width: '100%', maxWidth: 380 }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#B85450', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Shield size={22} color="#FFFFFF" />
             </div>
-            <h1 style={{ fontWeight: 400, fontSize: '1.25rem', letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#181818' }}>Platform Admin</h1>
-            <p className="font-data mt-2" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>B1 PLATFORM INTERNAL</p>
+            <h1 style={{ fontWeight: 700, fontSize: 22, letterSpacing: '-0.03em', color: '#09090B', margin: '0 0 6px' }}>Platform Admin</h1>
+            <p style={{ fontSize: 13, color: '#71717A', margin: 0 }}>B1 Platform Internal</p>
           </div>
 
-          <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.15)' }}>
-            {error && <div className="mb-4 p-3 border" style={{ background: 'rgba(184,84,80,0.08)', borderColor: '#B85450' }}><p className="font-data" style={{ fontSize: '0.625rem', color: '#B85450' }}>{error}</p></div>}
-            <div className="space-y-4">
+          <div style={{ background: '#FFFFFF', borderRadius: 12, border: '1px solid #E4E4E7', padding: 28, boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }}>
+            {error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#dc2626' }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent border px-4 py-3 focus:outline-none" style={{ borderColor: 'rgba(24,24,24,0.15)', fontSize: '0.875rem', color: '#181818' }} />
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#09090B', marginBottom: 6 }}>Email</label>
+                <input
+                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  style={{ width: '100%', padding: '11px 14px', borderRadius: 8, border: '1px solid #E4E4E7', fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none', boxSizing: 'border-box' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#5E8B8B'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = '#E4E4E7'; }}
+                />
               </div>
               <div>
-                <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-transparent border px-4 py-3 focus:outline-none" style={{ borderColor: 'rgba(24,24,24,0.15)', fontSize: '0.875rem', color: '#181818' }} />
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#09090B', marginBottom: 6 }}>Password</label>
+                <input
+                  type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  style={{ width: '100%', padding: '11px 14px', borderRadius: 8, border: '1px solid #E4E4E7', fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none', boxSizing: 'border-box' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#5E8B8B'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = '#E4E4E7'; }}
+                />
               </div>
             </div>
-            <button onClick={() => loginMutation.mutate({ email, password })} disabled={loginMutation.isPending} className="w-full mt-6 py-3 font-button flex items-center justify-center gap-2 transition-opacity disabled:opacity-50 hover:opacity-85" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.875rem' }}>
+            <button
+              onClick={() => loginMutation.mutate({ email, password })}
+              disabled={loginMutation.isPending}
+              style={{ width: '100%', marginTop: 20, padding: '12px', borderRadius: 8, border: 'none', background: '#5E8B8B', color: '#FFFFFF', fontSize: 14, fontWeight: 600, cursor: loginMutation.isPending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loginMutation.isPending ? 0.7 : 1 }}
+              onMouseEnter={e => { if (!loginMutation.isPending) e.currentTarget.style.background = '#4a7070'; }}
+              onMouseLeave={e => { if (!loginMutation.isPending) e.currentTarget.style.background = '#5E8B8B'; }}
+            >
               {loginMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Signing in...</> : 'Sign In'}
             </button>
           </div>
-          <button onClick={() => navigate('/')} className="w-full mt-4 text-center font-data hover:opacity-60 transition-opacity" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', background: 'none', border: 'none' }}>
-            <ArrowLeft size={12} className="inline mr-1" /> Back to Platform
-          </button>
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <button
+              onClick={() => navigate('/')}
+              style={{ background: 'none', border: 'none', fontSize: 13, color: '#71717A', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#09090B'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#71717A'; }}
+            >
+              <ArrowLeft size={14} /> Back to Platform
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Dashboard
+  // ── Dashboard ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-[100dvh]" style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
       {/* Header */}
-      <header className="border-b" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#181818' }}>
-        <div className="content-container py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 flex items-center justify-center" style={{ background: '#B85450' }}>
-              <Shield size={16} style={{ color: '#F3F2EE' }} />
+      <header style={{ borderBottom: '1px solid #E4E4E7', background: '#18181B', padding: '0 24px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#B85450', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Shield size={18} color="#FFFFFF" />
             </div>
             <div>
-              <h1 style={{ fontWeight: 400, fontSize: '1rem', letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#F3F2EE' }}>Platform Admin</h1>
-              <span style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#FAFAFA', letterSpacing: '-0.02em' }}>Platform Admin</div>
+              <div style={{ fontSize: 11, color: '#71717A', marginTop: 1 }}>
                 {admin.name} — {admin.role?.toUpperCase()}
-              </span>
+              </div>
             </div>
           </div>
-          <button onClick={() => { localStorage.removeItem('b1-platform-admin-token'); window.location.reload(); }} className="font-data hover:opacity-60 transition-opacity" style={{ color: '#5E5E5E', fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', background: 'none', border: 'none' }}>
+          <button
+            onClick={() => { localStorage.removeItem('b1-platform-admin-token'); window.location.reload(); }}
+            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#A1A1AA', fontSize: 13, cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#FAFAFA'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#A1A1AA'; }}
+          >
             Log Out
           </button>
         </div>
       </header>
 
       {/* Tabs */}
-      <div className="border-b" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <div className="content-container flex gap-6">
+      <div style={{ borderBottom: '1px solid #E4E4E7', padding: '0 24px', background: '#FFFFFF' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 4 }}>
           {[{ id: 'overview', label: 'Overview', icon: Activity }, { id: 'venues', label: 'All Venues', icon: Coffee }].map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className="flex items-center gap-2 py-3" style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: activeTab === tab.id ? '#181818' : '#5E5E5E', borderBottom: `2px solid ${activeTab === tab.id ? '#181818' : 'transparent'}`, background: 'none', border: 'none', borderBottomWidth: 2, borderBottomStyle: 'solid', borderBottomColor: activeTab === tab.id ? '#181818' : 'transparent' }}>
-              <tab.icon size={14} /> {tab.label}
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '14px 16px',
+                fontSize: 14, fontWeight: activeTab === tab.id ? 600 : 400,
+                color: activeTab === tab.id ? '#09090B' : '#71717A',
+                background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.id ? '#5E8B8B' : 'transparent'}`,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => { if (activeTab !== tab.id) e.currentTarget.style.color = '#09090B'; }}
+              onMouseLeave={e => { if (activeTab !== tab.id) e.currentTarget.style.color = '#71717A'; }}
+            >
+              <tab.icon size={15} /> {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="content-container py-8">
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
         {/* Overview */}
         {activeTab === 'overview' && stats && (
           <div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 28 }}>
               {[
                 { label: 'Total Venues', value: stats.totalVenues, icon: Coffee },
                 { label: 'Active', value: stats.activeVenues, icon: Check },
@@ -122,25 +167,25 @@ export default function SuperAdmin() {
                 { label: 'Total Orders', value: stats.totalOrders, icon: DollarSign },
                 { label: 'Menu Items', value: stats.totalMenuItems, icon: Users },
               ].map((s) => (
-                <div key={s.label} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
-                  <s.icon size={16} style={{ color: '#5E5E5E' }} className="mb-2" />
-                  <span style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block' }}>{s.label}</span>
-                  <span style={{ fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', fontWeight: 500, fontSize: '1.5rem', color: '#181818' }}>{s.value}</span>
+                <div key={s.label} style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 12, padding: '20px 20px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <s.icon size={16} style={{ color: '#5E8B8B', marginBottom: 10 }} />
+                  <span style={{ fontSize: 12, color: '#71717A', display: 'block', marginBottom: 4 }}>{s.label}</span>
+                  <span style={{ fontWeight: 700, fontSize: 24, color: '#09090B' }}>{s.value}</span>
                 </div>
               ))}
             </div>
 
             {stats.tierBreakdown && stats.tierBreakdown.length > 0 && (
-              <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-                <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Subscriptions by Tier</h2>
-                <div className="space-y-2">
+              <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                <h2 style={{ fontWeight: 600, fontSize: 15, color: '#09090B', margin: '0 0 16px' }}>Subscriptions by Tier</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {stats.tierBreakdown.map((t: any) => (
-                    <div key={t.tier} className="flex items-center gap-3">
-                      <span style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', color: '#5E5E5E', width: '6rem', textTransform: 'uppercase' }}>{t.tier}</span>
-                      <div className="flex-1 h-4" style={{ background: 'rgba(24,24,24,0.06)' }}>
-                        <div className="h-full" style={{ width: `${Math.min(100, (t.count / Math.max(stats.totalVenues, 1)) * 100)}%`, background: '#181818' }} />
+                    <div key={t.tier} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: '#71717A', width: 80, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.tier}</span>
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#F4F4F5', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(100, (t.count / Math.max(stats.totalVenues, 1)) * 100)}%`, background: '#5E8B8B', borderRadius: 4 }} />
                       </div>
-                      <span style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', color: '#181818', width: '2rem', textAlign: 'right' }}>{t.count}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#09090B', width: 28, textAlign: 'right' }}>{t.count}</span>
                     </div>
                   ))}
                 </div>
@@ -152,30 +197,74 @@ export default function SuperAdmin() {
         {/* Venues List */}
         {activeTab === 'venues' && allVenues && (
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>All Venues ({allVenues.length})</h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontWeight: 600, fontSize: 16, color: '#09090B', margin: 0 }}>All Venues ({allVenues.length})</h2>
             </div>
-            <div className="space-y-2">
-              {allVenues.map((v) => (
-                <div key={v.id} className="border p-4 flex items-center justify-between" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 flex items-center justify-center" style={{ background: v.isActive ? '#5E8B5E20' : '#B8545020' }}>
-                      <Coffee size={14} style={{ color: v.isActive ? '#5E8B5E' : '#B85450' }} />
+            {/* Table card */}
+            <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              {/* Table header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 80px', gap: 0, padding: '10px 20px', borderBottom: '1px solid #E4E4E7', background: '#F9F9F9' }}>
+                {['Venue', 'Slug', 'Tier', 'Status', 'Actions'].map((col) => (
+                  <span key={col} style={{ fontSize: 11, fontWeight: 600, color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{col}</span>
+                ))}
+              </div>
+              {/* Table rows */}
+              {allVenues.map((v, idx) => (
+                <div
+                  key={v.id}
+                  style={{
+                    display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 80px', gap: 0,
+                    padding: '14px 20px',
+                    borderBottom: idx < allVenues.length - 1 ? '1px solid #E4E4E7' : 'none',
+                    alignItems: 'center',
+                  }}
+                >
+                  {/* Name */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: v.isActive ? 'rgba(94,139,139,0.1)' : 'rgba(184,84,80,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Coffee size={13} color={v.isActive ? '#5E8B8B' : '#B85450'} />
                     </div>
-                    <div>
-                      <span style={{ fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif', fontWeight: 500, fontSize: '0.875rem', color: '#181818', display: 'block' }}>{v.name}</span>
-                      <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>
-                        {v.slug} &middot; {(v.subscriptionTier || 'trial').toUpperCase()} &middot; {(v.subscriptionStatus || 'trial').toUpperCase()}
-                        {v.squareEnabled && ' &middot; Square'}
-                      </span>
-                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#09090B' }}>{v.name}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => navigate(`/v/${v.slug}`)} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818' }} title="View Site">
-                      <Coffee size={14} />
+                  {/* Slug */}
+                  <span style={{ fontSize: 13, color: '#71717A', fontFamily: 'monospace' }}>{v.slug}</span>
+                  {/* Tier */}
+                  <span style={{ display: 'inline-flex', alignSelf: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: '#F4F4F5', color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {(v.subscriptionTier || 'trial')}
+                    </span>
+                  </span>
+                  {/* Status */}
+                  <span style={{ display: 'inline-flex', alignSelf: 'center' }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6,
+                      background: v.isActive ? 'rgba(94,139,139,0.1)' : 'rgba(184,84,80,0.1)',
+                      color: v.isActive ? '#5E8B8B' : '#B85450',
+                      textTransform: 'uppercase', letterSpacing: '0.04em',
+                    }}>
+                      {v.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </span>
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => navigate(`/v/${v.slug}`)}
+                      title="View Site"
+                      style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #E4E4E7', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#71717A' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F4F4F5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
+                    >
+                      <Coffee size={13} />
                     </button>
-                    <button onClick={() => updateVenue.mutate({ token, venueId: v.id, data: { isActive: !v.isActive } })} disabled={updateVenue.isPending} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: v.isActive ? '#B85450' : '#5E8B5E' }} title={v.isActive ? 'Deactivate' : 'Activate'}>
-                      {v.isActive ? <X size={14} /> : <Check size={14} />}
+                    <button
+                      onClick={() => updateVenue.mutate({ token, venueId: v.id, data: { isActive: !v.isActive } })}
+                      disabled={updateVenue.isPending}
+                      title={v.isActive ? 'Deactivate' : 'Activate'}
+                      style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #E4E4E7', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: updateVenue.isPending ? 'not-allowed' : 'pointer', color: v.isActive ? '#B85450' : '#5E8B8B', opacity: updateVenue.isPending ? 0.5 : 1 }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F4F4F5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
+                    >
+                      {v.isActive ? <X size={13} /> : <Check size={13} />}
                     </button>
                   </div>
                 </div>
