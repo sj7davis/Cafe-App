@@ -1960,6 +1960,36 @@ export default function VenuePublic() {
           )}
         </div>
 
+        {/* Category Jump Nav */}
+        {allMenuItems.length > 0 && (coffeeItems.length > 0 || pastryItems.length > 0 || breadItems.length > 0) && (
+          <div style={{
+            display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4,
+            marginBottom: 16, WebkitOverflowScrolling: 'touch',
+          }}>
+            {[
+              { label: 'Coffee', show: coffeeItems.length > 0, anchor: 'menu-coffee' },
+              { label: 'Pastries', show: pastryItems.length > 0, anchor: 'menu-pastries' },
+              { label: 'Bread', show: breadItems.length > 0, anchor: 'menu-bread' },
+            ].filter(c => c.show).map(cat => (
+              <button
+                key={cat.anchor}
+                onClick={() => document.getElementById(cat.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                style={{
+                  flexShrink: 0,
+                  borderRadius: 99, padding: '5px 14px', fontSize: 12, fontWeight: 600,
+                  border: `1.5px solid ${accentColor}40`,
+                  background: 'transparent',
+                  color: accentColor,
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Dietary Filter Pills */}
         {allMenuItems.length > 0 && (
           <div style={{
@@ -1997,7 +2027,7 @@ export default function VenuePublic() {
 
         {/* Coffee */}
         {coffeeItems.length > 0 && (
-          <div className="mb-10">
+          <div className="mb-10" id="menu-coffee" style={{ scrollMarginTop: 80 }}>
             <div className="flex items-center gap-3 mb-6">
               <Coffee size={20} style={{ color: accentColor }} />
               <h3 className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: primaryColor }}>
@@ -2024,7 +2054,7 @@ export default function VenuePublic() {
 
         {/* Pastries */}
         {pastryItems.length > 0 && (
-          <div className="mb-10">
+          <div className="mb-10" id="menu-pastries" style={{ scrollMarginTop: 80 }}>
             <div className="flex items-center gap-3 mb-6">
               <Star size={20} style={{ color: accentColor }} />
               <h3 className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: primaryColor }}>
@@ -2051,7 +2081,7 @@ export default function VenuePublic() {
 
         {/* Bread */}
         {breadItems.length > 0 && (
-          <div className="mb-10">
+          <div className="mb-10" id="menu-bread" style={{ scrollMarginTop: 80 }}>
             <div className="flex items-center gap-3 mb-6">
               <Package size={20} style={{ color: accentColor }} />
               <h3 className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: primaryColor }}>
@@ -2685,19 +2715,24 @@ function MenuCard({
       display: 'flex', flexDirection: 'column',
       position: 'relative',
       opacity: soldOut ? 0.75 : 1,
+      transition: 'box-shadow 0.15s',
     }}>
       {soldOut && (
         <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, letterSpacing: '0.06em', textTransform: 'uppercase', zIndex: 1 }}>
           Sold Out
         </div>
       )}
-      {item.image && (
+      {item.image ? (
         <img
           src={item.image}
           alt={item.name}
           style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }}
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
+      ) : (
+        <div style={{ width: '100%', aspectRatio: '16 / 9', background: `linear-gradient(135deg, ${accentColor}15 0%, ${accentColor}06 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Coffee size={28} style={{ color: `${accentColor}50` }} />
+        </div>
       )}
       <div style={{
         padding: 16, display: 'flex', justifyContent: 'space-between',

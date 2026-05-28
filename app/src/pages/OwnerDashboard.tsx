@@ -2627,41 +2627,53 @@ function MenuTab({ venue }: { venue: any }) {
         </div>
       )}
 
-      {/* Item list */}
-      {!isLoading && items && items.length > 0 && (
-        <div className="space-y-2 mb-6">
-          {items.map((item: any) => (
-            <div key={item.id}>
+      {/* Item list — grouped by category */}
+      {!isLoading && items && items.length > 0 && (() => {
+        const CAT_ORDER = ['coffee', 'pastries', 'bread'];
+        const allCats = [...new Set((items as any[]).map((i: any) => i.category as string))];
+        const sortedCats = [
+          ...CAT_ORDER.filter(c => allCats.includes(c)),
+          ...allCats.filter(c => !CAT_ORDER.includes(c)),
+        ];
+        return (
+          <div className="space-y-6 mb-6">
+            {sortedCats.map(cat => {
+              const catItems = (items as any[]).filter((i: any) => i.category === cat);
+              return (
+                <div key={cat}>
+                  {/* Category section header */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700, color: '#5E5E5E' }}>
+                      {categoryLabel(cat)}
+                    </span>
+                    <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', color: '#9CA3AF' }}>({catItems.length})</span>
+                    <div style={{ flex: 1, height: 1, background: 'rgba(24,24,24,0.08)' }} />
+                  </div>
+                  <div className="space-y-2">
+                    {catItems.map((item: any) => (
+          <div key={item.id}>
               <div
-                className="flex items-center justify-between gap-4 p-4 rounded"
-                style={{ background: '#E8E4DD' }}
+                className="flex items-center justify-between gap-4 p-4"
+                style={{ background: '#fff', border: '1px solid rgba(24,24,24,0.08)' }}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {item.image ? (
                     <img
                       src={item.image}
                       alt={item.name}
-                      style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                      style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
                     />
                   ) : (
-                    <div style={{ width: 48, height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.06)', borderRadius: 4 }}>
-                      <Coffee size={20} style={{ color: '#5E5E5E' }} />
+                    <div style={{ width: 52, height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.04)', borderRadius: 6, border: '1px dashed rgba(24,24,24,0.12)' }}>
+                      <Coffee size={18} style={{ color: '#9CA3AF' }} />
                     </div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#181818', display: 'block', marginBottom: 2 }}>{item.name}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#181818', display: 'block', marginBottom: 3 }}>{item.name}</span>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span style={{ fontFamily: 'Geist Mono', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5E5E5E', background: 'rgba(24,24,24,0.08)', padding: '2px 6px', borderRadius: 3 }}>
-                        {categoryLabel(item.category)}
-                      </span>
-                      <span style={{ fontFamily: 'Geist Mono', fontSize: 13, color: '#181818', fontWeight: 600 }}>
+                      <span style={{ fontFamily: 'Geist Mono', fontSize: 13, color: '#181818', fontWeight: 700 }}>
                         ${Number(item.price).toFixed(2)}
                       </span>
-                      {item.image && (
-                        <span style={{ fontFamily: 'Geist Mono', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5E8B5E', background: 'rgba(94,139,94,0.12)', padding: '2px 6px', borderRadius: 3 }}>
-                          IMG
-                        </span>
-                      )}
                     </div>
                     {/* Allergen / dietary badges */}
                     {((Array.isArray(item.allergens) && item.allergens.length > 0) || (Array.isArray(item.dietaryTags) && item.dietaryTags.length > 0)) && (
@@ -2783,9 +2795,14 @@ function MenuTab({ venue }: { venue: any }) {
                 </div>
               )}
             </div>
-          ))}
-        </div>
-      )}
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Create / Edit Form */}
       {isFormMode && (
