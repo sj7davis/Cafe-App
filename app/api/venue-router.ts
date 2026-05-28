@@ -99,7 +99,7 @@ export const venueRouter = createRouter({
     const db = getDb();
     const results = await db.select().from(venues).where(eq(venues.slug, input.slug)).limit(1);
     const venue = results[0];
-    if (!venue || !venue.isPublic) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    if (!venue || venue.isPublic === false) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
     const { squareAccessToken, squareRefreshToken, stripeCustomerId, stripeSubscriptionId, ...safe } = venue;
     return safe;
   }),
@@ -212,6 +212,7 @@ export const venueRouter = createRouter({
       galleryImages: z.any().optional(),
       instagramUrl: z.string().optional(),
       facebookUrl: z.string().optional(),
+      websiteBlocks: z.any().optional(),
     }),
   })).mutation(async ({ input }) => {
     const db = getDb();

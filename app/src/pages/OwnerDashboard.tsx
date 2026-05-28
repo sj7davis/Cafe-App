@@ -796,257 +796,354 @@ function PLTab({ venue }: { venue: any }) {
 
 function WebsiteTab({ venue }: { venue: any }) {
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [form, setForm] = useState({
-    heroImageUrl: (venue as any).heroImageUrl || '',
-    tagline: (venue as any).tagline || '',
-    aboutTitle: (venue as any).aboutTitle || 'Our Story',
-    aboutText: (venue as any).aboutText || '',
-    instagramUrl: (venue as any).instagramUrl || '',
-    facebookUrl: (venue as any).facebookUrl || '',
+
+  type BlockType = 'hero' | 'about' | 'gallery' | 'booking_cta' | 'hours' | 'social' | 'divider';
+  type Block = { id: string; type: BlockType; data: Record<string, any> };
+
+  const genId = () => Math.random().toString(36).slice(2, 9);
+
+  const [blocks, setBlocks] = useState<Block[]>(() => {
+    const saved = (venue as any).websiteBlocks;
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+    return [];
   });
-  const [gallery, setGallery] = useState<{url:string;caption:string}[]>(
-    Array.isArray((venue as any).galleryImages) ? (venue as any).galleryImages : []
-  );
-  const [newImgUrl, setNewImgUrl] = useState('');
-  const [newImgCaption, setNewImgCaption] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
-  const updateMutation = trpc.venue.update.useMutation({ onSuccess: () => setSaveMsg('Website saved!') });
-  const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' } as const;
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  const updateMutation = trpc.venue.update.useMutation({ onSuccess: () => setSaveMsg('✓ Published') });
+
+  const publicUrl = typeof window !== 'undefined' ? `${window.location.origin}/v/${venue.slug}` : `/v/${venue.slug}`;
+  const bookUrl = typeof window !== 'undefined' ? `${window.location.origin}/book/${venue.slug}` : `/book/${venue.slug}`;
 
   const handleSave = () => {
     setSaveMsg('');
-    updateMutation.mutate({ token, data: { ...form, galleryImages: gallery } });
+    updateMutation.mutate({ token, data: { websiteBlocks: blocks } as any });
   };
 
-  const addGalleryImage = () => {
-    if (!newImgUrl.trim()) return;
-    setGallery(g => [...g, { url: newImgUrl.trim(), caption: newImgCaption.trim() }]);
-    setNewImgUrl('');
-    setNewImgCaption('');
+  const DEFAULTS: Record<BlockType, Record<string, any>> = {
+    hero: { imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1400&q=80', title: venue.name || 'Welcome', tagline: 'Specialty coffee & fresh food', ctaText: 'Order Now' },
+    about: { title: 'Our Story', body: 'Tell customers what makes your cafe special...' },
+    gallery: { images: [] },
+    booking_cta: { title: 'Reserve a Table', subtitle: 'Book online in seconds — no phone call needed.', buttonText: 'Book Now' },
+    hours: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' },
+    social: { instagram: (venue as any).instagramUrl || '', facebook: (venue as any).facebookUrl || '' },
+    divider: { style: 'space' },
   };
 
-  const removeGalleryImage = (i: number) => {
-    setGallery(g => g.filter((_, idx) => idx !== i));
+  const addBlock = (type: BlockType) => {
+    const nb: Block = { id: genId(), type, data: { ...DEFAULTS[type] } };
+    setBlocks(b => [...b, nb]);
+    setEditingId(nb.id);
+    setShowCatalog(false);
   };
+  const updateBlock = (id: string, data: Record<string, any>) => setBlocks(b => b.map(bl => bl.id === id ? { ...bl, data } : bl));
+  const removeBlock = (id: string) => { setBlocks(b => b.filter(bl => bl.id !== id)); if (editingId === id) setEditingId(null); };
 
-  const publicUrl = `${window.location.origin}/v/${venue.slug}`;
+  const handleDragStart = (e: React.DragEvent, i: number) => { setDragging(i); e.dataTransfer.effectAllowed = 'move'; };
+  const handleDragOver = (e: React.DragEvent, i: number) => { e.preventDefault(); setDragOver(i); };
+  const handleDrop = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    if (dragging !== null && dragging !== i) {
+      const arr = [...blocks];
+      const [item] = arr.splice(dragging, 1);
+      arr.splice(i, 0, item);
+      setBlocks(arr);
+    }
+    setDragging(null); setDragOver(null);
+  };
+  const handleDragEnd = () => { setDragging(null); setDragOver(null); };
 
-  const TEMPLATES = [
-    {
-      id: 'dawn',
-      name: 'Dawn',
-      desc: 'Clean & minimal',
-      preview: '#F8F5F0',
-      data: {
-        primaryColor: '#1c1917',
-        accentColor: '#78716c',
-        heroImageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1400&q=80',
-        tagline: 'Specialty coffee, served with care.',
-        aboutTitle: 'Our Philosophy',
-        aboutText: 'We believe great coffee starts with great relationships — with our farmers, our team, and you. Every cup is crafted with intention.',
-        instagramUrl: '', facebookUrl: '',
-      },
-    },
-    {
-      id: 'craft',
-      name: 'Craft',
-      desc: 'Warm & artisan',
-      preview: '#3D2B1F',
-      data: {
-        primaryColor: '#3D2B1F',
-        accentColor: '#C4953A',
-        heroImageUrl: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1400&q=80',
-        tagline: 'Handcrafted coffee & fresh baked goods.',
-        aboutTitle: 'Made With Hands',
-        aboutText: 'Everything on our menu is made from scratch, every morning. No shortcuts, no compromises — just honest food and honest coffee.',
-        instagramUrl: '', facebookUrl: '',
-      },
-    },
-    {
-      id: 'city',
-      name: 'City Roast',
-      desc: 'Modern & urban',
-      preview: '#18181B',
-      data: {
-        primaryColor: '#18181B',
-        accentColor: '#5E8B8B',
-        heroImageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1400&q=80',
-        tagline: 'Bold coffee for bold mornings.',
-        aboutTitle: 'City Grown',
-        aboutText: 'Born in the city, brewed for it. We source single-origin beans and roast them to perfection right here in our space.',
-        instagramUrl: '', facebookUrl: '',
-      },
-    },
-    {
-      id: 'bloom',
-      name: 'Bloom',
-      desc: 'Fresh & bright',
-      preview: '#4A7C59',
-      data: {
-        primaryColor: '#4A7C59',
-        accentColor: '#A8C5A0',
-        heroImageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1400&q=80',
-        tagline: 'Fresh food. Good coffee. Happy people.',
-        aboutTitle: 'Growing Together',
-        aboutText: 'We source locally, bake daily, and grow with our community. Our menu changes with the seasons — always fresh, always delicious.',
-        instagramUrl: '', facebookUrl: '',
-      },
-    },
-    {
-      id: 'prestige',
-      name: 'Prestige',
-      desc: 'Premium & refined',
-      preview: '#1E2B4A',
-      data: {
-        primaryColor: '#1E2B4A',
-        accentColor: '#C4953A',
-        heroImageUrl: 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=1400&q=80',
-        tagline: 'An exceptional coffee experience.',
-        aboutTitle: 'The Art of Coffee',
-        aboutText: 'We\'ve spent years refining every detail — from bean selection to your final sip. Prestige is not just coffee; it\'s an experience.',
-        instagramUrl: '', facebookUrl: '',
-      },
-    },
+  const TEMPLATES: { id: string; name: string; desc: string; color: string; blocks: () => Block[] }[] = [
+    { id: 'minimal', name: 'Minimal', desc: 'Clean & simple', color: '#1c1917',
+      blocks: () => [
+        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1400&q=80', title: venue.name, tagline: 'Specialty coffee, served with care.', ctaText: 'Order Now' } },
+        { id: genId(), type: 'booking_cta', data: { title: 'Reserve a Table', subtitle: 'Book online in seconds.', buttonText: 'Book Now' } },
+        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
+      ] },
+    { id: 'story', name: 'Story', desc: 'Narrative flow', color: '#3D2B1F',
+      blocks: () => [
+        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1400&q=80', title: venue.name, tagline: 'Handcrafted coffee & fresh baked goods.', ctaText: 'See Our Menu' } },
+        { id: genId(), type: 'about', data: { title: 'Our Story', body: 'We believe great coffee starts with great relationships — with our farmers, our team, and you.' } },
+        { id: genId(), type: 'gallery', data: { images: [] } },
+        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
+        { id: genId(), type: 'booking_cta', data: { title: 'Reserve a Table', subtitle: 'Join us for a meal.', buttonText: 'Book Now' } },
+      ] },
+    { id: 'visual', name: 'Visual', desc: 'Photo-first', color: '#1E3A5F',
+      blocks: () => [
+        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1400&q=80', title: venue.name, tagline: 'Bold coffee for bold mornings.', ctaText: 'Order Now' } },
+        { id: genId(), type: 'gallery', data: { images: [] } },
+        { id: genId(), type: 'about', data: { title: 'Our Coffee', body: 'Sourced from the best farms, roasted to perfection.' } },
+        { id: genId(), type: 'booking_cta', data: { title: 'Come Visit Us', subtitle: '', buttonText: 'Reserve Now' } },
+      ] },
+    { id: 'community', name: 'Community', desc: 'Local-first', color: '#4A7C59',
+      blocks: () => [
+        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1400&q=80', title: venue.name, tagline: 'Fresh food. Good coffee. Happy people.', ctaText: 'Order Now' } },
+        { id: genId(), type: 'about', data: { title: 'Part of the Community', body: 'We source locally, bake daily, and grow with our community.' } },
+        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
+        { id: genId(), type: 'social', data: { instagram: (venue as any).instagramUrl || '', facebook: (venue as any).facebookUrl || '' } },
+        { id: genId(), type: 'booking_cta', data: { title: 'Join Us', subtitle: '', buttonText: 'Book a Table' } },
+      ] },
+    { id: 'prestige', name: 'Prestige', desc: 'Premium experience', color: '#1E2B4A',
+      blocks: () => [
+        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=1400&q=80', title: venue.name, tagline: 'An exceptional coffee experience.', ctaText: 'Reserve a Table' } },
+        { id: genId(), type: 'about', data: { title: 'The Art of Coffee', body: "We've spent years refining every detail — from bean selection to your final sip." } },
+        { id: genId(), type: 'gallery', data: { images: [] } },
+        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
+        { id: genId(), type: 'booking_cta', data: { title: 'Reserve Your Experience', subtitle: 'Tables fill fast — book ahead.', buttonText: 'Book Now' } },
+      ] },
   ];
-  const [showTemplates, setShowTemplates] = useState(false);
+
+  const CATALOG: { type: BlockType; label: string; icon: string; desc: string }[] = [
+    { type: 'hero', label: 'Hero Banner', icon: '🖼️', desc: 'Full-width image with title & CTA' },
+    { type: 'about', label: 'About Us', icon: '📖', desc: 'Your story in text' },
+    { type: 'gallery', label: 'Photo Gallery', icon: '📷', desc: 'Grid of up to 9 photos' },
+    { type: 'booking_cta', label: 'Book a Table', icon: '📅', desc: 'Reservation call-to-action' },
+    { type: 'hours', label: 'Opening Hours', icon: '🕐', desc: 'Mon-Fri, Sat, Sun hours' },
+    { type: 'social', label: 'Social Links', icon: '📱', desc: 'Instagram & Facebook' },
+    { type: 'divider', label: 'Spacer', icon: '➖', desc: 'Add space between sections' },
+  ];
+
+  const LABELS: Record<BlockType, string> = { hero: 'Hero Banner', about: 'About Us', gallery: 'Photo Gallery', booking_cta: 'Book a Table', hours: 'Opening Hours', social: 'Social Links', divider: 'Spacer' };
+  const ICONS: Record<BlockType, string> = { hero: '🖼️', about: '📖', gallery: '📷', booking_cta: '📅', hours: '🕐', social: '📱', divider: '➖' };
+
+  const editingBlock = blocks.find(b => b.id === editingId) ?? null;
+
+  const iStyle: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid #E5E7EB', borderRadius: 7, fontSize: 13, color: '#111827', background: '#fff', boxSizing: 'border-box', outline: 'none', fontFamily: 'Inter, sans-serif' };
+  const lStyle: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 };
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Live preview link */}
-      <div className="border p-4 flex items-center justify-between" style={{ borderColor: 'rgba(24,24,24,0.08)', background: 'rgba(94,139,139,0.06)' }}>
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <div className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E8B8B' }}>Your public website</div>
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.875rem', color: '#181818', textDecoration: 'underline' }}>{publicUrl}</a>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.03em' }}>Website Builder</h1>
+          <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>Drag blocks to reorder · Click Edit to customise · Publish to go live</p>
         </div>
-        <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', textDecoration: 'none' }}>
-          <Link2 size={13} /> Open Preview
-        </a>
-      </div>
-
-      {/* Templates */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#fff' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', margin: 0 }}>Quick Templates</h2>
-            <p style={{ fontSize: '0.8rem', color: '#5E5E5E', margin: '4px 0 0' }}>Start from a design template — you can customise everything after applying.</p>
-          </div>
-          <button onClick={() => setShowTemplates(v => !v)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase', color: '#181818' }}>
-            {showTemplates ? 'Hide' : 'Browse Templates'}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {saveMsg && <span style={{ fontSize: 12, color: '#059669', fontWeight: 600 }}>{saveMsg}</span>}
+          <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', textDecoration: 'none' }}>
+            🔗 Preview Site
+          </a>
+          <button onClick={handleSave} disabled={updateMutation.isPending} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, background: '#111827', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: updateMutation.isPending ? 'not-allowed' : 'pointer', opacity: updateMutation.isPending ? 0.7 : 1 }}>
+            {updateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            Publish
           </button>
         </div>
-        {showTemplates && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-            {TEMPLATES.map(t => (
-              <div key={t.id} style={{ border: '2px solid rgba(24,24,24,0.1)', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = '#181818')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(24,24,24,0.1)')}
-              >
-                <div style={{ height: 72, background: t.preview, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 32, height: 4, background: 'rgba(255,255,255,0.6)', borderRadius: 2, marginBottom: 4 }} />
-                </div>
-                <div style={{ padding: '10px 12px' }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: '#181818' }}>{t.name}</div>
-                  <div style={{ fontSize: 11, color: '#5E5E5E', marginBottom: 8 }}>{t.desc}</div>
-                  <button
-                    onClick={() => {
-                      setForm(f => ({ ...f, heroImageUrl: t.data.heroImageUrl, tagline: t.data.tagline, aboutTitle: t.data.aboutTitle, aboutText: t.data.aboutText, instagramUrl: t.data.instagramUrl, facebookUrl: t.data.facebookUrl }));
-                      setShowTemplates(false);
-                      setSaveMsg('Template applied — click Save Website to publish.');
-                    }}
-                    style={{ width: '100%', padding: '6px 0', background: '#181818', color: '#fff', border: 'none', fontSize: 11, fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }}
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Hero */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Hero Banner</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Hero Image URL</label>
-            <input type="url" value={form.heroImageUrl} onChange={e => setForm({ ...form, heroImageUrl: e.target.value })} className={inputCls} style={inputStyle} placeholder="https://images.unsplash.com/..." />
-            {form.heroImageUrl && (
-              <div className="mt-2 relative" style={{ height: 160, overflow: 'hidden', borderRadius: 4 }}>
-                <img src={form.heroImageUrl} alt="Hero preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => (e.currentTarget.style.display = 'none')} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'start' }}>
+
+        {/* Left panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Templates */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTemplates ? 16 : 0 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Templates</div>
+                <div style={{ fontSize: 12, color: '#9CA3AF' }}>Start from a pre-built layout</div>
+              </div>
+              <button onClick={() => setShowTemplates(v => !v)} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#F9FAFB', fontSize: 12, fontWeight: 500, cursor: 'pointer', color: '#374151' }}>
+                {showTemplates ? 'Hide' : '✦ Browse Templates'}
+              </button>
+            </div>
+            {showTemplates && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                {TEMPLATES.map(t => (
+                  <div key={t.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                    <div style={{ height: 56, background: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '55%', height: 3, background: 'rgba(255,255,255,0.4)', borderRadius: 2 }} />
+                    </div>
+                    <div style={{ padding: '10px 10px 12px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{t.name}</div>
+                      <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 8 }}>{t.desc}</div>
+                      <button onClick={() => { setBlocks(t.blocks()); setShowTemplates(false); setEditingId(null); setSaveMsg('Template applied — click Publish to go live'); }}
+                        style={{ width: '100%', padding: '5px 0', background: '#111827', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-          <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Tagline</label>
-            <input type="text" value={form.tagline} onChange={e => setForm({ ...form, tagline: e.target.value })} className={inputCls} style={inputStyle} placeholder="Specialty coffee & fresh food in the heart of the city" />
-          </div>
-        </div>
-      </div>
 
-      {/* About */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>About Section</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Section Title</label>
-            <input type="text" value={form.aboutTitle} onChange={e => setForm({ ...form, aboutTitle: e.target.value })} className={inputCls} style={inputStyle} placeholder="Our Story" />
-          </div>
-          <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>About Text</label>
-            <textarea value={form.aboutText} onChange={e => setForm({ ...form, aboutText: e.target.value })} rows={5} className={inputCls} style={inputStyle} placeholder="Tell your customers your story — your coffee philosophy, team, and what makes you special..." />
-          </div>
-        </div>
-      </div>
-
-      {/* Gallery */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Photo Gallery</h2>
-        <p style={{ fontSize: '0.8rem', color: '#5E5E5E', marginBottom: 16 }}>Add up to 9 photos. Paste an image URL from Unsplash, your CDN, or any direct image link.</p>
-        {gallery.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
-            {gallery.map((img, i) => (
-              <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 4, overflow: 'hidden', border: '1px solid rgba(24,24,24,0.1)' }}>
-                <img src={img.url} alt={img.caption} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                {img.caption && (
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '3px 6px' }}>{img.caption}</div>
-                )}
-                <button onClick={() => removeGalleryImage(i)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 20, height: 20, color: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          {/* Blocks list */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                Page Blocks
+                <span style={{ fontSize: 11, fontWeight: 400, color: '#9CA3AF', marginLeft: 6 }}>({blocks.length})</span>
               </div>
-            ))}
-          </div>
-        )}
-        {gallery.length < 9 && (
-          <div className="flex gap-2">
-            <input type="url" value={newImgUrl} onChange={e => setNewImgUrl(e.target.value)} placeholder="Image URL" className="flex-1 bg-transparent border px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'rgba(24,24,24,0.15)', borderRadius: 0 }} />
-            <input type="text" value={newImgCaption} onChange={e => setNewImgCaption(e.target.value)} placeholder="Caption (optional)" style={{ width: 160, padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: '0.875rem', background: 'transparent' }} />
-            <button onClick={addGalleryImage} className="px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>Add</button>
-          </div>
-        )}
-      </div>
+              <button onClick={() => setShowCatalog(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, background: showCatalog ? '#374151' : '#111827', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                <Plus size={13} /> Add Block
+              </button>
+            </div>
 
-      {/* Social */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Social Links</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Instagram URL</label>
-            <input type="url" value={form.instagramUrl} onChange={e => setForm({ ...form, instagramUrl: e.target.value })} className={inputCls} style={inputStyle} placeholder="https://instagram.com/yourcafe" />
-          </div>
-          <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Facebook URL</label>
-            <input type="url" value={form.facebookUrl} onChange={e => setForm({ ...form, facebookUrl: e.target.value })} className={inputCls} style={inputStyle} placeholder="https://facebook.com/yourcafe" />
+            {showCatalog && (
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                {CATALOG.map(c => (
+                  <button key={c.type} onClick={() => addBlock(c.type)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#111827'; e.currentTarget.style.background = '#F3F4F6'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.background = '#fff'; }}
+                  >
+                    <span style={{ fontSize: 20 }}>{c.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{c.label}</div>
+                      <div style={{ fontSize: 10, color: '#9CA3AF' }}>{c.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {blocks.length === 0 && !showCatalog && (
+              <div style={{ textAlign: 'center', padding: '32px 16px', color: '#9CA3AF' }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>🏗️</div>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No blocks yet</div>
+                <div style={{ fontSize: 12 }}>Apply a template or click "Add Block" to start building</div>
+              </div>
+            )}
+
+            <div>
+              {blocks.map((block, i) => (
+                <div key={block.id}
+                  draggable
+                  onDragStart={e => handleDragStart(e, i)}
+                  onDragOver={e => handleDragOver(e, i)}
+                  onDrop={e => handleDrop(e, i)}
+                  onDragEnd={handleDragEnd}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 8, border: `2px solid ${dragOver === i && dragging !== i ? '#5E8B8B' : editingId === block.id ? '#111827' : '#F3F4F6'}`, background: editingId === block.id ? '#F9FAFB' : '#fff', marginBottom: 8, cursor: 'grab', opacity: dragging === i ? 0.45 : 1, transition: 'border-color 0.1s' }}
+                >
+                  <span style={{ color: '#D1D5DB', fontSize: 16, userSelect: 'none', flexShrink: 0 }}>⠿</span>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>{ICONS[block.type]}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{LABELS[block.type]}</div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {block.type === 'hero' && (block.data.tagline || block.data.title || '')}
+                      {block.type === 'about' && (block.data.title || '')}
+                      {block.type === 'gallery' && `${(block.data.images || []).filter((x: any) => x.url).length} photos`}
+                      {block.type === 'booking_cta' && (block.data.title || '')}
+                      {block.type === 'hours' && 'Hours display'}
+                      {block.type === 'social' && 'Social links'}
+                      {block.type === 'divider' && 'Section spacer'}
+                    </div>
+                  </div>
+                  <button onClick={() => setEditingId(editingId === block.id ? null : block.id)}
+                    style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #E5E7EB', background: editingId === block.id ? '#111827' : '#F9FAFB', color: editingId === block.id ? '#fff' : '#374151', fontSize: 12, fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
+                    {editingId === block.id ? 'Done' : 'Edit'}
+                  </button>
+                  <button onClick={() => removeBlock(block.id)}
+                    style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', color: '#9CA3AF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.color = '#DC2626'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#9CA3AF'; }}
+                  ><X size={13} /></button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Save */}
-      <div className="flex items-center gap-4">
-        <button onClick={handleSave} disabled={updateMutation.isPending} className="px-6 py-3 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
-          {updateMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Website</>}
-        </button>
-        {saveMsg && <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>{saveMsg}</span>}
+        {/* Right panel: editor + quick links */}
+        <div style={{ position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Block editor */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 20 }}>
+            {editingBlock ? (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>{ICONS[editingBlock.type]}</span> {LABELS[editingBlock.type]}
+                </div>
+
+                {editingBlock.type === 'hero' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div><label style={lStyle}>Image URL</label><input style={iStyle} value={editingBlock.data.imageUrl || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, imageUrl: e.target.value })} placeholder="https://images.unsplash.com/..." /></div>
+                    {editingBlock.data.imageUrl && <img src={editingBlock.data.imageUrl} alt="" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 6 }} onError={e => (e.currentTarget.style.display = 'none')} />}
+                    <div><label style={lStyle}>Headline</label><input style={iStyle} value={editingBlock.data.title || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, title: e.target.value })} placeholder="Your cafe name" /></div>
+                    <div><label style={lStyle}>Tagline</label><input style={iStyle} value={editingBlock.data.tagline || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, tagline: e.target.value })} placeholder="Specialty coffee, served with care." /></div>
+                    <div><label style={lStyle}>Button Text</label><input style={iStyle} value={editingBlock.data.ctaText || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, ctaText: e.target.value })} placeholder="Order Now" /></div>
+                  </div>
+                )}
+                {editingBlock.type === 'about' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div><label style={lStyle}>Section Title</label><input style={iStyle} value={editingBlock.data.title || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, title: e.target.value })} placeholder="Our Story" /></div>
+                    <div><label style={lStyle}>Body Text</label><textarea style={{ ...iStyle, minHeight: 100, resize: 'vertical' }} value={editingBlock.data.body || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, body: e.target.value })} placeholder="Tell your story..." /></div>
+                    <div><label style={lStyle}>Side Image URL (optional)</label><input style={iStyle} value={editingBlock.data.imageUrl || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, imageUrl: e.target.value })} placeholder="https://..." /></div>
+                  </div>
+                )}
+                {editingBlock.type === 'gallery' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontSize: 12, color: '#6B7280' }}>Add up to 9 photo URLs</div>
+                    {((editingBlock.data.images || []) as { url: string; caption: string }[]).map((img, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input style={{ ...iStyle, flex: 1 }} value={img.url} onChange={e => { const imgs = [...(editingBlock.data.images || [])]; imgs[i] = { ...img, url: e.target.value }; updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }} placeholder="Image URL" />
+                        <button onClick={() => { const imgs = (editingBlock.data.images || []).filter((_: any, idx: number) => idx !== i); updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }}
+                          style={{ width: 28, height: 28, border: '1px solid #E5E7EB', borderRadius: 6, background: '#fff', cursor: 'pointer', color: '#9CA3AF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X size={12} /></button>
+                      </div>
+                    ))}
+                    {(editingBlock.data.images || []).length < 9 && (
+                      <button onClick={() => { const imgs = [...(editingBlock.data.images || []), { url: '', caption: '' }]; updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }}
+                        style={{ padding: '8px', borderRadius: 7, border: '1.5px dashed #D1D5DB', background: '#F9FAFB', fontSize: 12, color: '#6B7280', cursor: 'pointer' }}>
+                        + Add Photo URL
+                      </button>
+                    )}
+                  </div>
+                )}
+                {editingBlock.type === 'booking_cta' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div><label style={lStyle}>Title</label><input style={iStyle} value={editingBlock.data.title || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, title: e.target.value })} placeholder="Reserve a Table" /></div>
+                    <div><label style={lStyle}>Subtitle</label><input style={iStyle} value={editingBlock.data.subtitle || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, subtitle: e.target.value })} placeholder="Book online in seconds." /></div>
+                    <div><label style={lStyle}>Button Text</label><input style={iStyle} value={editingBlock.data.buttonText || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, buttonText: e.target.value })} placeholder="Book Now" /></div>
+                  </div>
+                )}
+                {editingBlock.type === 'hours' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div><label style={lStyle}>Monday – Friday</label><input style={iStyle} value={editingBlock.data.weekday || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, weekday: e.target.value })} placeholder="7:00am – 4:00pm" /></div>
+                    <div><label style={lStyle}>Saturday</label><input style={iStyle} value={editingBlock.data.saturday || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, saturday: e.target.value })} placeholder="8:00am – 3:00pm" /></div>
+                    <div><label style={lStyle}>Sunday</label><input style={iStyle} value={editingBlock.data.sunday || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, sunday: e.target.value })} placeholder="9:00am – 2:00pm" /></div>
+                  </div>
+                )}
+                {editingBlock.type === 'social' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div><label style={lStyle}>Instagram URL</label><input style={iStyle} value={editingBlock.data.instagram || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, instagram: e.target.value })} placeholder="https://instagram.com/yourcafe" /></div>
+                    <div><label style={lStyle}>Facebook URL</label><input style={iStyle} value={editingBlock.data.facebook || ''} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, facebook: e.target.value })} placeholder="https://facebook.com/yourcafe" /></div>
+                  </div>
+                )}
+                {editingBlock.type === 'divider' && (
+                  <div>
+                    <label style={lStyle}>Style</label>
+                    <select style={iStyle} value={editingBlock.data.style || 'space'} onChange={e => updateBlock(editingBlock.id, { ...editingBlock.data, style: e.target.value })}>
+                      <option value="space">Space (gap)</option>
+                      <option value="line">Line separator</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#9CA3AF' }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>✏️</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Select a block to edit</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Click Edit on any block in the list</div>
+              </div>
+            )}
+          </div>
+
+          {/* Live links */}
+          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Your Live Links</div>
+            <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', textDecoration: 'none', fontSize: 12, marginBottom: 8 }}>
+              🌐 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{publicUrl}</span>
+            </a>
+            <a href={bookUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', textDecoration: 'none', fontSize: 12 }}>
+              📅 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookUrl}</span>
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

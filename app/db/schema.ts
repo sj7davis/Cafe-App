@@ -60,6 +60,7 @@ export const venues = pgTable("venues", {
   aboutTitle: varchar("about_title", { length: 255 }),
   aboutText: text("about_text"),
   galleryImages: json("gallery_images"),
+  websiteBlocks: json("website_blocks"),
   instagramUrl: varchar("instagram_url", { length: 255 }),
   facebookUrl: varchar("facebook_url", { length: 255 }),
 

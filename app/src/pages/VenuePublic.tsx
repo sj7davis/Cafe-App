@@ -125,6 +125,96 @@ function isWithinHappyHour(startTime: string, endTime: string): boolean {
   }
 }
 
+// ─── Website block renderer ───────────────────────────────────────────────────
+function renderWebsiteBlocks(blocks: any[], primaryColor: string, slug: string) {
+  return blocks.map((block: any) => {
+    if (!block?.type) return null;
+    switch (block.type) {
+      case 'hero':
+        return (
+          <section key={block.id || block.type} style={{ position: 'relative', height: 'clamp(280px, 40vw, 520px)', overflow: 'hidden' }}>
+            {block.data?.imageUrl && <img src={block.data.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.65) 100%)' }} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 'clamp(20px,4vw,56px)', textAlign: 'center' }}>
+              {block.data?.title && <h1 style={{ fontSize: 'clamp(1.8rem,5vw,3.4rem)', fontWeight: 800, color: '#fff', margin: '0 0 10px', letterSpacing: '-0.03em', textShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>{block.data.title}</h1>}
+              {block.data?.tagline && <p style={{ fontSize: 'clamp(0.875rem,2vw,1.1rem)', color: 'rgba(255,255,255,0.9)', margin: '0 0 22px', fontStyle: 'italic' }}>{block.data.tagline}</p>}
+              {block.data?.ctaText && (
+                <a href="#venue-menu" style={{ display: 'inline-block', padding: '12px 30px', background: primaryColor, color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 700, textDecoration: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+                  {block.data.ctaText}
+                </a>
+              )}
+            </div>
+          </section>
+        );
+      case 'about':
+        return (
+          <section key={block.id || 'about'} style={{ background: '#fff', padding: 'clamp(36px,6vw,72px) clamp(20px,8vw,80px)', borderBottom: '1px solid rgba(24,24,24,0.07)' }}>
+            <div style={{ maxWidth: 700, margin: '0 auto' }}>
+              {block.data?.title && <h2 style={{ fontSize: 'clamp(1.25rem,3vw,1.75rem)', fontWeight: 700, color: '#111827', margin: '0 0 16px', letterSpacing: '-0.02em' }}>{block.data.title}</h2>}
+              {block.data?.body && <p style={{ fontSize: 15, lineHeight: 1.78, color: '#6B7280', whiteSpace: 'pre-line', margin: 0 }}>{block.data.body}</p>}
+            </div>
+          </section>
+        );
+      case 'gallery': {
+        const imgs = (block.data?.images || []).filter((i: any) => i?.url);
+        if (!imgs.length) return null;
+        return (
+          <section key={block.id || 'gallery'} style={{ background: '#F9FAFB', padding: 'clamp(24px,4vw,48px) clamp(16px,4vw,48px)', borderBottom: '1px solid rgba(24,24,24,0.07)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8, maxWidth: 960, margin: '0 auto' }}>
+              {imgs.map((img: any, i: number) => (
+                <div key={i} style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden' }}>
+                  <img src={img.url} alt={img.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
+      case 'booking_cta':
+        return (
+          <section key={block.id || 'booking'} style={{ background: primaryColor, padding: 'clamp(40px,6vw,64px) 20px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+            {block.data?.title && <h2 style={{ fontSize: 'clamp(1.3rem,3vw,1.9rem)', fontWeight: 700, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.02em' }}>{block.data.title}</h2>}
+            {block.data?.subtitle && <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', margin: '0 0 22px' }}>{block.data.subtitle}</p>}
+            <a href={`/book/${slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '13px 34px', background: '#fff', color: primaryColor, borderRadius: 8, fontSize: 14, fontWeight: 700, textDecoration: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+              {block.data?.buttonText || 'Book Now'}
+            </a>
+          </section>
+        );
+      case 'hours':
+        return (
+          <section key={block.id || 'hours'} style={{ background: '#fff', padding: 'clamp(32px,5vw,56px) clamp(20px,8vw,80px)', borderBottom: '1px solid rgba(24,24,24,0.07)' }}>
+            <div style={{ maxWidth: 480, margin: '0 auto' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827', margin: '0 0 20px', letterSpacing: '-0.02em' }}>Opening Hours</h2>
+              {[{ day: 'Monday – Friday', h: block.data?.weekday }, { day: 'Saturday', h: block.data?.saturday }, { day: 'Sunday', h: block.data?.sunday }]
+                .filter(r => r.h)
+                .map(r => (
+                  <div key={r.day} style={{ display: 'flex', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #F3F4F6' }}>
+                    <span style={{ fontSize: 14, color: '#374151', fontWeight: 500 }}>{r.day}</span>
+                    <span style={{ fontSize: 14, color: '#6B7280' }}>{r.h}</span>
+                  </div>
+                ))}
+            </div>
+          </section>
+        );
+      case 'social':
+        return (
+          <section key={block.id || 'social'} style={{ background: '#F9FAFB', padding: '28px 20px', textAlign: 'center', borderBottom: '1px solid rgba(24,24,24,0.07)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {block.data?.instagram && <a href={block.data.instagram} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>📷 Instagram</a>}
+              {block.data?.facebook && <a href={block.data.facebook} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>👥 Facebook</a>}
+            </div>
+          </section>
+        );
+      case 'divider':
+        return block.data?.style === 'line'
+          ? <hr key={block.id || 'hr'} style={{ border: 'none', borderTop: '1px solid rgba(24,24,24,0.08)', margin: 0 }} />
+          : <div key={block.id || 'space'} style={{ height: 40 }} />;
+      default:
+        return null;
+    }
+  });
+}
+
 export default function VenuePublic() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -1602,86 +1692,88 @@ export default function VenuePublic() {
         </button>
       )}
 
-      {/* Hero / Header */}
-      {(venue as any).heroImageUrl ? (
-        <div style={{ position: 'relative', height: 'clamp(280px, 42vw, 520px)', overflow: 'hidden' }}>
-          <img
-            src={(venue as any).heroImageUrl}
-            alt={venue.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.62) 100%)' }} />
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 'clamp(20px,4vw,48px)', textAlign: 'center' }}>
-            {venue.logoUrl && (
-              <img src={venue.logoUrl} alt={venue.name} style={{ height: 52, width: 'auto', objectFit: 'contain', margin: '0 auto 12px', display: 'block', filter: 'brightness(0) invert(1)' }} />
-            )}
-            <h1 style={{ fontWeight: 400, fontSize: 'clamp(1.8rem, 5vw, 3.2rem)', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#fff', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-              {venue.name}
-            </h1>
-            {(venue as any).tagline && (
-              <p style={{ marginTop: 10, fontSize: 'clamp(0.875rem, 2vw, 1.1rem)', color: 'rgba(255,255,255,0.9)', fontStyle: 'italic', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
-                {(venue as any).tagline}
-              </p>
-            )}
-          </div>
-        </div>
+      {/* Website blocks (from block editor) OR fallback hero/about/gallery */}
+      {Array.isArray((venue as any).websiteBlocks) && (venue as any).websiteBlocks.length > 0 ? (
+        renderWebsiteBlocks((venue as any).websiteBlocks, primaryColor, slug || '')
       ) : (
-        <header className="border-b" style={{ borderColor: `${primaryColor}15` }}>
-          <div className="content-container py-8 text-center">
-            {venue.logoUrl ? (
-              <img src={venue.logoUrl} alt={venue.name} className="h-16 w-auto mx-auto mb-4" />
-            ) : (
-              <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{ background: primaryColor }}>
-                <Coffee size={28} style={{ color: '#F3F2EE' }} />
+        <>
+          {(venue as any).heroImageUrl ? (
+            <div style={{ position: 'relative', height: 'clamp(280px, 42vw, 520px)', overflow: 'hidden' }}>
+              <img
+                src={(venue as any).heroImageUrl}
+                alt={venue.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.62) 100%)' }} />
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 'clamp(20px,4vw,48px)', textAlign: 'center' }}>
+                {venue.logoUrl && (
+                  <img src={venue.logoUrl} alt={venue.name} style={{ height: 52, width: 'auto', objectFit: 'contain', margin: '0 auto 12px', display: 'block', filter: 'brightness(0) invert(1)' }} />
+                )}
+                <h1 style={{ fontWeight: 400, fontSize: 'clamp(1.8rem, 5vw, 3.2rem)', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#fff', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                  {venue.name}
+                </h1>
+                {(venue as any).tagline && (
+                  <p style={{ marginTop: 10, fontSize: 'clamp(0.875rem, 2vw, 1.1rem)', color: 'rgba(255,255,255,0.9)', fontStyle: 'italic', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                    {(venue as any).tagline}
+                  </p>
+                )}
               </div>
-            )}
-            <h1 style={{ fontWeight: 400, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: primaryColor }}>
-              {venue.name}
-            </h1>
-            {(venue as any).tagline ? (
-              <p className="mt-2 mx-auto" style={{ fontSize: '1rem', fontStyle: 'italic', color: primaryColor, opacity: 0.8, maxWidth: '500px' }}>
-                {(venue as any).tagline}
-              </p>
-            ) : venue.description && (
-              <p className="mt-3 mx-auto" style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#5E5E5E', maxWidth: '500px' }}>
-                {venue.description}
-              </p>
-            )}
-          </div>
-        </header>
-      )}
-
-      {/* About Section */}
-      {(venue as any).aboutText && (
-        <section style={{ background: '#fff', borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
-          <div className="content-container py-10" style={{ maxWidth: 720 }}>
-            <h2 style={{ fontWeight: 400, fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)', textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#181818', marginBottom: 16 }}>
-              {(venue as any).aboutTitle || 'Our Story'}
-            </h2>
-            <p style={{ fontSize: '0.9375rem', lineHeight: 1.75, color: '#5E5E5E', whiteSpace: 'pre-line' }}>
-              {(venue as any).aboutText}
-            </p>
-          </div>
-        </section>
-      )}
-
-      {/* Gallery */}
-      {Array.isArray((venue as any).galleryImages) && (venue as any).galleryImages.length > 0 && (
-        <section style={{ background: '#F3F2EE', borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
-          <div className="content-container py-8">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
-              {((venue as any).galleryImages as {url:string;caption:string}[]).map((img, i) => (
-                <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 4, overflow: 'hidden' }}>
-                  <img src={img.url} alt={img.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {img.caption && (
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, padding: '4px 8px' }}>{img.caption}</div>
-                  )}
-                </div>
-              ))}
             </div>
-          </div>
-        </section>
+          ) : (
+            <header className="border-b" style={{ borderColor: `${primaryColor}15` }}>
+              <div className="content-container py-8 text-center">
+                {venue.logoUrl ? (
+                  <img src={venue.logoUrl} alt={venue.name} className="h-16 w-auto mx-auto mb-4" />
+                ) : (
+                  <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4" style={{ background: primaryColor }}>
+                    <Coffee size={28} style={{ color: '#F3F2EE' }} />
+                  </div>
+                )}
+                <h1 style={{ fontWeight: 400, fontSize: 'clamp(1.5rem, 4vw, 2.5rem)', lineHeight: 1, letterSpacing: '-0.02em', textTransform: 'uppercase', color: primaryColor }}>
+                  {venue.name}
+                </h1>
+                {(venue as any).tagline ? (
+                  <p className="mt-2 mx-auto" style={{ fontSize: '1rem', fontStyle: 'italic', color: primaryColor, opacity: 0.8, maxWidth: '500px' }}>
+                    {(venue as any).tagline}
+                  </p>
+                ) : venue.description && (
+                  <p className="mt-3 mx-auto" style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#5E5E5E', maxWidth: '500px' }}>
+                    {venue.description}
+                  </p>
+                )}
+              </div>
+            </header>
+          )}
+          {(venue as any).aboutText && (
+            <section style={{ background: '#fff', borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
+              <div className="content-container py-10" style={{ maxWidth: 720 }}>
+                <h2 style={{ fontWeight: 400, fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)', textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#181818', marginBottom: 16 }}>
+                  {(venue as any).aboutTitle || 'Our Story'}
+                </h2>
+                <p style={{ fontSize: '0.9375rem', lineHeight: 1.75, color: '#5E5E5E', whiteSpace: 'pre-line' }}>
+                  {(venue as any).aboutText}
+                </p>
+              </div>
+            </section>
+          )}
+          {Array.isArray((venue as any).galleryImages) && (venue as any).galleryImages.length > 0 && (
+            <section style={{ background: '#F3F2EE', borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
+              <div className="content-container py-8">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+                  {((venue as any).galleryImages as {url:string;caption:string}[]).map((img, i) => (
+                    <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 4, overflow: 'hidden' }}>
+                      <img src={img.url} alt={img.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+        </>
       )}
+
+      {/* Menu anchor */}
+      <div id="venue-menu" />
 
       {/* Table mode banner */}
       {tableNumber && (
