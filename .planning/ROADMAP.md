@@ -216,9 +216,9 @@ Plans:
 7. Dark mode toggle in OwnerDashboard persists to localStorage and applies across operator pages
 
 **Plans:**
-3/4 plans executed
+4/4 plans executed
 
-- [ ] 07-02-PLAN.md — Re-shell OwnerDashboard with AppShell (collapsible sidebar + dark mode), add getActivityFeed + activity feed, 7d/30d analytics with top-5 table
+- [x] 07-02-PLAN.md — Re-shell OwnerDashboard with AppShell (collapsible sidebar + dark mode), add getActivityFeed + activity feed, 7d/30d analytics with top-5 table
 - [x] 07-03-PLAN.md — Customer-facing refresh: VenuePublic mobile-first + sticky cart, VenueApp cards, OrderStatus animation, Review page polish
 - [x] 07-04-PLAN.md — Marketing + auth refresh: Landing hero + feature grid, Login/Onboarding clean forms, StaffLogin, SuperAdmin table layout
 
@@ -236,4 +236,4 @@ Plans:
 | 4. Monetisation | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 5. Venue Expansion | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
-| 7. Dual Identity UI Refresh | v2.0 | 3/4 | In Progress|  |
+| 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
