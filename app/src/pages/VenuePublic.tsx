@@ -1690,7 +1690,7 @@ export default function VenuePublic() {
         </div>
       )}
 
-      {/* Floating Cart Button — mobile-first, full-width bar, hidden on large screens */}
+      {/* Floating Cart Button — mobile-first full-width bar, hidden on large screens */}
       {cart.length > 0 && !showCart && (
         <>
           <style>{`@media (min-width: 1024px) { .b1-floating-cart { display: none !important; } }`}</style>
