@@ -3,7 +3,9 @@
 ## Milestones
 
 - ✅ **v1.0 Infrastructure** - Phases 1-3 (shipped 2026-05-23)
-- 🚧 **v1.1 Full Feature Build** - Phases 1-6 (in progress)
+- ✅ **v1.1 Full Feature Build** - Phases 1-6 (complete 2026-05-25)
+- ✅ **v2.0 Dual Identity UI/UX Overhaul** - Phase 7 (complete 2026-05-28)
+- 🚧 **v2.1 Revenue & Operations** - Phases 8-11 (in progress)
 
 ---
 
@@ -224,9 +226,98 @@ Plans:
 
 ---
 
+## v2.1 Revenue & Operations
+
+**Milestone Goal:** Close the revenue loop with real Stripe payments and complete the operations suite — live order streaming, staff scheduling, dine-in table ordering, bookings management, automated customer engagement, and Square POS menu sync.
+
+### v2.1 Phase Summary
+
+- [ ] **Phase 8: Stripe Payments & Checkout** - Real payment processing for orders, gift cards, and passes via Stripe Connect; discount codes and loyalty redemption at checkout
+- [ ] **Phase 9: Real-Time Orders & Staff Scheduling** - Replace 20s polling with SSE push; staff shift management with swap and time-off request workflows
+- [ ] **Phase 10: Dine-In & Bookings** - Table QR ordering flow with kitchen tagging; owner reservation management dashboard
+- [ ] **Phase 11: Automated Marketing & Square POS** - Event-driven email/SMS triggers for re-engagement, birthdays, and pass expiry; Square catalog menu sync
+
+### v2.1 Phase Details
+
+### Phase 8: Stripe Payments & Checkout
+
+**Goal**: Every revenue transaction — orders, gift cards, and subscription passes — flows through real Stripe payments, and customers can reduce their total at checkout using discount codes or loyalty points
+**Depends on**: Phase 7 (v2.0 UI shell in place; existing gift card and pass logic from Phase 4)
+**Requirements**: PAY-01, PAY-02, PAY-03, PAY-04, PAY-05, PAY-06, PAY-07, CHK-01, CHK-02
+**Success Criteria** (what must be TRUE):
+
+  1. Customer completes a real card payment via Stripe Checkout before an order is confirmed; the order status moves to confirmed only after Stripe sends a successful webhook
+  2. Customer receives a Stripe-generated payment receipt by email after a successful order payment
+  3. Customer purchases a gift card via Stripe Checkout; the card is created in the database only after payment succeeds
+  4. Customer purchases a subscription coffee pass via Stripe Checkout; pass credits are created only after payment succeeds
+  5. Venue owner completes Stripe Connect onboarding from the Integrations tab and their connected account ID is stored against the venue
+  6. Each successful payment deducts a platform fee via Stripe Connect application fees; the fee amount is visible in the platform admin panel
+  7. Venue owner can view their current Stripe payout balance and most recent payout date from the OwnerDashboard
+  8. Customer can enter a discount code at checkout and, when the code is valid, the order total is reduced by the configured amount before payment
+  9. Customer can choose to redeem loyalty points at checkout; the points balance is decremented and the order total is reduced accordingly
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 9: Real-Time Orders & Staff Scheduling
+
+**Goal**: Order updates reach staff and kitchen displays instantly via SSE instead of polling, and venue owners can manage staff shifts with a full request-and-approval workflow
+**Depends on**: Phase 8 (confirmed orders now come from Stripe webhooks; SSE must handle this event source)
+**Requirements**: RT-01, RT-02, RT-03, SCHED-01, SCHED-02, SCHED-03, SCHED-04, SCHED-05, SCHED-06, SCHED-07
+**Success Criteria** (what must be TRUE):
+
+  1. A new order placed on VenuePublic appears on the StaffDashboard within 2 seconds without any manual refresh or 20-second polling cycle
+  2. When an owner or staff member updates an order status, the KitchenDisplay reflects the new status in real time without a page reload
+  3. The OwnerDashboard activity feed (new orders, reviews, alerts) updates live as events occur
+  4. Venue owner can create, edit, and delete shifts for staff members from a scheduling tab, with each shift showing staff name, date, and start/end time
+  5. Staff member can view their upcoming shifts in a list or calendar view from the StaffDashboard
+  6. Staff member can submit their weekly availability preferences (days and hours) and the owner can see this when building the schedule
+  7. Staff member can submit a shift swap request naming an alternative staff member; the owner sees the pending request and can approve or deny it
+  8. Staff member can submit a time-off request with a date range and reason; the owner can approve or deny it from the dashboard
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 10: Dine-In & Bookings
+
+**Goal**: Customers at a table can scan a QR code and place a dine-in order tagged to their table, and venue owners have a dedicated reservations view to manage the day's bookings
+**Depends on**: Phase 8 (payments required for dine-in orders), Phase 5 (location model underpins table assignment)
+**Requirements**: DINE-01, DINE-02, DINE-03, BOOK-01, BOOK-02, BOOK-03
+**Success Criteria** (what must be TRUE):
+
+  1. Scanning a table QR code opens the venue ordering page with the table number pre-filled; the customer does not need to manually enter the table
+  2. A dine-in order submitted with a table number appears in the KitchenDisplay with a visible table identifier alongside the order items
+  3. Venue owner can generate and download individual QR codes for each table from the Integrations tab in OwnerDashboard
+  4. Venue owner can view all upcoming reservations in a Bookings tab, sorted by date and time
+  5. Owner can update a reservation status (confirm, mark as seated, or cancel) from the Bookings tab
+  6. Today's reservations are surfaced in the OwnerDashboard overview panel so the owner sees them without navigating to the Bookings tab
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 11: Automated Marketing & Square POS
+
+**Goal**: The platform sends targeted automated messages to customers at the right moment without manual owner action, and venue owners can pull their Square catalog directly into B1 as a one-way menu sync
+**Depends on**: Phase 8 (Stripe payments establish transaction history needed for re-engagement logic; pass credits needed for expiry nudge), Phase 6 (email infrastructure via Resend)
+**Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, SQ-01, SQ-02, SQ-03
+**Success Criteria** (what must be TRUE):
+
+  1. A customer who has not placed an order in 30 days receives an automated re-engagement email or SMS
+  2. A customer with a birthday on file receives a birthday greeting email or SMS on their birthday
+  3. A customer whose pass has exactly 1 credit remaining receives a pass-expiry nudge prompting them to top up
+  4. Venue owner can enable or disable each automated trigger independently per venue from the Marketing tab in OwnerDashboard; disabled triggers do not fire
+  5. Venue owner can connect their Square account via OAuth from the Integrations tab; the connection status is visible in the dashboard
+  6. After connecting Square, the owner can trigger a menu sync that imports items from the Square catalog and creates or updates matching menu items in B1
+  7. The Square OAuth access token is stored encrypted and auto-refreshed before expiry without requiring the owner to re-authenticate
+
+**Plans**: TBD
+**UI hint**: yes
+
+---
+
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
@@ -237,3 +328,7 @@ Plans:
 | 5. Venue Expansion | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
+| 8. Stripe Payments & Checkout | v2.1 | 0/? | Not started | - |
+| 9. Real-Time Orders & Staff Scheduling | v2.1 | 0/? | Not started | - |
+| 10. Dine-In & Bookings | v2.1 | 0/? | Not started | - |
+| 11. Automated Marketing & Square POS | v2.1 | 0/? | Not started | - |

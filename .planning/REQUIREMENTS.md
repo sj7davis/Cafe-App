@@ -235,11 +235,35 @@
 | EMAIL-02 | Phase 6 | Complete |
 | EMAIL-03 | Phase 6 | Complete |
 | EMAIL-04 | Phase 6 | Complete |
-| PAY-01..07 | Phase 8 (TBD) | Planned |
-| CHK-01..02 | Phase 8 (TBD) | Planned |
-| SCHED-01..07 | Phase 9 (TBD) | Planned |
-| RT-01..03 | Phase 10 (TBD) | Planned |
-| DINE-01..03 | Phase 10 (TBD) | Planned |
-| BOOK-01..03 | Phase 11 (TBD) | Planned |
-| AUTO-01..04 | Phase 11 (TBD) | Planned |
-| SQ-01..03 | Phase 12 (TBD) | Planned |
+| PAY-01 | Phase 8 | Pending |
+| PAY-02 | Phase 8 | Pending |
+| PAY-03 | Phase 8 | Pending |
+| PAY-04 | Phase 8 | Pending |
+| PAY-05 | Phase 8 | Pending |
+| PAY-06 | Phase 8 | Pending |
+| PAY-07 | Phase 8 | Pending |
+| CHK-01 | Phase 8 | Pending |
+| CHK-02 | Phase 8 | Pending |
+| RT-01 | Phase 9 | Pending |
+| RT-02 | Phase 9 | Pending |
+| RT-03 | Phase 9 | Pending |
+| SCHED-01 | Phase 9 | Pending |
+| SCHED-02 | Phase 9 | Pending |
+| SCHED-03 | Phase 9 | Pending |
+| SCHED-04 | Phase 9 | Pending |
+| SCHED-05 | Phase 9 | Pending |
+| SCHED-06 | Phase 9 | Pending |
+| SCHED-07 | Phase 9 | Pending |
+| DINE-01 | Phase 10 | Pending |
+| DINE-02 | Phase 10 | Pending |
+| DINE-03 | Phase 10 | Pending |
+| BOOK-01 | Phase 10 | Pending |
+| BOOK-02 | Phase 10 | Pending |
+| BOOK-03 | Phase 10 | Pending |
+| AUTO-01 | Phase 11 | Pending |
+| AUTO-02 | Phase 11 | Pending |
+| AUTO-03 | Phase 11 | Pending |
+| AUTO-04 | Phase 11 | Pending |
+| SQ-01 | Phase 11 | Pending |
+| SQ-02 | Phase 11 | Pending |
+| SQ-03 | Phase 11 | Pending |
