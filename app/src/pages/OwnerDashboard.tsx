@@ -3793,8 +3793,9 @@ function BundlesTab({ venueId }: { venueId: number }) {
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
 function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
   const utils = trpc.useUtils();
-  const { data: campaigns, isLoading } = trpc.campaigns.list.useQuery();
+  const { data: campaigns, isLoading } = trpc.campaigns.list.useQuery({ token }, { enabled: !!token });
   const createCampaign = trpc.campaigns.create.useMutation({ onSuccess: () => { utils.campaigns.list.invalidate(); setShowForm(false); resetForm(); } });
   const sendCampaign = trpc.campaigns.send.useMutation({ onSuccess: () => utils.campaigns.list.invalidate() });
   const deleteCampaign = trpc.campaigns.delete.useMutation({ onSuccess: () => utils.campaigns.list.invalidate() });
@@ -3808,7 +3809,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
   const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
   const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
-  const segmentLabel: Record<string, string> = { all: 'All Customers', active30: 'Active last 30 days', highvalue: 'High value (≥100 pts)' };
+  const segmentLabel: Record<string, string> = { all: 'All Customers', active_30d: 'Active last 30 days', high_value: 'High value (≥100 pts)' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -3830,8 +3831,8 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
               <label style={labelStyle}>Segment</label>
               <select value={form.segment} onChange={e => setForm({ ...form, segment: e.target.value })} style={inputStyle}>
                 <option value="all">All Customers</option>
-                <option value="active30">Active last 30 days</option>
-                <option value="highvalue">High value (≥100 pts)</option>
+                <option value="active_30d">Active last 30 days</option>
+                <option value="high_value">High value (≥100 pts)</option>
               </select>
             </div>
             <div style={{ gridColumn: '1/-1' }}>
@@ -3856,7 +3857,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
               onClick={() => {
                 if (!form.name || !form.body) { setMsg('Error: Name and body required'); return; }
                 setMsg('');
-                createCampaign.mutate({ name: form.name, type: form.type, segment: form.segment, subject: form.subject || undefined, body: form.body });
+                createCampaign.mutate({ token, name: form.name, type: form.type, segment: form.segment as 'all' | 'active_30d' | 'high_value', subject: form.subject || undefined, body: form.body });
               }}
               style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
             >{createCampaign.isPending ? 'Saving…' : 'Save Draft'}</button>
@@ -3889,7 +3890,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
                       disabled={sendCampaign.isPending}
                       onClick={() => {
                         if (window.confirm('This will send to all matching customers. Continue?')) {
-                          sendCampaign.mutate({ campaignId: c.id });
+                          sendCampaign.mutate({ token, id: c.id });
                         }
                       }}
                       className="flex items-center gap-1 px-3 py-2 font-button"
@@ -3898,7 +3899,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
                       <Send size={12} /> Send
                     </button>
                     <button
-                      onClick={() => { if (window.confirm('Delete this campaign?')) deleteCampaign.mutate({ campaignId: c.id }); }}
+                      onClick={() => { if (window.confirm('Delete this campaign?')) deleteCampaign.mutate({ token, id: c.id }); }}
                       className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
                       style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}
                     ><Trash2 size={14} /></button>
