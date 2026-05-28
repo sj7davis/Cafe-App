@@ -24,26 +24,26 @@ Every cafe gets a branded online ordering site, real-time Square POS sync, staff
 | Railway deployment | Simple managed hosting with MySQL add-on | railway.json config |
 | Local MySQL for dev | Developer-friendly, no cloud dependency | .env.example updated |
 
-## Current Milestone: v1.1 — Full Feature Build
+## Previous Milestone: v1.1 — Full Feature Build (COMPLETE 2026-05-25)
 
-**Goal:** Build all customer, staff, loyalty, and notification features to make B1 Platform a complete, production-ready cafe SaaS.
+All 6 phases shipped. v2.0 (Dual Identity UI/UX Overhaul) also complete 2026-05-28.
 
-**Phase Progress:** All 6 phases complete (2026-05-25) — v1.1 milestone DONE
+---
+
+## Current Milestone: v2.1 — Revenue & Operations
+
+**Goal:** Close the revenue loop with real payments and complete the operations suite — scheduling, live orders, loyalty redemption, dine-in, and automated engagement.
 
 **Target features:**
-- ✅ Owner login page (returning owners) — Phase 1
-- ✅ Menu item image support — Phase 1
-- ✅ Menu CRUD (create/edit/delete) — Phase 1
-- ✅ Customer order status tracking page — Phase 2
-- ✅ Real-time order notifications (staff dashboard auto-poll) — Phase 2
-- ✅ Customer preferences (milk/sugar saved by phone) — Phase 3
-- ✅ Gift card purchase & redemption — Phase 4
-- ✅ Subscription coffee pass (10 coffees for $X) — Phase 4
-- ✅ Review & rating after order completion — Phase 3
-- ✅ Multi-location support UI — Phase 5
-- ✅ Catering request form (public) — Phase 5
-- ✅ QR code generator per venue — Phase 6
-- ✅ Email notifications (order confirmation + new order alert) — Phase 6
+- Stripe payments — pre-paid online orders, gift card purchases, subscription pass payments
+- Discount codes at checkout — code entry field in VenuePublic checkout flow
+- Staff scheduling UI — shifts calendar, availability, swap requests, time-off requests
+- Loyalty redemption at checkout — redeem points for rewards/discounts at order time
+- Real-time orders via SSE — replace 20s polling with live push (broadcastToVenue exists)
+- Bookings dashboard — owner view and manage reservations in OwnerDashboard
+- Automated marketing triggers — event-driven email/SMS (re-engagement, birthday, pass expiry)
+- Square POS sync — menu + order sync with existing Square OAuth infrastructure
+- Table ordering / dine-in — QR at table → order placed → sent to kitchen display
 
 ---
 
@@ -79,4 +79,21 @@ Every cafe gets a branded online ordering site, real-time Square POS sync, staff
 - MENU-03: `updateMenuItem` + `deleteMenuItem` mutations with JWT auth and FK conflict guard
 
 ---
-*Last updated: 2026-05-25 — v1.1 milestone complete, all 6 phases shipped*
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
+---
+*Last updated: 2026-05-28 — v2.1 Revenue & Operations milestone started*

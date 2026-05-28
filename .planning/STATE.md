@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Dual Identity UI/UX Overhaul
-status: Complete
-stopped_at: Completed 07-02-PLAN.md — Phase 7 done
-last_updated: "2026-05-28T10:00:00.000Z"
+milestone: v2.1
+milestone_name: Revenue & Operations
+status: planning
+last_updated: "2026-05-28T12:44:43.434Z"
+last_activity: 2026-05-28
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 22
-  completed_plans: 22
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -24,8 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-23)
 
 ## Current Position
 
-Phase: 7 (dual-identity-ui-refresh) — COMPLETE
-Plan: 4 of 4
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-28 — Milestone v2.1 started
 
 ## Performance Metrics
 
