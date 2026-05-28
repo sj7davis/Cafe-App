@@ -256,7 +256,12 @@ Plans:
   8. Customer can enter a discount code at checkout and, when the code is valid, the order total is reduced by the configured amount before payment
   9. Customer can choose to redeem loyalty points at checkout; the points balance is decremented and the order total is reduced accordingly
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 08-01-PLAN.md — Backend: Connect application fee on order checkout + webhook persists confirmed order with line items (PAY-01/02/06)
+- [ ] 08-02-PLAN.md — Backend: gift card + pass Stripe checkout sessions + webhook fulfilment + loyalty redemption decrement (PAY-03/04, CHK-02)
+- [ ] 08-03-PLAN.md — Customer: VenuePublic Stripe redirect checkout, loyalty/discount reductions, gift card + pass purchase, return verification (PAY-01..04, CHK-01/02)
+- [ ] 08-04-PLAN.md — Owner/admin: Connect onboarding + payout balance in Integrations tab, platform fee visibility in admin panel (PAY-05/06/07, CHK-01)
 **UI hint**: yes
 
 ### Phase 9: Real-Time Orders & Staff Scheduling
@@ -328,7 +333,7 @@ Plans:
 | 5. Venue Expansion | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
-| 8. Stripe Payments & Checkout | v2.1 | 0/? | Not started | - |
+| 8. Stripe Payments & Checkout | v2.1 | 0/4 | Planned | - |
 | 9. Real-Time Orders & Staff Scheduling | v2.1 | 0/? | Not started | - |
 | 10. Dine-In & Bookings | v2.1 | 0/? | Not started | - |
 | 11. Automated Marketing & Square POS | v2.1 | 0/? | Not started | - |
