@@ -135,6 +135,7 @@ export const menuItems = pgTable("menu_items", {
   limitedTimeLabel: varchar("limited_time_label", { length: 64 }),
   allergens: json("allergens").$type<string[]>().default([]),
   dietaryTags: json("dietary_tags").$type<string[]>().default([]),
+  sortOrder: integer("sort_order").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type MenuItem = typeof menuItems.$inferSelect;

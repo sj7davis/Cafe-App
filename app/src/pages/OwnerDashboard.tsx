@@ -2,7 +2,15 @@ import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical } from 'lucide-react';
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import QRCode from 'qrcode';
 
@@ -2432,6 +2440,129 @@ function ModifiersPanel({ menuItemId, venueId }: { menuItemId: number; venueId: 
   );
 }
 
+// ── Sortable menu item row (dnd-kit) ─────────────────────────────────────────
+function SortableMenuRow({
+  item, venue, token, inventoryLevels, stockFormOpen, stockForm,
+  setStockFormOpen, setStockForm, setInventoryQty,
+  openModifiers, setOpenModifiers,
+  deleteConfirm, setDeleteConfirm, deleteMutation, startEdit,
+}: {
+  item: any; venue: any; token: string; inventoryLevels: any[];
+  stockFormOpen: number | null; stockForm: { quantity: string; quantityAlert: string };
+  setStockFormOpen: (id: number | null) => void;
+  setStockForm: (f: any) => void;
+  setInventoryQty: any;
+  openModifiers: Set<number>; setOpenModifiers: React.Dispatch<React.SetStateAction<Set<number>>>;
+  deleteConfirm: number | null; setDeleteConfirm: (id: number | null) => void;
+  deleteMutation: any; startEdit: (item: any) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const dragStyle: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.45 : 1,
+    zIndex: isDragging ? 999 : undefined,
+    position: 'relative',
+  };
+  const inv = (inventoryLevels as any[])?.find((r: any) => r.menuItemId === item.id);
+  const qty = inv?.quantity ?? null;
+  const alert = inv?.quantityAlert ?? null;
+  const isLow = qty !== null && alert !== null && qty <= alert;
+
+  return (
+    <div ref={setNodeRef} style={dragStyle}>
+      <div className="flex items-center justify-between gap-3 p-4" style={{ background: '#fff', border: '1px solid rgba(24,24,24,0.08)' }}>
+        {/* Drag handle */}
+        <div
+          {...attributes} {...listeners}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab', color: '#D1D5DB', flexShrink: 0, touchAction: 'none', padding: '2px 0' }}
+          title="Drag to reorder"
+        >
+          <GripVertical size={15} />
+        </div>
+
+        {/* Thumbnail */}
+        {item.image ? (
+          <img src={item.image} alt={item.name} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 52, height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.04)', borderRadius: 6, border: '1px dashed rgba(24,24,24,0.12)' }}>
+            <Coffee size={18} style={{ color: '#9CA3AF' }} />
+          </div>
+        )}
+
+        {/* Name / price / badges */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: '#181818', display: 'block', marginBottom: 3 }}>{item.name}</span>
+          <span style={{ fontFamily: 'Geist Mono', fontSize: 13, color: '#181818', fontWeight: 700 }}>${Number(item.price).toFixed(2)}</span>
+          {((Array.isArray(item.allergens) && item.allergens.length > 0) || (Array.isArray(item.dietaryTags) && item.dietaryTags.length > 0)) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+              {(Array.isArray(item.allergens) ? item.allergens : []).map((a: string) => (
+                <span key={a} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>{a}</span>
+              ))}
+              {(Array.isArray(item.dietaryTags) ? item.dietaryTags : []).map((t: string) => (
+                <span key={t} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>{t}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Inventory */}
+        <div className="flex flex-col items-end mr-1" style={{ minWidth: 80 }}>
+          <div className="flex items-center gap-1 mb-1">
+            {qty !== null ? (
+              <span className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.06em', color: isLow ? '#B85450' : '#5E5E5E' }}>{qty} in stock</span>
+            ) : (
+              <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>—</span>
+            )}
+            {isLow && <span className="font-data" style={{ fontSize: '0.5rem', background: 'rgba(184,84,80,0.12)', color: '#B85450', padding: '1px 5px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Low</span>}
+          </div>
+          {stockFormOpen === item.id ? (
+            <div className="flex flex-col gap-1" style={{ minWidth: 120 }}>
+              <input type="number" min={0} placeholder="Qty" value={stockForm.quantity} onChange={e => setStockForm({ ...stockForm, quantity: e.target.value })} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
+              <input type="number" min={0} placeholder="Alert at" value={stockForm.quantityAlert} onChange={e => setStockForm({ ...stockForm, quantityAlert: e.target.value })} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
+              <div className="flex gap-1">
+                <button onClick={() => { setInventoryQty.mutate({ menuItemId: item.id, quantity: Number(stockForm.quantity), quantityAlert: stockForm.quantityAlert ? Number(stockForm.quantityAlert) : undefined }, { onSuccess: () => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); } }); }} style={{ flex: 1, background: '#181818', color: '#F3F2EE', border: 'none', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}>Save</button>
+                <button onClick={() => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', fontSize: 11, padding: '3px 6px', cursor: 'pointer', color: '#5E5E5E' }}>✕</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => { setStockFormOpen(item.id); setStockForm({ quantity: qty !== null ? String(qty) : '', quantityAlert: alert !== null ? String(alert) : '' }); }} style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '2px 7px', cursor: 'pointer', color: '#5E5E5E' }}>Set Stock</button>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button onClick={() => setOpenModifiers(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })} title="Manage Modifiers" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+            {openModifiers.has(item.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          <button onClick={() => startEdit(item)} title="Edit" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+            <Edit2 size={14} />
+          </button>
+          <button onClick={() => setDeleteConfirm(item.id)} title="Delete" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {openModifiers.has(item.id) && <ModifiersPanel menuItemId={item.id} venueId={venue.id} />}
+
+      {deleteConfirm === item.id && (
+        <div className="p-4 border-x border-b" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#F3F2EE' }}>
+          <p style={{ fontSize: '0.8125rem', color: '#181818', marginBottom: 12 }}>Delete this item? Orders referencing it will be preserved.</p>
+          <div className="flex items-center gap-3">
+            <button onClick={() => deleteMutation.mutate({ token, menuItemId: item.id })} disabled={deleteMutation.isPending} className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#B85450', color: '#F3F2EE', fontSize: '0.75rem' }}>
+              {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Yes, Delete
+            </button>
+            <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 font-button" style={{ background: 'transparent', color: '#181818', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}>
+              Keep Item
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MenuTab({ venue }: { venue: any }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const utils = trpc.useUtils();
@@ -2496,6 +2627,38 @@ function MenuTab({ venue }: { venue: any }) {
       setDeleteConfirm(null);
     },
   });
+
+  // Local ordered list — kept in sync with server; used for optimistic drag reorder
+  const [localItems, setLocalItems] = useState<any[]>([]);
+  useEffect(() => {
+    if (items) setLocalItems(items as any[]);
+  }, [items]);
+
+  const reorderMutation = trpc.venue.reorderMenuItems.useMutation({
+    onSuccess: () => utils.venue.listMenu.invalidate(),
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setLocalItems(prev => {
+      const oldIdx = prev.findIndex(i => i.id === active.id);
+      const newIdx = prev.findIndex(i => i.id === over.id);
+      const next = arrayMove(prev, oldIdx, newIdx);
+      // Persist new sortOrder values
+      reorderMutation.mutate({
+        token,
+        venueId: venue.id,
+        items: next.map((item, idx) => ({ id: item.id, sortOrder: idx })),
+      });
+      return next;
+    });
+  };
 
   const startCreate = () => {
     setForm({ name: '', description: '', price: '', category: 'coffee', dietary: '', image: '' });
@@ -2627,18 +2790,19 @@ function MenuTab({ venue }: { venue: any }) {
         </div>
       )}
 
-      {/* Item list — grouped by category */}
-      {!isLoading && items && items.length > 0 && (() => {
+      {/* Item list — grouped by category, drag-to-reorder */}
+      {!isLoading && localItems.length > 0 && (() => {
         const CAT_ORDER = ['coffee', 'pastries', 'bread'];
-        const allCats = [...new Set((items as any[]).map((i: any) => i.category as string))];
+        const allCats = [...new Set(localItems.map((i: any) => i.category as string))];
         const sortedCats = [
           ...CAT_ORDER.filter(c => allCats.includes(c)),
           ...allCats.filter(c => !CAT_ORDER.includes(c)),
         ];
         return (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <div className="space-y-6 mb-6">
             {sortedCats.map(cat => {
-              const catItems = (items as any[]).filter((i: any) => i.category === cat);
+              const catItems = localItems.filter((i: any) => i.category === cat);
               return (
                 <div key={cat}>
                   {/* Category section header */}
@@ -2649,158 +2813,35 @@ function MenuTab({ venue }: { venue: any }) {
                     <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', color: '#9CA3AF' }}>({catItems.length})</span>
                     <div style={{ flex: 1, height: 1, background: 'rgba(24,24,24,0.08)' }} />
                   </div>
-                  <div className="space-y-2">
-                    {catItems.map((item: any) => (
-          <div key={item.id}>
-              <div
-                className="flex items-center justify-between gap-4 p-4"
-                style={{ background: '#fff', border: '1px solid rgba(24,24,24,0.08)' }}
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {item.image ? (
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
-                    />
-                  ) : (
-                    <div style={{ width: 52, height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.04)', borderRadius: 6, border: '1px dashed rgba(24,24,24,0.12)' }}>
-                      <Coffee size={18} style={{ color: '#9CA3AF' }} />
+                  <SortableContext items={catItems.map((i: any) => i.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {catItems.map((item: any) => (
+                        <SortableMenuRow
+                          key={item.id}
+                          item={item}
+                          venue={venue}
+                          token={token}
+                          inventoryLevels={inventoryLevels as any[] || []}
+                          stockFormOpen={stockFormOpen}
+                          stockForm={stockForm}
+                          setStockFormOpen={setStockFormOpen}
+                          setStockForm={setStockForm}
+                          setInventoryQty={setInventoryQty}
+                          openModifiers={openModifiers}
+                          setOpenModifiers={setOpenModifiers}
+                          deleteConfirm={deleteConfirm}
+                          setDeleteConfirm={(id) => { setDeleteConfirm(id); if (id !== null) setDeleteError(''); }}
+                          deleteMutation={deleteMutation}
+                          startEdit={startEdit}
+                        />
+                      ))}
                     </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#181818', display: 'block', marginBottom: 3 }}>{item.name}</span>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span style={{ fontFamily: 'Geist Mono', fontSize: 13, color: '#181818', fontWeight: 700 }}>
-                        ${Number(item.price).toFixed(2)}
-                      </span>
-                    </div>
-                    {/* Allergen / dietary badges */}
-                    {((Array.isArray(item.allergens) && item.allergens.length > 0) || (Array.isArray(item.dietaryTags) && item.dietaryTags.length > 0)) && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                        {(Array.isArray(item.allergens) ? item.allergens : []).map((a: string) => (
-                          <span key={a} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>{a}</span>
-                        ))}
-                        {(Array.isArray(item.dietaryTags) ? item.dietaryTags : []).map((t: string) => (
-                          <span key={t} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>{t}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {/* Inventory inline */}
-                {(() => {
-                  const inv = (inventoryLevels as any[])?.find((r: any) => r.menuItemId === item.id);
-                  const qty = inv?.quantity ?? null;
-                  const alert = inv?.quantityAlert ?? null;
-                  const isLow = qty !== null && alert !== null && qty <= alert;
-                  return (
-                    <div className="flex flex-col items-end mr-2" style={{ minWidth: 80 }}>
-                      <div className="flex items-center gap-1 mb-1">
-                        {qty !== null ? (
-                          <span className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.06em', color: isLow ? '#B85450' : '#5E5E5E' }}>
-                            {qty} in stock
-                          </span>
-                        ) : (
-                          <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>—</span>
-                        )}
-                        {isLow && <span className="font-data" style={{ fontSize: '0.5rem', background: 'rgba(184,84,80,0.12)', color: '#B85450', padding: '1px 5px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Low</span>}
-                      </div>
-                      {stockFormOpen === item.id ? (
-                        <div className="flex flex-col gap-1" style={{ minWidth: 120 }}>
-                          <input type="number" min={0} placeholder="Qty" value={stockForm.quantity} onChange={e => setStockForm(f => ({ ...f, quantity: e.target.value }))} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
-                          <input type="number" min={0} placeholder="Alert at" value={stockForm.quantityAlert} onChange={e => setStockForm(f => ({ ...f, quantityAlert: e.target.value }))} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => {
-                                setInventoryQty.mutate({ menuItemId: item.id, quantity: Number(stockForm.quantity), quantityAlert: stockForm.quantityAlert ? Number(stockForm.quantityAlert) : undefined }, { onSuccess: () => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); } });
-                              }}
-                              style={{ flex: 1, background: '#181818', color: '#F3F2EE', border: 'none', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}
-                            >Save</button>
-                            <button onClick={() => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', fontSize: 11, padding: '3px 6px', cursor: 'pointer', color: '#5E5E5E' }}>✕</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => { setStockFormOpen(item.id); setStockForm({ quantity: qty !== null ? String(qty) : '', quantityAlert: alert !== null ? String(alert) : '' }); }}
-                          style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '2px 7px', cursor: 'pointer', color: '#5E5E5E' }}
-                        >Set Stock</button>
-                      )}
-                    </div>
-                  );
-                })()}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => setOpenModifiers((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
-                      return next;
-                    })}
-                    aria-label="Manage modifiers"
-                    title="Manage Modifiers"
-                    className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all flex items-center gap-1"
-                    style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent', fontSize: '0' }}
-                  >
-                    {openModifiers.has(item.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-                  <button
-                    onClick={() => startEdit(item)}
-                    aria-label="Edit item"
-                    className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
-                    style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button
-                    onClick={() => { setDeleteConfirm(item.id); setDeleteError(''); }}
-                    aria-label="Delete item"
-                    title="Delete Item"
-                    className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
-                    style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Modifiers accordion panel */}
-              {openModifiers.has(item.id) && (
-                <ModifiersPanel menuItemId={item.id} venueId={venue.id} />
-              )}
-
-              {/* Delete confirmation inline */}
-              {deleteConfirm === item.id && (
-                <div className="p-4 border-x border-b" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#F3F2EE' }}>
-                  <p style={{ fontSize: '0.8125rem', color: '#181818', marginBottom: 12 }}>
-                    Delete this item? Orders referencing it will be preserved.
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => deleteMutation.mutate({ token, menuItemId: item.id })}
-                      disabled={deleteMutation.isPending}
-                      className="px-4 py-2 font-button flex items-center gap-2"
-                      style={{ background: '#B85450', color: '#F3F2EE', fontSize: '0.75rem' }}
-                    >
-                      {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                      Yes, Delete
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(null)}
-                      className="px-4 py-2 font-button"
-                      style={{ background: 'transparent', color: '#181818', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}
-                    >
-                      Keep Item
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-                    ))}
-                  </div>
+                  </SortableContext>
                 </div>
               );
             })}
           </div>
+          </DndContext>
         );
       })()}
 

@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables } from "@db/schema";
-import { eq, and, desc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
+import { eq, and, desc, asc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
@@ -650,7 +650,25 @@ export const venueRouter = createRouter({
     if (input.category) {
       conditions.push(eq(menuItems.category, input.category as any));
     }
-    return db.select().from(menuItems).where(and(...conditions));
+    return db.select().from(menuItems).where(and(...conditions)).orderBy(asc(menuItems.sortOrder), asc(menuItems.createdAt));
+  }),
+
+  reorderMenuItems: publicQuery.input(z.object({
+    token: z.string(),
+    venueId: z.number().int().positive(),
+    items: z.array(z.object({ id: z.number().int().positive(), sortOrder: z.number().int() })),
+  })).mutation(async ({ input }) => {
+    const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
+    const payload = await jwtVerify(input.token, JWT_SECRET);
+    const venueId = payload.payload.venueId as number;
+    if (venueId !== input.venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+    const db = getDb();
+    await Promise.all(
+      input.items.map(({ id, sortOrder }) =>
+        db.update(menuItems).set({ sortOrder }).where(and(eq(menuItems.id, id), eq(menuItems.venueId, venueId)))
+      )
+    );
+    return { success: true };
   }),
 
   createMenuItem: publicQuery.input(z.object({

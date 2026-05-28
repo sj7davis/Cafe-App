@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import {
   Coffee, MapPin, Phone, Clock, Globe, Loader2,
   ShoppingBag, Plus, Minus, X, ChevronRight, Star,
-  Package, CheckCircle, QrCode, Download, Gift, AlertTriangle, Bell, Users,
+  Package, CheckCircle, QrCode, Download, Gift, AlertTriangle, Bell, Users, Search,
 } from 'lucide-react';
 
 // ─── Hours parsing helpers ───────────────────────────────────────────────────
@@ -254,6 +254,7 @@ export default function VenuePublic() {
   const [cateringForm, setCateringForm] = useState({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
   const [cateringSubmitted, setCateringSubmitted] = useState(false);
   const [dietaryFilter, setDietaryFilter] = useState<string | null>(null);
+  const [menuSearch, setMenuSearch] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [modifierModalItem, setModifierModalItem] = useState<NonNullable<typeof menuItems>[number] | null>(null);
@@ -580,9 +581,14 @@ export default function VenuePublic() {
   const openStatus = getOpenStatus(venue);
 
   const allMenuItems = menuItems || [];
-  const filteredMenu = dietaryFilter
-    ? allMenuItems.filter(i => i.dietary?.split(',').map(d => d.trim()).includes(dietaryFilter))
-    : allMenuItems;
+  const filteredMenu = allMenuItems.filter(i => {
+    if (dietaryFilter && !i.dietary?.split(',').map(d => d.trim()).includes(dietaryFilter)) return false;
+    if (menuSearch.trim()) {
+      const q = menuSearch.toLowerCase();
+      if (!i.name.toLowerCase().includes(q) && !i.description?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
 
   const coffeeItems = filteredMenu.filter(i => i.category === 'coffee');
   const pastryItems = filteredMenu.filter(i => i.category === 'pastries');
@@ -1960,6 +1966,34 @@ export default function VenuePublic() {
           )}
         </div>
 
+        {/* Search */}
+        {allMenuItems.length > 0 && (
+          <div style={{ position: 'relative', marginBottom: 14 }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              value={menuSearch}
+              onChange={e => setMenuSearch(e.target.value)}
+              placeholder="Search menu…"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '9px 12px 9px 34px',
+                border: '1px solid rgba(24,24,24,0.14)',
+                borderRadius: 8, fontSize: 13, color: '#181818',
+                background: '#fff', outline: 'none',
+              }}
+            />
+            {menuSearch && (
+              <button
+                onClick={() => setMenuSearch('')}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2 }}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Category Jump Nav */}
         {allMenuItems.length > 0 && (coffeeItems.length > 0 || pastryItems.length > 0 || breadItems.length > 0) && (
           <div style={{
@@ -2103,6 +2137,17 @@ export default function VenuePublic() {
                 />
               ))}
             </div>
+          </div>
+        )}
+
+        {/* No search results */}
+        {menuSearch.trim() && coffeeItems.length === 0 && pastryItems.length === 0 && breadItems.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '48px 0', color: '#9CA3AF' }}>
+            <Search size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
+            <p style={{ fontSize: 14, fontWeight: 500 }}>No items match "{menuSearch}"</p>
+            <button onClick={() => setMenuSearch('')} style={{ marginTop: 8, fontSize: 12, color: accentColor, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              Clear search
+            </button>
           </div>
         )}
 
