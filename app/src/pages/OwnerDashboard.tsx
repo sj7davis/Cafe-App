@@ -5171,10 +5171,10 @@ function SmsMarketingTab() {
     },
   });
 
-  const segments = (segmentsData as any[]) ?? [];
-  const history = (historyData as any[]) ?? [];
+  const segments: any[] = (segmentsData as any)?.segments ?? [];
+  const history: any[] = (historyData as any[]) ?? [];
 
-  const currentSegment = segments.find((s: any) => s.id === selectedSegment) as any | undefined;
+  const currentSegment = segments.find((s: any) => s.key === selectedSegment || s.id === selectedSegment) as any | undefined;
   const customerCount = currentSegment?.count ?? 0;
   const charCount = message.length;
   const maxChars = 160;
@@ -5195,7 +5195,7 @@ function SmsMarketingTab() {
         {segmentsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {SMS_SEGMENTS.map((seg) => {
-            const segStats = segments.find((s: any) => s.id === seg.id) as any | undefined;
+            const segStats = segments.find((s: any) => (s.key ?? s.id) === seg.id) as any | undefined;
             const count = segStats?.count ?? '—';
             const isSelected = selectedSegment === seg.id;
             return (
@@ -5349,10 +5349,10 @@ function SmsMarketingTab() {
                       {SMS_SEGMENTS.find((s) => s.id === row.segment)?.label ?? row.segment}
                     </td>
                     <td style={{ padding: '10px 10px', color: '#5E5E5E', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                      {row.message}
+                      {row.body ?? row.message}
                     </td>
                     <td style={{ padding: '10px 10px', color: '#5E8B5E', fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
-                      {row.sentCount ?? row.sent ?? 0}
+                      {row.recipientCount ?? row.sentCount ?? row.sent ?? 0}
                     </td>
                   </tr>
                 ))}
