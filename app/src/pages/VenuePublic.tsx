@@ -1882,7 +1882,7 @@ export default function VenuePublic() {
                       fontFamily: 'Inter, -apple-system, sans-serif',
                     }}
                   >
-                    {createCheckoutSession.isPending ? 'Redirecting to Checkout…' : 'Pay with Stripe'}
+                    {createCheckoutSession.isPending ? 'Placing Order…' : 'Place Order'}
                   </button>
                   {createCheckoutSession.error && (
                     <p style={{ color: '#DC2626', fontSize: 13, marginTop: 8 }}>{createCheckoutSession.error.message}</p>
@@ -1894,30 +1894,30 @@ export default function VenuePublic() {
         </div>
       )}
 
-      {/* Floating Cart Button — mobile-first full-width bar, hidden on large screens */}
+      {/* Floating Cart Button — visible on ALL screen sizes when cart has items */}
       {cart.length > 0 && !showCart && (
-        <>
-          <style>{`@media (min-width: 1024px) { .b1-floating-cart { display: none !important; } }`}</style>
-          <button
-            className="b1-floating-cart"
-            onClick={() => setShowCart(true)}
-            style={{
-              position: 'fixed', bottom: 16, left: 16, right: 16, zIndex: 100,
-              background: accentColor || '#181818', color: '#fff',
-              borderRadius: 12, padding: '14px 20px',
-              border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-              fontSize: 15, fontWeight: 700,
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <ShoppingBag size={18} />
-              <span>{cartCount} item{cartCount !== 1 ? 's' : ''} · View Cart</span>
-            </span>
-            <span>${cartTotal.toFixed(2)}</span>
-          </button>
-        </>
+        <button
+          onClick={() => setShowCart(true)}
+          style={{
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 100,
+            background: accentColor || '#181818', color: '#fff',
+            borderRadius: 14, padding: '14px 28px',
+            border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 16,
+            boxShadow: '0 6px 24px rgba(0,0,0,0.28)',
+            fontSize: 15, fontWeight: 700,
+            whiteSpace: 'nowrap',
+            minWidth: 260,
+            justifyContent: 'space-between',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ShoppingBag size={18} />
+            <span>{cartCount} item{cartCount !== 1 ? 's' : ''} · View Cart</span>
+          </span>
+          <span>${cartTotal.toFixed(2)}</span>
+        </button>
       )}
 
       {/* Website blocks (from block editor) OR fallback hero/about/gallery */}

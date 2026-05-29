@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { orders, venues, franchiseeAccounts, giftCards, subscriptionPasses } from "@db/schema";
+import { orders, orderItems, menuItems, venues, franchiseeAccounts, giftCards, subscriptionPasses } from "@db/schema";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
 import { env } from "./lib/env";
@@ -89,6 +89,58 @@ export const stripeCheckoutRouter = createRouter({
     const venueResults = await db.select().from(venues).where(eq(venues.id, input.venueId)).limit(1);
     const venue = venueResults[0];
     if (!venue) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+
+    // ── Stripe-not-configured fallback ────────────────────────────────────────
+    // When STRIPE_SECRET_KEY is absent, create the order directly and return
+    // a local /order/<num> URL so ordering still works without payment.
+    if (!env.stripeSecretKey) {
+      const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
+      let totalAmount = 0;
+      const itemDetails: { menuItemId: number; itemName: string; quantity: number; unitPrice: number }[] = [];
+
+      for (const item of input.items) {
+        const miRows = await db.select().from(menuItems).where(eq(menuItems.id, item.menuItemId)).limit(1);
+        const mi = miRows[0];
+        if (!mi || mi.venueId !== input.venueId) continue;
+        const unitPrice = Number(item.unitPrice ?? mi.price);
+        totalAmount += unitPrice * item.quantity;
+        itemDetails.push({ menuItemId: item.menuItemId, itemName: mi.name ?? item.name, quantity: item.quantity, unitPrice });
+      }
+
+      const finalTotal = Math.max(0, totalAmount - (input.discountAmount ?? 0)) + (input.tipAmount ?? 0);
+
+      const [orderRow] = await db.insert(orders).values({
+        venueId: input.venueId,
+        orderNumber,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        customerEmail: input.customerEmail ?? null,
+        pickupTime: input.pickupTime,
+        orderNote: input.orderNote ?? null,
+        paymentMethod: "pickup" as any,
+        totalAmount: finalTotal.toFixed(2),
+        locationId: input.locationId ?? null,
+        tipAmount: (input.tipAmount ?? 0).toFixed(2),
+        discountCode: input.discountCode ?? null,
+        discountAmount: (input.discountAmount ?? 0).toFixed(2),
+        status: "confirmed" as any,
+      }).returning({ id: orders.id });
+
+      for (const item of itemDetails) {
+        await db.insert(orderItems).values({
+          orderId: orderRow.id,
+          menuItemId: item.menuItemId,
+          itemName: item.itemName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice.toFixed(2),
+        });
+      }
+
+      const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
+      const appUrl = domain ? `https://${domain}` : (env.appUrl || "http://localhost:3000");
+      return { sessionId: null as string | null, url: `${appUrl}/order/${orderNumber}` };
+    }
+    // ── End fallback ──────────────────────────────────────────────────────────
 
     const stripe = getStripe();
 
