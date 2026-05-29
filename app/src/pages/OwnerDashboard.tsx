@@ -1760,6 +1760,46 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
     if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
   }
 
+  // ── Stripe Connect ────────────────────────────────────────────────────────
+  const stripeStatusQuery = trpc.franchisee.getConnectStatus.useQuery({ token }, { enabled: !!token });
+  const stripeBalanceQuery = trpc.franchisee.getPayoutBalance.useQuery({ token }, { enabled: !!token });
+  const stripeConnectMut = trpc.franchisee.createConnectAccountLink.useMutation();
+  const franchiseeSetupMut = trpc.franchisee.setup.useMutation();
+  const [stripeConnecting, setStripeConnecting] = useState(false);
+
+  async function handleStripeConnect() {
+    if (!token) return;
+    setStripeConnecting(true);
+    try {
+      const result = await stripeConnectMut.mutateAsync({ token });
+      window.location.href = result.url;
+    } catch (err: any) {
+      // If franchisee config not yet set up, auto-create with defaults then retry
+      if (err?.message?.includes('Set up franchisee config') || err?.data?.code === 'NOT_FOUND') {
+        try {
+          await franchiseeSetupMut.mutateAsync({ token });
+          const result = await stripeConnectMut.mutateAsync({ token });
+          window.location.href = result.url;
+        } catch (e2: any) {
+          showToast(e2?.message || 'Could not start Stripe onboarding', false);
+          setStripeConnecting(false);
+        }
+      } else {
+        showToast(err?.message || 'Could not start Stripe onboarding', false);
+        setStripeConnecting(false);
+      }
+    }
+  }
+
+  // Refetch Connect status on return from Stripe onboarding
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('connected') === 'stripe' || params.get('reauth') === '1') {
+      stripeStatusQuery.refetch();
+      stripeBalanceQuery.refetch();
+    }
+  }, []);
+
   // ── QR Code ───────────────────────────────────────────────────────────────
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -2091,7 +2131,84 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
         </div>
       </div>
 
-      {/* ── Section 3: Delivery Platforms ─────────────────────────────────── */}
+      {/* ── Section 3: Payments ───────────────────────────────────────────── */}
+      <div>
+        <p style={sectionHeadStyle}>Payments</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Stripe Connect */}
+          <div style={cardStyle}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div style={{ width: 36, height: 36, background: '#635BFF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <CreditCard size={18} style={{ color: '#fff' }} />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Stripe Connect</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Receive payouts from online orders</p>
+                </div>
+              </div>
+              {stripeStatusQuery.data?.ready
+                ? <span style={pillConnected}><Check size={8} /> Connected</span>
+                : <span style={pillNotConnected}>{stripeStatusQuery.data?.accountId ? 'Onboarding incomplete' : 'Not connected'}</span>}
+            </div>
+
+            <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              {stripeStatusQuery.data?.ready ? (
+                <div className="space-y-2">
+                  {/* Payout balance card */}
+                  {stripeBalanceQuery.data?.connected && (
+                    <div style={{ background: 'rgba(94,139,94,0.06)', border: '1px solid rgba(94,139,94,0.15)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E8B5E' }}>Available Balance</span>
+                        <span style={{ fontWeight: 700, fontSize: '1rem', color: '#181818' }}>
+                          ${stripeBalanceQuery.data.available.toFixed(2)} <span style={{ fontSize: '0.625rem', color: '#5E5E5E', fontWeight: 400 }}>{(stripeBalanceQuery.data.currency ?? 'aud').toUpperCase()}</span>
+                        </span>
+                      </div>
+                      {(stripeBalanceQuery.data.pending ?? 0) > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                          <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Pending</span>
+                          <span style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>${stripeBalanceQuery.data.pending.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px solid rgba(94,139,94,0.12)', paddingTop: 4, marginTop: 2 }}>
+                        <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Last payout</span>
+                        <span style={{ fontSize: '0.6875rem', color: '#5E5E5E' }}>
+                          {stripeBalanceQuery.data.lastPayoutDate
+                            ? new Date(stripeBalanceQuery.data.lastPayoutDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : 'None yet'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {stripeBalanceQuery.isLoading && (
+                    <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}><Loader2 size={10} className="inline animate-spin mr-1" />Loading balance…</p>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {stripeStatusQuery.data?.message && !stripeStatusQuery.data?.ready && stripeStatusQuery.data?.accountId && (
+                    <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>
+                      <AlertCircle size={9} className="inline mr-1" />{stripeStatusQuery.data.message}
+                    </p>
+                  )}
+                  <button
+                    style={{ ...primaryBtn, background: '#635BFF', opacity: stripeConnecting ? 0.6 : 1 }}
+                    disabled={stripeConnecting}
+                    onClick={handleStripeConnect}
+                  >
+                    {stripeConnecting ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                    {stripeStatusQuery.data?.accountId ? 'Continue onboarding' : 'Connect Stripe'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Section 4: Delivery Platforms ─────────────────────────────────── */}
       <div>
         <p style={sectionHeadStyle}>Delivery Platforms</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
