@@ -9,7 +9,7 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses } from "@db/schema";
 import { eq, and, gte, isNull, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -457,6 +457,11 @@ const honoListener = getRequestListener(app.fetch);
 const port = env.port;
 
 // ─── Stripe webhook handler ───────────────────────────────────────────────
+// In-memory idempotency guard for gift-card / pass sessions (no stripeSessionId
+// column on those tables this phase — T-08-06 accept).
+// Cleared on process restart; Stripe re-delivery is rare for completed events.
+const processedGiftPassSessions = new Set<string>();
+
 // Must read raw body before any JSON parse; Stripe verifies the raw bytes.
 async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const chunks: Buffer[] = [];
@@ -483,110 +488,205 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
         if (!venueId) { res.writeHead(200); res.end("ok"); return; }
 
         const db = getDb();
+        const kind: string = meta.kind ?? "order"; // default to order for backwards compat
 
-        // Parse cart items stored in session metadata by createCheckoutSession (Task 2)
-        type CartItem = { menuItemId: number; itemName: string; quantity: number; unitPrice: number };
-        let parsedItems: CartItem[] = [];
-        if (meta.itemsJson) {
-          try { parsedItems = JSON.parse(meta.itemsJson) as CartItem[]; } catch { /* malformed — skip items */ }
+        // ── Gift Card fulfillment (PAY-03) ─────────────────────────────────────
+        if (kind === "gift_card") {
+          // In-memory idempotency guard (T-08-06 accept — no stripeSessionId on giftCards)
+          if (!processedGiftPassSessions.has(session.id)) {
+            processedGiftPassSessions.add(session.id);
+            const amountDollars = ((session.amount_total ?? 0) / 100).toFixed(2);
+            const code = randomBytes(8).toString("base64url").toUpperCase().slice(0, 12);
+            await db.insert(giftCards).values({
+              venueId,
+              code,
+              amount: amountDollars,
+              balance: amountDollars,
+              senderName: meta.senderName || null,
+              recipientName: meta.recipientName || null,
+              recipientEmail: meta.recipientEmail || null,
+              recipientPhone: meta.recipientPhone || null,
+              message: meta.message || null,
+            });
+
+            // Send digital gift card email if recipient email present
+            if (meta.recipientEmail) {
+              const venueRow = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, venueId)).limit(1);
+              const venueName = venueRow[0]?.name ?? "the cafe";
+              sendEmail({
+                to: meta.recipientEmail,
+                subject: `🎁 You've received a $${amountDollars} gift card from ${venueName}!`,
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+<h2>You've got a gift card! 🎉</h2>
+${meta.senderName ? `<p><strong>${meta.senderName}</strong> sent you a gift card.</p>` : ""}
+${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:1rem;color:#555">${meta.message}</blockquote>` : ""}
+<div style="background:#f9f9f9;border-radius:8px;padding:1.5rem;text-align:center;margin:1.5rem 0">
+  <p style="margin:0;color:#666;font-size:0.875rem">Your gift card code</p>
+  <p style="font-size:2rem;font-weight:bold;letter-spacing:0.2em;margin:0.5rem 0;color:#181818">${code}</p>
+  <p style="margin:0;color:#5E8B8B;font-size:1.25rem">Value: $${amountDollars}</p>
+</div>
+<p style="text-align:center;margin:1.5rem 0">
+  <a href="${env.appUrl}/gift/${code}?v=${venueId}" style="display:inline-block;background:#5E8B8B;color:#fff;text-decoration:none;padding:0.75rem 2rem;border-radius:8px;font-weight:600">
+    View &amp; Redeem Gift Card
+  </a>
+</p>
+<p style="color:#666;font-size:0.875rem">Or use the code <strong>${code}</strong> at ${venueName} when ordering online or show it at the counter.</p>
+<p style="color:#999;font-size:0.75rem">Gift cards do not expire.</p>
+</div>`,
+              });
+            }
+          }
         }
 
-        // Idempotency: skip if an order with this session ID already exists
-        const existing = await db.select({ id: orders.id })
-          .from(orders)
-          .where(eq(orders.stripeSessionId, session.id))
-          .limit(1);
+        // ── Subscription Pass fulfillment (PAY-04) ────────────────────────────
+        else if (kind === "pass") {
+          if (!processedGiftPassSessions.has(session.id)) {
+            processedGiftPassSessions.add(session.id);
+            const totalCredits = Number(meta.totalCredits ?? 0);
+            await db.insert(subscriptionPasses).values({
+              venueId,
+              phone: meta.phone ?? "",
+              name: meta.name ?? "Customer",
+              totalCredits,
+              remainingCredits: totalCredits,
+              price: ((session.amount_total ?? 0) / 100).toFixed(2),
+              isActive: true,
+            });
+          }
+        }
 
-        if (!existing[0]) {
-          const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
-          const totalCents = session.amount_total ?? 0;
-
-          // PAY-01 / PAY-02: order is confirmed only after webhook fires with payment_status === "paid"
-          const [orderResult] = await db.insert(orders).values({
-            venueId,
-            orderNumber,
-            customerName: meta.customerName ?? "Online Customer",
-            customerPhone: meta.customerPhone ?? "",
-            pickupTime: meta.pickupTime ?? "ASAP",
-            orderNote: meta.orderNote || null,
-            paymentMethod: "online",
-            totalAmount: (totalCents / 100).toFixed(2),
-            locationId: meta.locationId ? Number(meta.locationId) : null,
-            customerEmail: session.customer_details?.email ?? null,
-            stripeSessionId: session.id,
-            tipAmount: meta.tipAmount ? meta.tipAmount : "0",
-            discountCode: meta.discountCode || null,
-            discountAmount: meta.discountAmount ? meta.discountAmount : "0",
-            status: "confirmed",
-          }).returning({ id: orders.id });
-
-          const orderId = orderResult.id;
-
-          // Persist order line items from metadata cart
-          for (const item of parsedItems) {
-            try {
-              await db.insert(orderItems).values({
-                orderId,
-                menuItemId: Number(item.menuItemId),
-                itemName: String(item.itemName),
-                quantity: Number(item.quantity),
-                unitPrice: Number(item.unitPrice).toFixed(2),
-              });
-            } catch { /* non-blocking per item — order already committed */ }
+        // ── Order fulfillment (default, from 08-01) ───────────────────────────
+        else {
+          // Parse cart items stored in session metadata by createCheckoutSession (Task 2)
+          type CartItem = { menuItemId: number; itemName: string; quantity: number; unitPrice: number };
+          let parsedItems: CartItem[] = [];
+          if (meta.itemsJson) {
+            try { parsedItems = JSON.parse(meta.itemsJson) as CartItem[]; } catch { /* malformed — skip items */ }
           }
 
-          // Broadcast new confirmed order to KDS/staff SSE listeners
-          broadcastToVenue(venueId, "order_update", { orderId, status: "confirmed", orderNumber });
+          // Idempotency: skip if an order with this session ID already exists
+          const existing = await db.select({ id: orders.id })
+            .from(orders)
+            .where(eq(orders.stripeSessionId, session.id))
+            .limit(1);
 
-          // Discount code: increment usedCount (non-blocking)
-          if (meta.discountCode) {
-            try {
-              await db.update(discountCodes)
-                .set({ usedCount: sql`used_count + 1` })
-                .where(and(
-                  eq(discountCodes.venueId, venueId),
-                  eq(discountCodes.code, meta.discountCode.toUpperCase()),
-                ));
-            } catch { /* non-blocking */ }
-          }
+          if (!existing[0]) {
+            const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
+            const totalCents = session.amount_total ?? 0;
 
-          // Earn loyalty points: 1pt per $1 of order subtotal (excluding tip)
-          const subtotal = Math.max(0, (totalCents / 100) - Number(meta.tipAmount ?? 0));
-          const pointsEarned = Math.floor(subtotal);
-          const loyaltyPhone = meta.loyaltyPhone || meta.customerPhone;
-          if (loyaltyPhone && pointsEarned > 0) {
-            try {
-              let loyaltyAcc = await db.select().from(loyaltyAccounts)
-                .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
-                .limit(1);
-              if (!loyaltyAcc[0]) {
-                await db.insert(loyaltyAccounts).values({
-                  venueId,
-                  phone: loyaltyPhone,
-                  name: meta.customerName ?? null,
-                  pointsBalance: 0,
-                  totalLifetimePoints: 0,
+            // PAY-01 / PAY-02: order is confirmed only after webhook fires with payment_status === "paid"
+            const [orderResult] = await db.insert(orders).values({
+              venueId,
+              orderNumber,
+              customerName: meta.customerName ?? "Online Customer",
+              customerPhone: meta.customerPhone ?? "",
+              pickupTime: meta.pickupTime ?? "ASAP",
+              orderNote: meta.orderNote || null,
+              paymentMethod: "online",
+              totalAmount: (totalCents / 100).toFixed(2),
+              locationId: meta.locationId ? Number(meta.locationId) : null,
+              customerEmail: session.customer_details?.email ?? null,
+              stripeSessionId: session.id,
+              tipAmount: meta.tipAmount ? meta.tipAmount : "0",
+              discountCode: meta.discountCode || null,
+              discountAmount: meta.discountAmount ? meta.discountAmount : "0",
+              status: "confirmed",
+            }).returning({ id: orders.id });
+
+            const orderId = orderResult.id;
+
+            // Persist order line items from metadata cart
+            for (const item of parsedItems) {
+              try {
+                await db.insert(orderItems).values({
+                  orderId,
+                  menuItemId: Number(item.menuItemId),
+                  itemName: String(item.itemName),
+                  quantity: Number(item.quantity),
+                  unitPrice: Number(item.unitPrice).toFixed(2),
                 });
-                loyaltyAcc = await db.select().from(loyaltyAccounts)
+              } catch { /* non-blocking per item — order already committed */ }
+            }
+
+            // Broadcast new confirmed order to KDS/staff SSE listeners
+            broadcastToVenue(venueId, "order_update", { orderId, status: "confirmed", orderNumber });
+
+            // Discount code: increment usedCount (non-blocking)
+            if (meta.discountCode) {
+              try {
+                await db.update(discountCodes)
+                  .set({ usedCount: sql`used_count + 1` })
+                  .where(and(
+                    eq(discountCodes.venueId, venueId),
+                    eq(discountCodes.code, meta.discountCode.toUpperCase()),
+                  ));
+              } catch { /* non-blocking */ }
+            }
+
+            // Earn loyalty points: 1pt per $1 of order subtotal (excluding tip)
+            const subtotal = Math.max(0, (totalCents / 100) - Number(meta.tipAmount ?? 0));
+            const pointsEarned = Math.floor(subtotal);
+            const loyaltyPhone = meta.loyaltyPhone || meta.customerPhone;
+            if (loyaltyPhone && pointsEarned > 0) {
+              try {
+                let loyaltyAcc = await db.select().from(loyaltyAccounts)
                   .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
                   .limit(1);
-              }
-              const acc = loyaltyAcc[0];
-              if (acc) {
-                await db.update(loyaltyAccounts).set({
-                  pointsBalance: acc.pointsBalance + pointsEarned,
-                  totalLifetimePoints: acc.totalLifetimePoints + pointsEarned,
-                }).where(eq(loyaltyAccounts.id, acc.id));
-                await db.insert(loyaltyTransactions).values({
-                  venueId,
-                  accountId: acc.id,
-                  type: "earn",
-                  points: pointsEarned,
-                  description: `Online order ${orderNumber} — ${pointsEarned} pts`,
-                  orderId,
-                });
-              }
-            } catch { /* non-blocking */ }
+                if (!loyaltyAcc[0]) {
+                  await db.insert(loyaltyAccounts).values({
+                    venueId,
+                    phone: loyaltyPhone,
+                    name: meta.customerName ?? null,
+                    pointsBalance: 0,
+                    totalLifetimePoints: 0,
+                  });
+                  loyaltyAcc = await db.select().from(loyaltyAccounts)
+                    .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
+                    .limit(1);
+                }
+                const acc = loyaltyAcc[0];
+                if (acc) {
+                  await db.update(loyaltyAccounts).set({
+                    pointsBalance: acc.pointsBalance + pointsEarned,
+                    totalLifetimePoints: acc.totalLifetimePoints + pointsEarned,
+                  }).where(eq(loyaltyAccounts.id, acc.id));
+                  await db.insert(loyaltyTransactions).values({
+                    venueId,
+                    accountId: acc.id,
+                    type: "earn",
+                    points: pointsEarned,
+                    description: `Online order ${orderNumber} — ${pointsEarned} pts`,
+                    orderId,
+                  });
+                }
+              } catch { /* non-blocking */ }
+            }
+
+            // ── CHK-02: Loyalty redemption — decrement balance on paid order ───
+            const loyaltyRedemptionPhone = meta.loyaltyPhone || meta.customerPhone;
+            const pointsRedeemed = Number(meta.loyaltyPointsRedeemed ?? 0);
+            if (loyaltyRedemptionPhone && pointsRedeemed > 0) {
+              try {
+                const redeemAcc = await db.select().from(loyaltyAccounts)
+                  .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyRedemptionPhone)))
+                  .limit(1);
+                const acc = redeemAcc[0];
+                if (acc) {
+                  const newBalance = Math.max(0, acc.pointsBalance - pointsRedeemed);
+                  await db.update(loyaltyAccounts)
+                    .set({ pointsBalance: newBalance })
+                    .where(eq(loyaltyAccounts.id, acc.id));
+                  await db.insert(loyaltyTransactions).values({
+                    venueId,
+                    accountId: acc.id,
+                    type: "redeem",
+                    points: pointsRedeemed,
+                    description: `Redeemed ${pointsRedeemed} pts at checkout`,
+                    orderId,
+                  });
+                }
+              } catch { /* non-blocking — loyalty failure must not abort order confirmation */ }
+            }
           }
         }
       }
