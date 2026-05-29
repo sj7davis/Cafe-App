@@ -1465,18 +1465,65 @@ export default function VenuePublic() {
                     </label>
                   )}
                   {loyaltyBalance !== null && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, flexWrap: 'wrap' }}>
-                      <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
-                        ⭐ {loyaltyBalance} pts — ${(loyaltyBalance / 10).toFixed(2)} available to redeem
-                      </span>
-                      {loyaltyBalance > 0 && (
-                        <button
-                          onClick={() => setShowRewardsCatalogue(true)}
-                          style={{ fontSize: 12, color: accentColor, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                        >
-                          Redeem a reward →
-                        </button>
-                      )}
+                    <div style={{ marginTop: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+                        <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
+                          ⭐ {loyaltyBalance} pts — ${(loyaltyBalance / 10).toFixed(2)} available to redeem
+                        </span>
+                        {loyaltyBalance > 0 && (
+                          <button
+                            onClick={() => setShowRewardsCatalogue(true)}
+                            style={{ fontSize: 12, color: accentColor, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                          >
+                            Redeem a reward →
+                          </button>
+                        )}
+                      </div>
+                      {/* ── Loyalty points redemption control ────────────────── */}
+                      {loyaltyBalance >= 100 ? (
+                        <div style={{
+                          background: '#FFFFFF', borderRadius: 8, border: '1px solid #E4E4E7',
+                          padding: '12px 14px',
+                        }}>
+                          <label style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            fontSize: 13, color: '#09090B', cursor: 'pointer',
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={redeemPoints > 0}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  // Redeem up to the lesser of (balance floored to multiple of 10)
+                                  // and (subtotal * 10 = max points that would cover the subtotal)
+                                  const maxByBalance = Math.floor(loyaltyBalance / 10) * 10;
+                                  const maxByTotal = Math.floor(cartSubtotal * 10 / 10) * 10;
+                                  setRedeemPoints(Math.min(maxByBalance, Math.max(0, maxByTotal)));
+                                } else {
+                                  setRedeemPoints(0);
+                                }
+                              }}
+                              style={{ width: 15, height: 15, accentColor: accentColor }}
+                            />
+                            <span>
+                              Redeem{' '}
+                              <span style={{ fontWeight: 700, color: accentColor }}>
+                                {redeemPoints > 0 ? redeemPoints : Math.min(Math.floor(loyaltyBalance / 10) * 10, Math.floor(cartSubtotal * 10 / 10) * 10)} pts
+                              </span>
+                              {' '}= <span style={{ fontWeight: 700, color: '#09090B' }}>${(Math.min(Math.floor(loyaltyBalance / 10) * 10, Math.floor(cartSubtotal * 10 / 10) * 10) / 10).toFixed(2)} off</span>
+                            </span>
+                          </label>
+                          {redeemPoints > 0 && (
+                            <div style={{ marginTop: 6, fontSize: 12, color: '#71717A' }}>
+                              -{redeemPoints} pts = -${loyaltyDiscount.toFixed(2)} applied to your total
+                            </div>
+                          )}
+                        </div>
+                      ) : loyaltyBalance > 0 && loyaltyBalance < 100 ? (
+                        <div style={{ fontSize: 12, color: '#71717A', padding: '6px 0' }}>
+                          Earn {100 - loyaltyBalance} more points to unlock redemption (minimum 100 pts)
+                        </div>
+                      ) : null}
                     </div>
                   )}
                   <div>
@@ -1790,6 +1837,12 @@ export default function VenuePublic() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
                       <span>🎁 Gift card</span>
                       <span>-${appliedGiftDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {loyaltyDiscount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#d97706', fontSize: 13 }}>
+                      <span>⭐ Loyalty points ({redeemPoints} pts)</span>
+                      <span>-${loyaltyDiscount.toFixed(2)}</span>
                     </div>
                   )}
                   {isPublicHoliday && surchargeAmount > 0 && (
