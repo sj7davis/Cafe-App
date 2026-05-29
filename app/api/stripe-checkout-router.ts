@@ -2,10 +2,12 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { orders, venues, franchiseeAccounts } from "@db/schema";
+import { orders, venues, franchiseeAccounts, giftCards, subscriptionPasses } from "@db/schema";
 import { eq } from "drizzle-orm";
 import Stripe from "stripe";
 import { env } from "./lib/env";
+import { randomBytes } from "crypto";
+import { sendEmail } from "./lib/email";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 
@@ -14,6 +16,49 @@ function getStripe(): Stripe {
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe is not configured" });
   }
   return new Stripe(env.stripeSecretKey, { apiVersion: STRIPE_API_VERSION });
+}
+
+/** Generate a 12-char base64url gift card code — same algorithm as venue-router generateGiftCardCode(). */
+function generateGiftCardCode(): string {
+  return randomBytes(8).toString("base64url").toUpperCase().slice(0, 12);
+}
+
+/**
+ * Look up the Connect account + fee config for a venue and return a
+ * payment_intent_data block that includes application_fee_amount +
+ * transfer_data.destination only when a connected account is present.
+ */
+async function buildPaymentIntentData(
+  venueId: number,
+  amountCents: number,
+): Promise<Stripe.Checkout.SessionCreateParams["payment_intent_data"]> {
+  const db = getDb();
+  const franchiseeRows = await db
+    .select({
+      stripeConnectAccountId: franchiseeAccounts.stripeConnectAccountId,
+      platformFeePercent: franchiseeAccounts.platformFeePercent,
+    })
+    .from(franchiseeAccounts)
+    .where(eq(franchiseeAccounts.venueId, venueId))
+    .limit(1);
+  const franchisee = franchiseeRows[0];
+
+  const feePercent = franchisee?.platformFeePercent
+    ? Number(franchisee.platformFeePercent)
+    : Number(env.stripePlatformFeePercent);
+  const applicationFeeCents = Math.round(amountCents * feePercent / 100);
+
+  const paymentIntentData: Stripe.Checkout.SessionCreateParams["payment_intent_data"] = {
+    metadata: { venueId: String(venueId) },
+  };
+
+  const stripeConnectAccountId = franchisee?.stripeConnectAccountId ?? null;
+  if (stripeConnectAccountId) {
+    paymentIntentData.application_fee_amount = applicationFeeCents;
+    paymentIntentData.transfer_data = { destination: stripeConnectAccountId };
+  }
+
+  return paymentIntentData;
 }
 
 export const stripeCheckoutRouter = createRouter({
@@ -184,5 +229,109 @@ export const stripeCheckoutRouter = createRouter({
       orderId: orderResults[0]?.id ?? null,
       orderNumber: orderResults[0]?.orderNumber ?? null,
     };
+  }),
+
+  // ─── Gift Card Checkout (PAY-03) ────────────────────────────────────────────
+  // Public mutation — no owner JWT required. Prices come from client input but
+  // the gift card row is NOT created here; creation happens in the webhook after
+  // payment_status === "paid" (T-08-05).
+  createGiftCardCheckoutSession: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    amount: z.number().positive(), // in dollars
+    senderName: z.string().optional(),
+    recipientName: z.string().optional(),
+    recipientEmail: z.string().email().optional(),
+    recipientPhone: z.string().optional(),
+    message: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const venueResults = await db.select({ id: venues.id, slug: venues.slug })
+      .from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    const venue = venueResults[0];
+    if (!venue) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+
+    const stripe = getStripe();
+    const amountCents = Math.round(input.amount * 100);
+
+    const paymentIntentData = await buildPaymentIntentData(input.venueId, amountCents);
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{
+        price_data: {
+          currency: "aud",
+          product_data: { name: `Gift Card — $${input.amount.toFixed(2)}` },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      }],
+      success_url: `${env.appUrl}/v/${venue.slug}?giftcard=success&session={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.appUrl}/v/${venue.slug}?giftcard=cancelled`,
+      metadata: {
+        kind: "gift_card",
+        venueId: String(input.venueId),
+        amount: input.amount.toFixed(2),
+        senderName: input.senderName ?? "",
+        recipientName: input.recipientName ?? "",
+        recipientEmail: input.recipientEmail ?? "",
+        recipientPhone: input.recipientPhone ?? "",
+        message: input.message ?? "",
+      },
+      payment_intent_data: paymentIntentData,
+    });
+
+    return { url: session.url, sessionId: session.id };
+  }),
+
+  // ─── Subscription Pass Checkout (PAY-04) ────────────────────────────────────
+  // Public mutation — no owner JWT required. Pass price is read from
+  // venues.settingsJson.passConfig server-side (T-08-04 mitigation).
+  // The subscriptionPasses row is NOT created here; it is created in the webhook.
+  createPassCheckoutSession: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().min(1),
+    name: z.string().min(1),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const venueResults = await db.select({ id: venues.id, slug: venues.slug, settingsJson: venues.settingsJson })
+      .from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    const venue = venueResults[0];
+    if (!venue) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+
+    const passConfig = (venue.settingsJson as any)?.passConfig as
+      { name: string; totalCredits: number; price: number } | undefined;
+    if (!passConfig) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "No pass configured for this venue" });
+    }
+
+    const stripe = getStripe();
+    const amountCents = Math.round(Number(passConfig.price) * 100);
+
+    const paymentIntentData = await buildPaymentIntentData(input.venueId, amountCents);
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{
+        price_data: {
+          currency: "aud",
+          product_data: { name: `Coffee Pass — ${passConfig.name}` },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      }],
+      success_url: `${env.appUrl}/v/${venue.slug}?pass=success&session={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.appUrl}/v/${venue.slug}?pass=cancelled`,
+      metadata: {
+        kind: "pass",
+        venueId: String(input.venueId),
+        phone: input.phone,
+        name: input.name,
+        totalCredits: String(passConfig.totalCredits),
+        price: Number(passConfig.price).toFixed(2),
+      },
+      payment_intent_data: paymentIntentData,
+    });
+
+    return { url: session.url, sessionId: session.id };
   }),
 });
