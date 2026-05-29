@@ -17,6 +17,127 @@ import { CSS } from '@dnd-kit/utilities';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import QRCode from 'qrcode';
 
+// ─── Shared dashboard design system ──────────────────────────────────────────
+const DS = {
+  card: {
+    background: 'var(--op-card-bg)',
+    borderRadius: 'var(--op-radius-card)',
+    border: '1px solid var(--op-card-border)',
+    padding: '20px 24px',
+    boxShadow: 'var(--op-shadow)',
+  } as React.CSSProperties,
+  cardFlush: {
+    background: 'var(--op-card-bg)',
+    borderRadius: 'var(--op-radius-card)',
+    border: '1px solid var(--op-card-border)',
+    boxShadow: 'var(--op-shadow)',
+    overflow: 'hidden',
+  } as React.CSSProperties,
+  label: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'var(--op-text-muted)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.07em',
+    marginBottom: 6,
+    display: 'block',
+  } as React.CSSProperties,
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--op-text)',
+    margin: '0 0 16px',
+    letterSpacing: '-0.01em',
+  } as React.CSSProperties,
+  input: {
+    width: '100%',
+    padding: '10px 12px',
+    border: '1px solid var(--op-card-border)',
+    borderRadius: 'var(--op-radius-input)',
+    fontSize: 14,
+    color: 'var(--op-text)',
+    background: 'var(--op-bg)',
+    outline: 'none',
+    fontFamily: 'var(--op-font-sans)',
+    boxSizing: 'border-box' as const,
+  } as React.CSSProperties,
+  btnPrimary: {
+    padding: '9px 18px',
+    borderRadius: 'var(--op-radius)',
+    border: 'none',
+    background: 'var(--op-accent)',
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    transition: 'background 0.15s',
+  } as React.CSSProperties,
+  btnSecondary: {
+    padding: '9px 18px',
+    borderRadius: 'var(--op-radius)',
+    border: '1px solid var(--op-card-border)',
+    background: 'var(--op-card-bg)',
+    color: 'var(--op-text)',
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    transition: 'all 0.15s',
+  } as React.CSSProperties,
+  btnDanger: {
+    padding: '9px 18px',
+    borderRadius: 'var(--op-radius)',
+    border: '1px solid #FECACA',
+    background: '#FEF2F2',
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+  } as React.CSSProperties,
+  tableHeader: {
+    padding: '10px 14px',
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'var(--op-text-muted)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.07em',
+    textAlign: 'left' as const,
+    borderBottom: '1px solid var(--op-card-border)',
+    background: 'var(--op-bg)',
+  } as React.CSSProperties,
+  tableCell: {
+    padding: '11px 14px',
+    fontSize: 13,
+    color: 'var(--op-text)',
+    borderBottom: '1px solid var(--op-card-border)',
+    verticalAlign: 'middle' as const,
+  } as React.CSSProperties,
+  emptyState: {
+    textAlign: 'center' as const,
+    padding: '48px 24px',
+    color: 'var(--op-text-muted)',
+    fontSize: 13,
+  } as React.CSSProperties,
+  badge: (color: string, bg: string) => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 9px',
+    borderRadius: 99,
+    fontSize: 11,
+    fontWeight: 600,
+    background: bg,
+    color,
+  } as React.CSSProperties),
+};
+
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
@@ -82,7 +203,7 @@ export default function OwnerDashboard() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#F3F2EE' }}>
-        <Loader2 size={32} className="animate-spin" style={{ color: '#181818' }} />
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--op-text)' }} />
       </div>
     );
   }
@@ -92,8 +213,8 @@ export default function OwnerDashboard() {
       <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#F3F2EE' }}>
         <div className="text-center">
           <Shield size={40} style={{ color: '#B85450' }} className="mx-auto mb-4" />
-          <h1 style={{ fontWeight: 400, fontSize: '1.25rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.5rem' }}>Login Required</h1>
-          <p style={{ fontSize: '0.875rem', color: '#5E5E5E', marginBottom: '1.5rem' }}>Please log in to access your dashboard.</p>
+          <h1 style={{ fontWeight: 400, fontSize: '1.25rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.5rem' }}>Login Required</h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--op-text-secondary)', marginBottom: '1.5rem' }}>Please log in to access your dashboard.</p>
           <button onClick={() => navigate('/login')} className="px-6 py-3 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>GO TO LOGIN</button>
         </div>
       </div>
@@ -474,8 +595,8 @@ function AnalyticsTab() {
   }, [ordersExportData]);
 
   const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
-  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
-  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
   // Build heatmap data
   const heatmapHours = Array.from({ length: 17 }, (_, i) => i + 6); // 6–22
@@ -509,7 +630,7 @@ function AnalyticsTab() {
     <div className="space-y-6">
       {/* Days selector + Export */}
       <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
-        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PERIOD:</span>
+        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PERIOD:</span>
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setSelectedDays(d)}
             className="px-3 py-1 font-data"
@@ -529,7 +650,7 @@ function AnalyticsTab() {
       </div>
 
       {/* Overview stats */}
-      {overviewLoading && <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+      {overviewLoading && <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
       {overview && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
@@ -548,8 +669,8 @@ function AnalyticsTab() {
 
       {/* Daily revenue chart */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Daily Revenue</h2>
-        {dailyLoading && <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Daily Revenue</h2>
+        {dailyLoading && <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!dailyLoading && dailyRevenue && dailyRevenue.length > 0 && (
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={dailyRevenue as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -562,25 +683,25 @@ function AnalyticsTab() {
           </ResponsiveContainer>
         )}
         {!dailyLoading && (!dailyRevenue || dailyRevenue.length === 0) && (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No data for this period.</p>
+          <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No data for this period.</p>
         )}
       </div>
 
       {/* Top items */}
       {topItems && topItems.length > 0 && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Top Selling Items</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Top Selling Items</h2>
           <div className="space-y-2">
             {(topItems as { name: string; quantity: number; revenue: string }[]).map((item, idx) => {
               const maxQty = Math.max(...(topItems as { name: string; quantity: number }[]).map(i => i.quantity));
               return (
                 <div key={item.name} className="flex items-center gap-3">
-                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', width: '1.25rem', textAlign: 'right' }}>{idx + 1}.</span>
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', width: '1.25rem', textAlign: 'right' }}>{idx + 1}.</span>
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span style={{ fontSize: '0.875rem', color: '#181818' }}>{item.name}</span>
+                      <span style={{ fontSize: '0.875rem', color: 'var(--op-text)' }}>{item.name}</span>
                       <div className="flex items-center gap-4">
-                        <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>{item.quantity} sold</span>
+                        <span className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>{item.quantity} sold</span>
                         <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>${item.revenue}</span>
                       </div>
                     </div>
@@ -598,7 +719,7 @@ function AnalyticsTab() {
       {/* Hourly distribution */}
       {hourlyDist && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Orders by Hour</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Orders by Hour</h2>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={hourlyDist as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
@@ -614,7 +735,7 @@ function AnalyticsTab() {
       {/* Order type breakdown */}
       {pieData.length > 0 && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Order Type Breakdown</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Order Type Breakdown</h2>
           <div className="flex items-center gap-8">
             <ResponsiveContainer width={200} height={200}>
               <PieChart>
@@ -628,8 +749,8 @@ function AnalyticsTab() {
               {pieData.map((entry, i) => (
                 <div key={entry.name} className="flex items-center gap-2">
                   <div style={{ width: 10, height: 10, borderRadius: 2, background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.875rem', color: '#181818' }}>{entry.name || 'Unknown'}</span>
-                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>{entry.value} orders</span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--op-text)' }}>{entry.name || 'Unknown'}</span>
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>{entry.value} orders</span>
                 </div>
               ))}
             </div>
@@ -640,21 +761,21 @@ function AnalyticsTab() {
       {/* Item-by-hour heatmap */}
       {heatmapTopItems.length > 0 && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Item Popularity by Hour</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Item Popularity by Hour</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', fontSize: 11, whiteSpace: 'nowrap' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '4px 8px', fontFamily: 'Geist Mono', fontSize: 9, textAlign: 'left', color: '#5E5E5E', minWidth: 120 }}>Item</th>
+                  <th style={{ padding: '4px 8px', fontFamily: 'Geist Mono', fontSize: 9, textAlign: 'left', color: 'var(--op-text-secondary)', minWidth: 120 }}>Item</th>
                   {heatmapHours.map(h => (
-                    <th key={h} style={{ padding: '4px 6px', fontFamily: 'Geist Mono', fontSize: 9, color: '#5E5E5E', textAlign: 'center', minWidth: 36 }}>{hourLabel(h)}</th>
+                    <th key={h} style={{ padding: '4px 6px', fontFamily: 'Geist Mono', fontSize: 9, color: 'var(--op-text-secondary)', textAlign: 'center', minWidth: 36 }}>{hourLabel(h)}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {heatmapTopItems.map(itemName => (
                   <tr key={itemName}>
-                    <td style={{ padding: '3px 8px', fontSize: 12, color: '#181818', fontWeight: 500 }}>{itemName}</td>
+                    <td style={{ padding: '3px 8px', fontSize: 12, color: 'var(--op-text)', fontWeight: 500 }}>{itemName}</td>
                     {heatmapHours.map(h => {
                       const qty = heatmapItems[itemName]?.[h] ?? 0;
                       const intensity = heatmapMax > 0 ? qty / heatmapMax : 0;
@@ -673,15 +794,15 @@ function AnalyticsTab() {
               </tbody>
             </table>
           </div>
-          <p className="font-data mt-3" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Darker cells = more orders at that hour. Based on last {selectedDays} days.</p>
+          <p className="font-data mt-3" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Darker cells = more orders at that hour. Based on last {selectedDays} days.</p>
         </div>
       )}
 
       {/* Sellout events */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Sellout Events (Last 30 Days)</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Sellout Events (Last 30 Days)</h2>
         {!selloutEvents || (selloutEvents as any[]).length === 0 ? (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No sellout events recorded in the last 30 days.</p>
+          <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No sellout events recorded in the last 30 days.</p>
         ) : (
           <div className="space-y-2">
             {(selloutEvents as { itemName: string; soldOutAt: Date | string; hour: number }[]).map((ev, i) => {
@@ -689,8 +810,8 @@ function AnalyticsTab() {
               return (
                 <div key={i} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'rgba(24,24,24,0.06)' }}>
                   <AlertCircle size={12} style={{ color: '#B85450', flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.875rem', color: '#181818' }}>{ev.itemName}</span>
-                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--op-text)' }}>{ev.itemName}</span>
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
                     sold out at {hourLabel(ev.hour)} on {d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
                   </span>
                 </div>
@@ -724,8 +845,8 @@ function PLTab({ venue }: { venue: any }) {
   );
 
   const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
-  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
-  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
   const catData = revenueByCategory
     ? (revenueByCategory as { category: string; revenue: string; quantity: number }[]).map(r => ({
@@ -749,7 +870,7 @@ function PLTab({ venue }: { venue: any }) {
     <div className="space-y-6">
       {/* Days selector */}
       <div className="flex items-center gap-2">
-        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PERIOD:</span>
+        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PERIOD:</span>
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setSelectedDays(d)}
             className="px-3 py-1 font-data"
@@ -780,7 +901,7 @@ function PLTab({ venue }: { venue: any }) {
       {/* Revenue by category — horizontal bar chart */}
       {catData.length > 0 && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Revenue by Category</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Revenue by Category</h2>
           <ResponsiveContainer width="100%" height={Math.max(120, catData.length * 48)}>
             <BarChart data={catData} layout="vertical" margin={{ top: 4, right: 40, left: 60, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" horizontal={false} />
@@ -798,7 +919,7 @@ function PLTab({ venue }: { venue: any }) {
       {/* Revenue by order type — pie chart */}
       {typeData.length > 0 && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Revenue by Order Type</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Revenue by Order Type</h2>
           <div className="flex items-center gap-8">
             <ResponsiveContainer width={200} height={200}>
               <PieChart>
@@ -812,8 +933,8 @@ function PLTab({ venue }: { venue: any }) {
               {typeData.map((entry, i) => (
                 <div key={entry.name} className="flex items-center gap-2">
                   <div style={{ width: 10, height: 10, borderRadius: 2, background: CHART_COLORS_PL[i % CHART_COLORS_PL.length], flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.875rem', color: '#181818' }}>{entry.name}</span>
-                  <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>{entry.value} orders</span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--op-text)' }}>{entry.name}</span>
+                  <span className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>{entry.value} orders</span>
                 </div>
               ))}
             </div>
@@ -824,8 +945,8 @@ function PLTab({ venue }: { venue: any }) {
       {/* Estimated margins table */}
       {catData.length > 0 && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.5rem' }}>Estimated Margins</h2>
-          <p className="font-data mb-4" style={{ fontSize: '0.625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.5rem' }}>Estimated Margins</h2>
+          <p className="font-data mb-4" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em' }}>
             Cost estimates are based on typical cafe margins. Set actual costs per item in Menu settings.
           </p>
           <div style={{ overflowX: 'auto' }}>
@@ -833,7 +954,7 @@ function PLTab({ venue }: { venue: any }) {
               <thead>
                 <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                   {['Category', 'Revenue', 'Est. Cost (40%)', 'Est. Profit', 'Margin %'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -846,9 +967,9 @@ function PLTab({ venue }: { venue: any }) {
                   const marginColor = margin < 35 ? '#B85450' : margin < 50 ? '#C4953A' : '#5E8B5E';
                   return (
                     <tr key={row.category} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)', background: rowColor }}>
-                      <td style={{ padding: '10px 10px', fontWeight: 500, color: '#181818', textTransform: 'capitalize' }}>{row.category}</td>
+                      <td style={{ padding: '10px 10px', fontWeight: 500, color: 'var(--op-text)', textTransform: 'capitalize' }}>{row.category}</td>
                       <td style={{ padding: '10px 10px' }}>${row.revenue.toFixed(2)}</td>
-                      <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>${estCost.toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)' }}>${estCost.toFixed(2)}</td>
                       <td style={{ padding: '10px 10px', color: '#5E8B5E', fontWeight: 500 }}>${estProfit.toFixed(2)}</td>
                       <td style={{ padding: '10px 10px' }}>
                         <span style={{ fontFamily: 'Geist Mono', fontSize: 11, padding: '2px 8px', background: `${marginColor}18`, color: marginColor }}>{margin}%</span>
@@ -858,9 +979,9 @@ function PLTab({ venue }: { venue: any }) {
                 })}
                 {totalRevenue > 0 && (
                   <tr style={{ borderTop: '2px solid rgba(24,24,24,0.1)', background: '#E8E4DD' }}>
-                    <td style={{ padding: '10px 10px', fontWeight: 700, color: '#181818' }}>Total</td>
+                    <td style={{ padding: '10px 10px', fontWeight: 700, color: 'var(--op-text)' }}>Total</td>
                     <td style={{ padding: '10px 10px', fontWeight: 700 }}>${totalRevenue.toFixed(2)}</td>
-                    <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>${(totalRevenue * 0.4).toFixed(2)}</td>
+                    <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)' }}>${(totalRevenue * 0.4).toFixed(2)}</td>
                     <td style={{ padding: '10px 10px', fontWeight: 700, color: '#5E8B5E' }}>${(totalRevenue * 0.6).toFixed(2)}</td>
                     <td style={{ padding: '10px 10px' }}>
                       <span style={{ fontFamily: 'Geist Mono', fontSize: 11, padding: '2px 8px', background: 'rgba(94,139,94,0.12)', color: '#5E8B5E' }}>60%</span>
@@ -876,14 +997,14 @@ function PLTab({ venue }: { venue: any }) {
       {/* Repeat customers */}
       {repeatRate && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Repeat Customers</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Repeat Customers</h2>
           <div className="flex items-center gap-6">
             <div className="border p-5" style={{ ...statCardStyle, minWidth: 120 }}>
               <span style={monoLabel}>Repeat Rate</span>
               <span style={{ ...bigNum, fontSize: '2rem', color: '#5E8B8B' }}>{repeatRate.rate}%</span>
             </div>
-            <p style={{ fontSize: '0.9375rem', color: '#5E5E5E', lineHeight: 1.6 }}>
-              <strong style={{ color: '#181818' }}>{repeatRate.repeat}</strong> of <strong style={{ color: '#181818' }}>{repeatRate.total}</strong> customers ordered more than once in the last {selectedDays} days.
+            <p style={{ fontSize: '0.9375rem', color: 'var(--op-text-secondary)', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--op-text)' }}>{repeatRate.repeat}</strong> of <strong style={{ color: 'var(--op-text)' }}>{repeatRate.total}</strong> customers ordered more than once in the last {selectedDays} days.
             </p>
           </div>
         </div>
@@ -894,12 +1015,12 @@ function PLTab({ venue }: { venue: any }) {
 
 // ─── Image upload component used inside the website block editor ─────────────
 const IMG_UPLOAD_INPUT: React.CSSProperties = {
-  width: '100%', padding: '7px 10px', border: '1px solid #E5E7EB',
-  borderRadius: 6, fontSize: 11, color: '#9CA3AF', background: '#fff',
-  boxSizing: 'border-box', outline: 'none', fontFamily: 'Inter, sans-serif',
+  width: '100%', padding: '7px 10px', border: '1px solid var(--op-card-border)',
+  borderRadius: 6, fontSize: 11, color: 'var(--op-text-muted)', background: 'var(--op-card-bg)',
+  boxSizing: 'border-box', outline: 'none', fontFamily: 'var(--op-font-sans)',
 };
 const IMG_UPLOAD_LABEL: React.CSSProperties = {
-  display: 'block', fontSize: 11, fontWeight: 600, color: '#6B7280',
+  display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--op-text-secondary)',
   textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5,
 };
 
@@ -950,8 +1071,8 @@ function ImageUpload({
         onDrop={handleDrop}
         style={{
           aspectRatio: '1', borderRadius: 8, overflow: 'hidden', cursor: uploading ? 'wait' : 'pointer',
-          border: `2px dashed ${dragOver ? '#5E8B8B' : '#D1D5DB'}`,
-          background: value ? 'transparent' : (dragOver ? '#F0F9F9' : '#F9FAFB'),
+          border: `2px dashed ${dragOver ? '#5E8B8B' : 'var(--op-card-border)'}`,
+          background: value ? 'transparent' : (dragOver ? 'rgba(94,139,139,0.06)' : 'var(--op-bg)'),
           display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
         }}
       >
@@ -959,7 +1080,7 @@ function ImageUpload({
           ? <img src={value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : uploading
             ? <div style={{ fontSize: 18 }}>⏳</div>
-            : <div style={{ fontSize: 22, color: '#9CA3AF' }}>📷</div>
+            : <div style={{ fontSize: 22, color: 'var(--op-text-muted)' }}>📷</div>
         }
         <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
           onChange={e => { const f = e.target.files?.[0]; if (f) doUpload(f); e.target.value = ''; }} />
@@ -979,8 +1100,8 @@ function ImageUpload({
         onDrop={handleDrop}
         style={{
           width: '100%', height: value ? 110 : 78, borderRadius: 8, overflow: 'hidden',
-          border: `2px dashed ${dragOver ? '#5E8B8B' : '#D1D5DB'}`,
-          background: value ? 'transparent' : (dragOver ? '#F0F9F9' : '#F9FAFB'),
+          border: `2px dashed ${dragOver ? '#5E8B8B' : 'var(--op-card-border)'}`,
+          background: value ? 'transparent' : (dragOver ? 'rgba(94,139,139,0.06)' : 'var(--op-bg)'),
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: uploading ? 'wait' : 'pointer', position: 'relative',
           transition: 'border-color 0.15s, background 0.15s',
@@ -1001,13 +1122,13 @@ function ImageUpload({
         ) : uploading ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 22, marginBottom: 4 }}>⏳</div>
-            <div style={{ fontSize: 11, color: '#6B7280' }}>Uploading…</div>
+            <div style={{ fontSize: 11, color: 'var(--op-text-secondary)' }}>Uploading…</div>
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '0 16px' }}>
             <div style={{ fontSize: 24, marginBottom: 4 }}>📷</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Upload photo</div>
-            <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>Drag & drop or click · JPG PNG WebP · max 5 MB</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--op-text)' }}>Upload photo</div>
+            <div style={{ fontSize: 10, color: 'var(--op-text-muted)', marginTop: 2 }}>Drag & drop or click · JPG PNG WebP · max 5 MB</div>
           </div>
         )}
       </div>
@@ -1147,23 +1268,23 @@ function WebsiteTab({ venue }: { venue: any }) {
 
   const editingBlock = blocks.find(b => b.id === editingId) ?? null;
 
-  const iStyle: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid #E5E7EB', borderRadius: 7, fontSize: 13, color: '#111827', background: '#fff', boxSizing: 'border-box', outline: 'none', fontFamily: 'Inter, sans-serif' };
-  const lStyle: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 };
+  const iStyle: React.CSSProperties = { width: '100%', padding: '9px 12px', border: '1px solid var(--op-card-border)', borderRadius: 7, fontSize: 13, color: 'var(--op-text)', background: 'var(--op-card-bg)', boxSizing: 'border-box', outline: 'none', fontFamily: 'Inter, sans-serif' };
+  const lStyle: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--op-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 };
 
   return (
     <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.03em' }}>Website Builder</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>Drag blocks to reorder · Click Edit to customise · Publish to go live</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.03em' }}>Website Builder</h1>
+          <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '4px 0 0' }}>Drag blocks to reorder · Click Edit to customise · Publish to go live</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {saveMsg && <span style={{ fontSize: 12, color: '#059669', fontWeight: 600 }}>{saveMsg}</span>}
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, fontWeight: 500, color: '#374151', textDecoration: 'none' }}>
+          <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--op-card-border)', background: 'var(--op-card-bg)', fontSize: 13, fontWeight: 500, color: 'var(--op-text)', textDecoration: 'none' }}>
             🔗 Preview Site
           </a>
-          <button onClick={handleSave} disabled={updateMutation.isPending} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, background: '#111827', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: updateMutation.isPending ? 'not-allowed' : 'pointer', opacity: updateMutation.isPending ? 0.7 : 1 }}>
+          <button onClick={handleSave} disabled={updateMutation.isPending} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, background: '#181818', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: updateMutation.isPending ? 'not-allowed' : 'pointer', opacity: updateMutation.isPending ? 0.7 : 1 }}>
             {updateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             Publish
           </button>
@@ -1176,28 +1297,28 @@ function WebsiteTab({ venue }: { venue: any }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Templates */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 20 }}>
+          <div style={{ background: 'var(--op-card-bg)', borderRadius: 10, border: '1px solid var(--op-card-border)', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTemplates ? 16 : 0 }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Templates</div>
-                <div style={{ fontSize: 12, color: '#9CA3AF' }}>Start from a pre-built layout</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--op-text)' }}>Templates</div>
+                <div style={{ fontSize: 12, color: 'var(--op-text-muted)' }}>Start from a pre-built layout</div>
               </div>
-              <button onClick={() => setShowTemplates(v => !v)} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#F9FAFB', fontSize: 12, fontWeight: 500, cursor: 'pointer', color: '#374151' }}>
+              <button onClick={() => setShowTemplates(v => !v)} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid var(--op-card-border)', background: 'var(--op-bg)', fontSize: 12, fontWeight: 500, cursor: 'pointer', color: 'var(--op-text)' }}>
                 {showTemplates ? 'Hide' : '✦ Browse Templates'}
               </button>
             </div>
             {showTemplates && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
                 {TEMPLATES.map(t => (
-                  <div key={t.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                  <div key={t.id} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--op-card-border)' }}>
                     <div style={{ height: 56, background: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ width: '55%', height: 3, background: 'rgba(255,255,255,0.4)', borderRadius: 2 }} />
                     </div>
                     <div style={{ padding: '10px 10px 12px' }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{t.name}</div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 8 }}>{t.desc}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--op-text)' }}>{t.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--op-text-muted)', marginBottom: 8 }}>{t.desc}</div>
                       <button onClick={() => { setBlocks(t.blocks()); setShowTemplates(false); setEditingId(null); setSaveMsg('Template applied — click Publish to go live'); }}
-                        style={{ width: '100%', padding: '5px 0', background: '#111827', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                        style={{ width: '100%', padding: '5px 0', background: '#181818', color: '#fff', border: 'none', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                         Apply
                       </button>
                     </div>
@@ -1208,11 +1329,11 @@ function WebsiteTab({ venue }: { venue: any }) {
           </div>
 
           {/* Blocks list */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 20 }}>
+          <div style={{ background: 'var(--op-card-bg)', borderRadius: 10, border: '1px solid var(--op-card-border)', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--op-text)' }}>
                 Page Blocks
-                <span style={{ fontSize: 11, fontWeight: 400, color: '#9CA3AF', marginLeft: 6 }}>({blocks.length})</span>
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--op-text-muted)', marginLeft: 6 }}>({blocks.length})</span>
               </div>
               <button onClick={() => setShowCatalog(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 7, background: showCatalog ? '#374151' : '#111827', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 <Plus size={13} /> Add Block
@@ -1220,17 +1341,17 @@ function WebsiteTab({ venue }: { venue: any }) {
             </div>
 
             {showCatalog && (
-              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: 12, marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+              <div style={{ background: 'var(--op-bg)', border: '1px solid var(--op-card-border)', borderRadius: 8, padding: 12, marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
                 {CATALOG.map(c => (
                   <button key={c.type} onClick={() => addBlock(c.type)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', textAlign: 'left' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#111827'; e.currentTarget.style.background = '#F3F4F6'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.background = '#fff'; }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid var(--op-card-border)', background: 'var(--op-card-bg)', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--op-accent)'; e.currentTarget.style.background = 'var(--op-card-hover)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--op-card-border)'; e.currentTarget.style.background = 'var(--op-card-bg)'; }}
                   >
                     <span style={{ fontSize: 20 }}>{c.icon}</span>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{c.label}</div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF' }}>{c.desc}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--op-text)' }}>{c.label}</div>
+                      <div style={{ fontSize: 10, color: 'var(--op-text-muted)' }}>{c.desc}</div>
                     </div>
                   </button>
                 ))}
@@ -1238,7 +1359,7 @@ function WebsiteTab({ venue }: { venue: any }) {
             )}
 
             {blocks.length === 0 && !showCatalog && (
-              <div style={{ textAlign: 'center', padding: '32px 16px', color: '#9CA3AF' }}>
+              <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--op-text-muted)' }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>🏗️</div>
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No blocks yet</div>
                 <div style={{ fontSize: 12 }}>Apply a template or click "Add Block" to start building</div>
@@ -1253,13 +1374,13 @@ function WebsiteTab({ venue }: { venue: any }) {
                   onDragOver={e => handleDragOver(e, i)}
                   onDrop={e => handleDrop(e, i)}
                   onDragEnd={handleDragEnd}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 8, border: `2px solid ${dragOver === i && dragging !== i ? '#5E8B8B' : editingId === block.id ? '#111827' : '#F3F4F6'}`, background: editingId === block.id ? '#F9FAFB' : '#fff', marginBottom: 8, cursor: 'grab', opacity: dragging === i ? 0.45 : 1, transition: 'border-color 0.1s' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 8, border: `2px solid ${dragOver === i && dragging !== i ? '#5E8B8B' : editingId === block.id ? 'var(--op-accent)' : 'var(--op-card-border)'}`, background: editingId === block.id ? 'var(--op-bg)' : 'var(--op-card-bg)', marginBottom: 8, cursor: 'grab', opacity: dragging === i ? 0.45 : 1, transition: 'border-color 0.1s' }}
                 >
-                  <span style={{ color: '#D1D5DB', fontSize: 16, userSelect: 'none', flexShrink: 0 }}>⠿</span>
+                  <span style={{ color: 'var(--op-card-border)', fontSize: 16, userSelect: 'none', flexShrink: 0 }}>⠿</span>
                   <span style={{ fontSize: 20, flexShrink: 0 }}>{ICONS[block.type]}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{LABELS[block.type]}</div>
-                    <div style={{ fontSize: 11, color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--op-text)' }}>{LABELS[block.type]}</div>
+                    <div style={{ fontSize: 11, color: 'var(--op-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {block.type === 'hero' && (block.data.tagline || block.data.title || '')}
                       {block.type === 'about' && (block.data.title || '')}
                       {block.type === 'gallery' && `${(block.data.images || []).filter((x: any) => x.url).length} photos`}
@@ -1270,11 +1391,11 @@ function WebsiteTab({ venue }: { venue: any }) {
                     </div>
                   </div>
                   <button onClick={() => setEditingId(editingId === block.id ? null : block.id)}
-                    style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #E5E7EB', background: editingId === block.id ? '#111827' : '#F9FAFB', color: editingId === block.id ? '#fff' : '#374151', fontSize: 12, fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
+                    style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--op-card-border)', background: editingId === block.id ? 'var(--op-accent)' : 'var(--op-bg)', color: editingId === block.id ? '#fff' : 'var(--op-text)', fontSize: 12, fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}>
                     {editingId === block.id ? 'Done' : 'Edit'}
                   </button>
                   <button onClick={() => removeBlock(block.id)}
-                    style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', color: '#9CA3AF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid var(--op-card-border)', background: 'var(--op-card-bg)', color: 'var(--op-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.color = '#DC2626'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#9CA3AF'; }}
                   ><X size={13} /></button>
@@ -1288,10 +1409,10 @@ function WebsiteTab({ venue }: { venue: any }) {
         <div style={{ position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* Block editor */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 20 }}>
+          <div style={{ background: 'var(--op-card-bg)', borderRadius: 10, border: '1px solid var(--op-card-border)', padding: 20 }}>
             {editingBlock ? (
               <>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--op-text)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 20 }}>{ICONS[editingBlock.type]}</span> {LABELS[editingBlock.type]}
                 </div>
 
@@ -1320,7 +1441,7 @@ function WebsiteTab({ venue }: { venue: any }) {
                 )}
                 {editingBlock.type === 'gallery' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ fontSize: 12, color: '#6B7280' }}>Up to 9 photos — drag & drop or tap to upload</div>
+                    <div style={{ fontSize: 12, color: 'var(--op-text-secondary)' }}>Up to 9 photos — drag & drop or tap to upload</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                       {((editingBlock.data.images || []) as { url: string; caption: string }[]).map((img, i) => (
                         <div key={i} style={{ position: 'relative' }}>
@@ -1342,7 +1463,7 @@ function WebsiteTab({ venue }: { venue: any }) {
                       {(editingBlock.data.images || []).length < 9 && (
                         <button
                           onClick={() => { const imgs = [...(editingBlock.data.images || []), { url: '', caption: '' }]; updateBlock(editingBlock.id, { ...editingBlock.data, images: imgs }); }}
-                          style={{ aspectRatio: '1', borderRadius: 8, border: '2px dashed #D1D5DB', background: '#F9FAFB', fontSize: 24, color: '#9CA3AF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ aspectRatio: '1', borderRadius: 8, border: '2px dashed var(--op-card-border)', background: 'var(--op-bg)', fontSize: 24, color: 'var(--op-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >+</button>
                       )}
                     </div>
@@ -1379,21 +1500,21 @@ function WebsiteTab({ venue }: { venue: any }) {
                 )}
               </>
             ) : (
-              <div style={{ textAlign: 'center', padding: '20px 0', color: '#9CA3AF' }}>
+              <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--op-text-muted)' }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>✏️</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Select a block to edit</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--op-text)' }}>Select a block to edit</div>
                 <div style={{ fontSize: 12, marginTop: 4 }}>Click Edit on any block in the list</div>
               </div>
             )}
           </div>
 
           {/* Live links */}
-          <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Your Live Links</div>
-            <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', textDecoration: 'none', fontSize: 12, marginBottom: 8 }}>
+          <div style={{ background: 'var(--op-card-bg)', borderRadius: 10, border: '1px solid var(--op-card-border)', padding: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--op-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Your Live Links</div>
+            <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid var(--op-card-border)', background: 'var(--op-bg)', color: 'var(--op-text)', textDecoration: 'none', fontSize: 12, marginBottom: 8 }}>
               🌐 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{publicUrl}</span>
             </a>
-            <a href={bookUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', textDecoration: 'none', fontSize: 12 }}>
+            <a href={bookUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 7, border: '1px solid var(--op-card-border)', background: 'var(--op-bg)', color: 'var(--op-text)', textDecoration: 'none', fontSize: 12 }}>
               📅 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookUrl}</span>
             </a>
           </div>
@@ -1412,13 +1533,13 @@ function TabletPinSection({ venue, token, inputCls, inputStyle }: { venue: any; 
   const tabletUrl = `${window.location.origin}/tablet/${venue.slug}`;
   return (
     <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.5rem' }}>Tablet / iPad POS</h2>
-      <p style={{ fontSize: '0.8125rem', color: '#5E5E5E', marginBottom: '1rem', lineHeight: 1.5 }}>
+      <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.5rem' }}>Tablet / iPad POS</h2>
+      <p style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
         Open <span style={{ fontFamily: 'Geist Mono', fontSize: 12, background: 'rgba(24,24,24,0.06)', padding: '2px 6px', borderRadius: 3 }}>{tabletUrl}</span> on any iPad or tablet. Staff enter this PIN to access the counter view — live orders, quick order entry, and nothing else.
       </p>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>PIN (4–6 digits)</label>
+          <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>PIN (4–6 digits)</label>
           <input
             type="text" inputMode="numeric" maxLength={6}
             value={tabletPin}
@@ -1453,7 +1574,7 @@ function SettingsTab({ venue }: { venue: any }) {
   const [saveMessage, setSaveMessage] = useState('');
   const updateMutation = trpc.venue.update.useMutation({ onSuccess: () => setSaveMessage('Settings saved!') });
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
 
   // Happy Hour state
   const { data: hhData } = trpc.venue.getHappyHour.useQuery({ venueId: venue.id }, { enabled: !!venue.id });
@@ -1484,7 +1605,7 @@ function SettingsTab({ venue }: { venue: any }) {
   return (
     <div className="space-y-6">
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Venue Settings</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Venue Settings</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {[
             { label: 'Cafe Name', key: 'name', type: 'text' },
@@ -1494,16 +1615,16 @@ function SettingsTab({ venue }: { venue: any }) {
             { label: 'Sunday Hours', key: 'hoursSunday', type: 'text' },
           ].map((f) => (
             <div key={f.key}>
-              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{f.label}</label>
               <input type={f.type} value={(form as any)[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} className={inputCls} style={inputStyle} />
             </div>
           ))}
           <div className="md:col-span-2">
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Address</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Address</label>
             <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputCls} style={inputStyle} />
           </div>
           <div className="md:col-span-2">
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Description</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Description</label>
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className={inputCls} style={inputStyle} />
           </div>
         </div>
@@ -1520,26 +1641,26 @@ function SettingsTab({ venue }: { venue: any }) {
 
       {/* Happy Hour */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Happy Hour</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Happy Hour</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="md:col-span-2 flex items-center gap-3">
             <input type="checkbox" id="hh-enabled" checked={hhForm.enabled} onChange={e => setHhForm({ ...hhForm, enabled: e.target.checked })} style={{ accentColor: '#181818', width: 16, height: 16 }} />
-            <label htmlFor="hh-enabled" className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#181818', cursor: 'pointer' }}>Enable Happy Hour</label>
+            <label htmlFor="hh-enabled" className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text)', cursor: 'pointer' }}>Enable Happy Hour</label>
           </div>
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Start Time (HH:MM)</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Start Time (HH:MM)</label>
             <input type="time" value={hhForm.startTime} onChange={e => setHhForm({ ...hhForm, startTime: e.target.value })} className={inputCls} style={inputStyle} />
           </div>
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>End Time (HH:MM)</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>End Time (HH:MM)</label>
             <input type="time" value={hhForm.endTime} onChange={e => setHhForm({ ...hhForm, endTime: e.target.value })} className={inputCls} style={inputStyle} />
           </div>
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Discount Percent (0–100)</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Discount Percent (0–100)</label>
             <input type="number" min={0} max={100} value={hhForm.discountPercent} onChange={e => setHhForm({ ...hhForm, discountPercent: e.target.value })} className={inputCls} style={inputStyle} placeholder="e.g. 20" />
           </div>
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Label</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Label</label>
             <input type="text" value={hhForm.label} onChange={e => setHhForm({ ...hhForm, label: e.target.value })} className={inputCls} style={inputStyle} placeholder="Happy Hour — 20% off!" />
           </div>
         </div>
@@ -1569,20 +1690,20 @@ function SettingsTab({ venue }: { venue: any }) {
             <Link2 size={20} style={{ color: '#fff' }} />
           </div>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '0.25rem' }}>Xero Accounting</h3>
-            <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', lineHeight: 1.5, marginBottom: 12 }}>
+            <h3 style={{ fontWeight: 500, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.25rem' }}>Xero Accounting</h3>
+            <p className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', lineHeight: 1.5, marginBottom: 12 }}>
               Connect your Xero account to automatically sync daily revenue.
             </p>
             {(xeroConn as any)?.connected ? (
               <div>
                 <p className="font-data mb-2" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>
                   <Check size={10} className="inline mr-1" /> Connected
-                  {(xeroConn as any).lastSyncAt && <span style={{ color: '#5E5E5E', marginLeft: 8 }}>Last sync: {new Date((xeroConn as any).lastSyncAt).toLocaleDateString()}</span>}
+                  {(xeroConn as any).lastSyncAt && <span style={{ color: 'var(--op-text-secondary)', marginLeft: 8 }}>Last sync: {new Date((xeroConn as any).lastSyncAt).toLocaleDateString()}</span>}
                 </p>
                 <div className="flex flex-wrap gap-2 items-center mb-3">
-                  <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
-                  <span style={{ fontSize: '0.8125rem', color: '#5E5E5E' }}>to</span>
-                  <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
+                  <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)' }}>to</span>
+                  <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
                   <button
                     disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
                     onClick={() => {
@@ -1673,8 +1794,8 @@ function BillingTab() {
       <div className="border p-6 mb-6" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <span className="font-data block mb-1" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Current Plan</span>
-            <h2 style={{ fontWeight: 500, fontSize: '1.5rem', color: '#181818' }}>{status?.tierDetails?.name || 'Trial'}</h2>
+            <span className="font-data block mb-1" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Current Plan</span>
+            <h2 style={{ fontWeight: 500, fontSize: '1.5rem', color: 'var(--op-text)' }}>{status?.tierDetails?.name || 'Trial'}</h2>
           </div>
           <div className="flex items-center gap-3">
             <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', background: status?.status === 'trial' ? 'rgba(196,149,58,0.12)' : 'rgba(94,139,94,0.12)', color: status?.status === 'trial' ? '#C4953A' : '#5E8B5E' }}>
@@ -1685,7 +1806,7 @@ function BillingTab() {
                 onClick={handleManageBilling}
                 disabled={portalQuery.isFetching}
                 className="font-button"
-                style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(24,24,24,0.3)', color: '#181818', cursor: 'pointer' }}
+                style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(24,24,24,0.3)', color: 'var(--op-text)', cursor: 'pointer' }}
               >
                 {portalQuery.isFetching ? 'Loading...' : 'Manage Billing'}
               </button>
@@ -1693,7 +1814,7 @@ function BillingTab() {
           </div>
         </div>
         {status?.isTrial && status.trialEndsAt && (
-          <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>
+          <p className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
             Trial ends: {new Date(status.trialEndsAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         )}
@@ -1707,14 +1828,14 @@ function BillingTab() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {tiers && Object.entries(tiers).map(([key, tier]: [string, any]) => (
           <div key={key} className="border p-5 flex flex-col" style={{ borderColor: status?.tier === key ? '#181818' : 'rgba(24,24,24,0.15)' }}>
-            <h3 className="font-data mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>{tier.name}</h3>
+            <h3 className="font-data mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{tier.name}</h3>
             <div className="flex items-baseline gap-1 mb-4">
-              <span style={{ fontWeight: 500, fontSize: '1.5rem', color: '#181818' }}>${tier.monthlyPrice}</span>
-              <span className="font-data" style={{ color: '#5E5E5E', fontSize: '0.625rem' }}>/mo AUD</span>
+              <span style={{ fontWeight: 500, fontSize: '1.5rem', color: 'var(--op-text)' }}>${tier.monthlyPrice}</span>
+              <span className="font-data" style={{ color: 'var(--op-text-secondary)', fontSize: '0.625rem' }}>/mo AUD</span>
             </div>
             <ul className="space-y-1.5 mb-6 flex-1">
               {tier.features.map((f: string) => (
-                <li key={f} className="flex items-start gap-2" style={{ fontSize: '0.8125rem', color: '#181818' }}>
+                <li key={f} className="flex items-start gap-2" style={{ fontSize: '0.8125rem', color: 'var(--op-text)' }}>
                   <Check size={12} style={{ color: '#5E8B5E', flexShrink: 0, marginTop: 3 }} /> {f}
                 </li>
               ))}
@@ -1865,16 +1986,17 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
 
   // ── Styles helpers ────────────────────────────────────────────────────────
   const cardStyle: CSSProperties = {
-    background: '#fff',
-    border: '1px solid rgba(24,24,24,0.10)',
-    borderRadius: 2,
+    background: 'var(--op-card-bg)',
+    border: '1px solid var(--op-card-border)',
+    borderRadius: 'var(--op-radius-card)' as any,
     padding: '1.25rem',
+    boxShadow: 'var(--op-shadow)',
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
   };
   const sectionHeadStyle: CSSProperties = {
-    fontWeight: 400, fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: '#5E5E5E',
+    fontWeight: 400, fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--op-text-secondary)',
     marginBottom: '0.5rem', marginTop: '0.25rem',
   };
   const pillConnected: CSSProperties = {
@@ -1885,7 +2007,7 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
   };
   const pillNotConnected: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 4,
-    background: 'rgba(24,24,24,0.06)', color: '#5E5E5E',
+    background: 'rgba(24,24,24,0.06)', color: 'var(--op-text-secondary)',
     fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase',
     padding: '2px 8px', borderRadius: 99,
   };
@@ -1927,7 +2049,7 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
             <Check size={10} className="inline mr-1" />
             {connectedBanner.charAt(0).toUpperCase() + connectedBanner.slice(1)} connected successfully
           </span>
-          <button onClick={() => setConnectedBanner(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+          <button onClick={() => setConnectedBanner(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>
             <X size={14} />
           </button>
         </div>
@@ -1946,8 +2068,8 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   <Zap size={18} style={{ color: '#F3F2EE' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Square POS</p>
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync menu, inventory &amp; orders</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Square POS</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Sync menu, inventory &amp; orders</p>
                 </div>
               </div>
               {squareStatus?.connected
@@ -2000,8 +2122,8 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   <Zap size={18} style={{ color: '#fff' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Lightspeed</p>
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Kounta-powered restaurant POS</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Lightspeed</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Kounta-powered restaurant POS</p>
                 </div>
               </div>
               {lsC?.connected
@@ -2010,7 +2132,7 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
             </div>
             {lsC?.connected ? (
               <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
-                {lsC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Last sync: {new Date(lsC.lastSyncAt).toLocaleDateString()}</p>}
+                {lsC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(lsC.lastSyncAt).toLocaleDateString()}</p>}
                 <button style={{ ...primaryBtn, opacity: lsSyncMenu.isPending ? 0.6 : 1 }} disabled={lsSyncMenu.isPending}
                   onClick={() => { setLsSyncMsg(''); lsSyncMenu.mutate({ token }, { onSuccess: () => { setLsSyncMsg('Menu synced!'); showToast('Lightspeed menu synced'); }, onError: (e) => { setLsSyncMsg(e.message); showToast(e.message, false); } }); }}>
                   {lsSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
@@ -2037,8 +2159,8 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   <CreditCard size={18} style={{ color: '#fff' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Tyro EFTPOS</p>
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Terminal reconciliation &amp; settlements</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Tyro EFTPOS</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Terminal reconciliation &amp; settlements</p>
                 </div>
               </div>
               {tyroC?.connected
@@ -2057,10 +2179,10 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   { label: 'Terminal ID', key: 'terminalId', placeholder: 'TID-001' },
                 ].map(f => (
                   <div key={f.key}>
-                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{f.label}</label>
                     <input type="text" placeholder={f.placeholder} value={(tyroForm as any)[f.key]}
                       onChange={e => setTyroForm({ ...tyroForm, [f.key]: e.target.value })}
-                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
+                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
                   </div>
                 ))}
                 {tyroMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{tyroMsg}</p>}
@@ -2082,8 +2204,8 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   <Coffee size={18} style={{ color: '#F3F2EE' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Impos POS</p>
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync menu &amp; sales from Impos</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Impos POS</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Sync menu &amp; sales from Impos</p>
                 </div>
               </div>
               {imposC?.connected
@@ -2092,7 +2214,7 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
             </div>
             {imposC?.connected ? (
               <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
-                {imposC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Last sync: {new Date(imposC.lastSyncAt).toLocaleDateString()}</p>}
+                {imposC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(imposC.lastSyncAt).toLocaleDateString()}</p>}
                 <button style={{ ...primaryBtn, opacity: imposSyncMenu.isPending ? 0.6 : 1 }} disabled={imposSyncMenu.isPending}
                   onClick={() => { setImposSyncMsg(''); imposSyncMenu.mutate({ token }, { onSuccess: () => { setImposSyncMsg('Synced!'); showToast('Impos menu synced'); }, onError: (e) => { setImposSyncMsg(e.message); showToast(e.message, false); } }); }}>
                   {imposSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
@@ -2108,10 +2230,10 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   { label: 'Site ID', key: 'siteId', placeholder: 'SITE-001' },
                 ].map(f => (
                   <div key={f.key}>
-                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>{f.label}</label>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{f.label}</label>
                     <input type="text" placeholder={f.placeholder} value={(imposForm as any)[f.key]}
                       onChange={e => setImposForm({ ...imposForm, [f.key]: e.target.value })}
-                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
+                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
                   </div>
                 ))}
                 {imposConnMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{imposConnMsg}</p>}
@@ -2141,8 +2263,8 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   <DollarSign size={18} style={{ color: '#fff' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Xero</p>
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync revenue &amp; invoices to Xero</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Xero</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Sync revenue &amp; invoices to Xero</p>
                 </div>
               </div>
               {xeroC?.isConnected
@@ -2151,17 +2273,17 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
             </div>
             {xeroC?.isConnected ? (
               <div className="pt-1 space-y-3" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
-                {xeroC.updatedAt && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Last sync: {new Date(xeroC.updatedAt).toLocaleDateString()}</p>}
+                {xeroC.updatedAt && <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(xeroC.updatedAt).toLocaleDateString()}</p>}
                 <div className="flex flex-wrap gap-2 items-end">
                   <div>
-                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>From</label>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>From</label>
                     <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)}
-                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
                   </div>
                   <div>
-                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>To</label>
+                    <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>To</label>
                     <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)}
-                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
                   </div>
                   <button style={{ ...primaryBtn, opacity: (!xeroSyncFrom || !xeroSyncTo || xeroSync.isPending) ? 0.5 : 1 }}
                     disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
@@ -2199,8 +2321,8 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   <CreditCard size={18} style={{ color: '#fff' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Stripe Connect</p>
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Receive payouts from online orders</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Stripe Connect</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Receive payouts from online orders</p>
                 </div>
               </div>
               {stripeStatusQuery.data?.ready
@@ -2216,19 +2338,19 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                     <div style={{ background: 'rgba(94,139,94,0.06)', border: '1px solid rgba(94,139,94,0.15)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E8B5E' }}>Available Balance</span>
-                        <span style={{ fontWeight: 700, fontSize: '1rem', color: '#181818' }}>
-                          ${stripeBalanceQuery.data.available.toFixed(2)} <span style={{ fontSize: '0.625rem', color: '#5E5E5E', fontWeight: 400 }}>{(stripeBalanceQuery.data.currency ?? 'aud').toUpperCase()}</span>
+                        <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--op-text)' }}>
+                          ${stripeBalanceQuery.data.available.toFixed(2)} <span style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{(stripeBalanceQuery.data.currency ?? 'aud').toUpperCase()}</span>
                         </span>
                       </div>
                       {(stripeBalanceQuery.data.pending ?? 0) > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                          <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Pending</span>
-                          <span style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>${stripeBalanceQuery.data.pending.toFixed(2)}</span>
+                          <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Pending</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>${stripeBalanceQuery.data.pending.toFixed(2)}</span>
                         </div>
                       )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px solid rgba(94,139,94,0.12)', paddingTop: 4, marginTop: 2 }}>
-                        <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Last payout</span>
-                        <span style={{ fontSize: '0.6875rem', color: '#5E5E5E' }}>
+                        <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Last payout</span>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--op-text-secondary)' }}>
                           {stripeBalanceQuery.data.lastPayoutDate
                             ? new Date(stripeBalanceQuery.data.lastPayoutDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
                             : 'None yet'}
@@ -2237,7 +2359,7 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                     </div>
                   )}
                   {stripeBalanceQuery.isLoading && (
-                    <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}><Loader2 size={10} className="inline animate-spin mr-1" />Loading balance…</p>
+                    <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}><Loader2 size={10} className="inline animate-spin mr-1" />Loading balance…</p>
                   )}
                 </div>
               ) : (
@@ -2282,24 +2404,24 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                       <Globe size={18} style={{ color: platform.textColor }} />
                     </div>
                     <div>
-                      <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>{platform.label}</p>
-                      <span style={{ ...pillNotConnected, background: 'rgba(24,24,24,0.06)', color: '#5E5E5E' }}>
+                      <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>{platform.label}</p>
+                      <span style={{ ...pillNotConnected, background: 'rgba(24,24,24,0.06)', color: 'var(--op-text-secondary)' }}>
                         Platform fee: {platform.fee}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="pt-1 space-y-2" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
-                  <label className="font-data block" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5E5E5E' }}>Webhook URL</label>
+                  <label className="font-data block" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Webhook URL</label>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <input readOnly value={webhookUrl}
-                      style={{ flex: 1, fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', color: '#5E5E5E', background: 'rgba(24,24,24,0.03)', border: '1px solid rgba(24,24,24,0.10)', padding: '5px 8px', minWidth: 0 }} />
+                      style={{ flex: 1, fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', color: 'var(--op-text-secondary)', background: 'rgba(24,24,24,0.03)', border: '1px solid rgba(24,24,24,0.10)', padding: '5px 8px', minWidth: 0 }} />
                     <button style={{ ...primaryBtn, flexShrink: 0 }}
                       onClick={() => { navigator.clipboard.writeText(webhookUrl).then(() => showToast('Webhook URL copied')).catch(() => showToast('Copy failed', false)); }}>
                       Copy
                     </button>
                   </div>
-                  <p className="font-data" style={{ fontSize: '0.5rem', color: '#5E5E5E', lineHeight: 1.6 }}>
+                  <p className="font-data" style={{ fontSize: '0.5rem', color: 'var(--op-text-secondary)', lineHeight: 1.6 }}>
                     Paste this URL in your {platform.label} merchant dashboard under Developer Settings → Webhooks. Replace YOUR_VENUE_ID with your venue ID.
                   </p>
                 </div>
@@ -2322,8 +2444,8 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
                   <Globe size={18} style={{ color: '#fff' }} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Google My Business</p>
-                  <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Sync hours &amp; menu to your listing</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Google My Business</p>
+                  <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Sync hours &amp; menu to your listing</p>
                 </div>
               </div>
               {gmbC?.connected
@@ -2366,23 +2488,23 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
               <QrCode size={18} style={{ color: '#F3F2EE' }} />
             </div>
             <div>
-              <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#181818', marginBottom: 2 }}>Ordering QR Code</p>
-              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Customers scan to open your ordering page</p>
+              <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Ordering QR Code</p>
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Customers scan to open your ordering page</p>
             </div>
           </div>
           <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
             {qrDataUrl ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <img src={qrDataUrl} alt="QR code" style={{ width: 160, height: 160, border: '1px solid rgba(24,24,24,0.08)' }} />
-                <p className="font-data" style={{ fontSize: '0.5rem', color: '#5E5E5E' }}>{origin}/v/{venue?.slug}</p>
+                <p className="font-data" style={{ fontSize: '0.5rem', color: 'var(--op-text-secondary)' }}>{origin}/v/{venue?.slug}</p>
                 <button style={primaryBtn} onClick={() => { if (!qrDataUrl || !venue?.slug) return; const a = document.createElement('a'); a.href = qrDataUrl; a.download = `${venue.slug}-qr.png`; a.click(); }}>
                   <Download size={12} /> Download PNG
                 </button>
               </div>
             ) : venue?.slug ? (
-              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>Generating…</p>
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Generating…</p>
             ) : (
-              <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>No venue configured.</p>
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>No venue configured.</p>
             )}
           </div>
         </div>
@@ -2409,7 +2531,7 @@ function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess:
     return (
       <button
         onClick={() => setOpen(true)}
-        style={{ marginTop: 8, fontSize: '0.75rem', color: '#5E5E5E', background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+        style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--op-text-secondary)', background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
       >
         Reply to this review
       </button>
@@ -2423,7 +2545,7 @@ function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess:
         onChange={(e) => setReply(e.target.value)}
         rows={3}
         placeholder="Write your reply…"
-        style={{ width: '100%', fontSize: 13, color: '#181818', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 10px', resize: 'vertical', fontFamily: 'Inter', boxSizing: 'border-box' as const }}
+        style={{ width: '100%', fontSize: 13, color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 10px', resize: 'vertical', fontFamily: 'Inter', boxSizing: 'border-box' as const }}
       />
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <button
@@ -2435,7 +2557,7 @@ function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess:
         </button>
         <button
           onClick={() => { setOpen(false); setReply(''); }}
-          style={{ fontSize: '0.625rem', background: 'none', color: '#5E5E5E', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+          style={{ fontSize: '0.625rem', background: 'none', color: 'var(--op-text-secondary)', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
         >
           Cancel
         </button>
@@ -2454,9 +2576,9 @@ function ReviewsTab({ venueId }: { venueId: number }) {
     { enabled: !!venueId }
   );
 
-  if (isLoading) return <p style={{ color: '#5E5E5E' }}>Loading reviews…</p>;
+  if (isLoading) return <p style={{ color: 'var(--op-text-secondary)' }}>Loading reviews…</p>;
   if (!reviewsList || reviewsList.length === 0) {
-    return <p style={{ color: '#5E5E5E' }}>No reviews yet.</p>;
+    return <p style={{ color: 'var(--op-text-secondary)' }}>No reviews yet.</p>;
   }
 
   const avg = reviewsList.reduce((s, r) => s + r.rating, 0) / reviewsList.length;
@@ -2465,15 +2587,16 @@ function ReviewsTab({ venueId }: { venueId: number }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Star size={20} fill="#F5B400" color="#F5B400" />
-        <span style={{ fontSize: 18, fontWeight: 700, color: '#181818' }}>{avg.toFixed(1)}</span>
-        <span style={{ fontSize: 14, color: '#5E5E5E' }}>across {reviewsList.length} reviews</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--op-text)' }}>{avg.toFixed(1)}</span>
+        <span style={{ fontSize: 14, color: 'var(--op-text-secondary)' }}>across {reviewsList.length} reviews</span>
       </div>
       {reviewsList.map((r) => (
         <div key={r.id} style={{
-          background: '#fff',
-          borderRadius: 12,
+          background: 'var(--op-card-bg)',
+          borderRadius: 'var(--op-radius-card)',
           padding: 16,
-          border: '1px solid rgba(24,24,24,0.06)',
+          border: '1px solid var(--op-card-border)',
+          boxShadow: 'var(--op-shadow)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ display: 'flex', gap: 2 }}>
@@ -2484,17 +2607,17 @@ function ReviewsTab({ venueId }: { venueId: number }) {
               ))}
             </div>
             <span style={{ fontSize: 13, fontWeight: 600 }}>{r.customerName}</span>
-            <span style={{ fontSize: 12, color: '#5E5E5E', marginLeft: 'auto' }}>
+            <span style={{ fontSize: 12, color: 'var(--op-text-secondary)', marginLeft: 'auto' }}>
               {new Date(r.createdAt).toLocaleDateString()}
             </span>
           </div>
           {r.comment && (
-            <p style={{ fontSize: 14, color: '#5E5E5E', margin: 0 }}>{r.comment}</p>
+            <p style={{ fontSize: 14, color: 'var(--op-text-secondary)', margin: 0 }}>{r.comment}</p>
           )}
           {(r as any).ownerReply ? (
             <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(24,24,24,0.04)', border: '1px solid rgba(24,24,24,0.08)', borderRadius: 6 }}>
-              <span style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: 4 }}>Owner reply:</span>
-              <p style={{ fontSize: 13, color: '#181818', margin: 0 }}>{(r as any).ownerReply}</p>
+              <span style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: 4 }}>Owner reply:</span>
+              <p style={{ fontSize: 13, color: 'var(--op-text)', margin: 0 }}>{(r as any).ownerReply}</p>
             </div>
           ) : (
             <ReviewReplyForm
@@ -2568,17 +2691,17 @@ function ModifiersPanel({ menuItemId, venueId }: { menuItemId: number; venueId: 
   };
 
   const panelInputCls = "w-full bg-transparent border px-3 py-2 focus:outline-none";
-  const panelInputStyle = { fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
-  const panelLabelStyle = { fontSize: '0.5625rem', letterSpacing: '0.10em', textTransform: 'uppercase' as const, color: '#5E5E5E', fontFamily: 'Geist Mono' };
+  const panelInputStyle = { fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const panelLabelStyle = { fontSize: '0.5625rem', letterSpacing: '0.10em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' };
 
   return (
-    <div style={{ background: '#FAFAF8', borderTop: '1px solid rgba(24,24,24,0.08)', padding: '1rem 1.25rem' }}>
-      <span className="font-data block mb-3" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Modifier Groups</span>
+    <div style={{ background: 'var(--op-card-hover)', borderTop: '1px solid rgba(24,24,24,0.08)', padding: '1rem 1.25rem' }}>
+      <span className="font-data block mb-3" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Modifier Groups</span>
 
-      {isLoading && <Loader2 size={14} className="animate-spin" style={{ color: '#5E5E5E' }} />}
+      {isLoading && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
 
       {!isLoading && modifiers.length === 0 && (
-        <p style={{ fontSize: '0.8125rem', color: '#5E5E5E', marginBottom: '0.75rem' }}>No modifier groups yet.</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)', marginBottom: '0.75rem' }}>No modifier groups yet.</p>
       )}
 
       {/* Existing modifier groups */}
@@ -2587,14 +2710,14 @@ function ModifiersPanel({ menuItemId, venueId }: { menuItemId: number; venueId: 
           <div key={mod.id} className="border p-3 flex items-start justify-between gap-3" style={{ borderColor: 'rgba(24,24,24,0.10)', background: '#F3F2EE' }}>
             <div style={{ flex: 1 }}>
               <div className="flex items-center gap-2 mb-1">
-                <span style={{ fontWeight: 600, fontSize: '0.8125rem', color: '#181818' }}>{mod.name}</span>
+                <span style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--op-text)' }}>{mod.name}</span>
                 {mod.required && (
-                  <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '1px 5px', background: 'rgba(24,24,24,0.08)', color: '#5E5E5E' }}>Required</span>
+                  <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '1px 5px', background: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)' }}>Required</span>
                 )}
               </div>
               <div className="flex flex-wrap gap-1">
                 {mod.options?.map((opt: { name: string; priceAdj: number }, i: number) => (
-                  <span key={i} className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.06em', padding: '2px 6px', background: 'rgba(24,24,24,0.06)', color: '#5E5E5E' }}>
+                  <span key={i} className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.06em', padding: '2px 6px', background: 'rgba(24,24,24,0.06)', color: 'var(--op-text-secondary)' }}>
                     {opt.name}{opt.priceAdj !== 0 ? ` (${opt.priceAdj > 0 ? '+' : ''}${opt.priceAdj.toFixed(2)})` : ''}
                   </span>
                 ))}
@@ -2604,7 +2727,7 @@ function ModifiersPanel({ menuItemId, venueId }: { menuItemId: number; venueId: 
               onClick={() => deleteMutation.mutate({ token, modifierId: mod.id })}
               disabled={deleteMutation.isPending}
               className="p-1.5 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
-              style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent', flexShrink: 0 }}
+              style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent', flexShrink: 0 }}
               aria-label="Delete modifier group"
             >
               <Trash2 size={12} />
@@ -2615,7 +2738,7 @@ function ModifiersPanel({ menuItemId, venueId }: { menuItemId: number; venueId: 
 
       {/* Add modifier group form */}
       <div className="border p-3" style={{ borderColor: 'rgba(24,24,24,0.10)', background: '#F3F2EE' }}>
-        <span className="font-data block mb-2" style={{ fontSize: '0.5625rem', letterSpacing: '0.10em', textTransform: 'uppercase', color: '#5E5E5E' }}>Add Modifier Group</span>
+        <span className="font-data block mb-2" style={{ fontSize: '0.5625rem', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Add Modifier Group</span>
         <div className="grid grid-cols-1 gap-2 mb-2">
           <div>
             <label className="font-data block mb-1" style={panelLabelStyle}>Group Name</label>
@@ -2641,14 +2764,14 @@ function ModifiersPanel({ menuItemId, venueId }: { menuItemId: number; venueId: 
           </div>
         </div>
         <div className="flex items-center gap-3 mb-3">
-          <label className="flex items-center gap-2 cursor-pointer" style={{ fontSize: '0.8125rem', color: '#181818' }}>
+          <label className="flex items-center gap-2 cursor-pointer" style={{ fontSize: '0.8125rem', color: 'var(--op-text)' }}>
             <input
               type="checkbox"
               checked={addForm.required}
               onChange={(e) => setAddForm({ ...addForm, required: e.target.checked })}
               style={{ accentColor: '#181818' }}
             />
-            <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E' }}>Required</span>
+            <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Required</span>
           </label>
         </div>
         {addError && (
@@ -2699,11 +2822,11 @@ function SortableMenuRow({
 
   return (
     <div ref={setNodeRef} style={dragStyle}>
-      <div className="flex items-center justify-between gap-3 p-4" style={{ background: '#fff', border: '1px solid rgba(24,24,24,0.08)' }}>
+      <div className="flex items-center justify-between gap-3 p-4" style={{ background: 'var(--op-card-bg)', border: '1px solid var(--op-card-border)' }}>
         {/* Drag handle */}
         <div
           {...attributes} {...listeners}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab', color: '#D1D5DB', flexShrink: 0, touchAction: 'none', padding: '2px 0' }}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab', color: 'var(--op-card-border)', flexShrink: 0, touchAction: 'none', padding: '2px 0' }}
           title="Drag to reorder"
         >
           <GripVertical size={15} />
@@ -2714,14 +2837,14 @@ function SortableMenuRow({
           <img src={item.image} alt={item.name} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
         ) : (
           <div style={{ width: 52, height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.04)', borderRadius: 6, border: '1px dashed rgba(24,24,24,0.12)' }}>
-            <Coffee size={18} style={{ color: '#9CA3AF' }} />
+            <Coffee size={18} style={{ color: 'var(--op-text-muted)' }} />
           </div>
         )}
 
         {/* Name / price / badges */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: '#181818', display: 'block', marginBottom: 3 }}>{item.name}</span>
-          <span style={{ fontFamily: 'Geist Mono', fontSize: 13, color: '#181818', fontWeight: 700 }}>${Number(item.price).toFixed(2)}</span>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)', display: 'block', marginBottom: 3 }}>{item.name}</span>
+          <span style={{ fontFamily: 'Geist Mono', fontSize: 13, color: 'var(--op-text)', fontWeight: 700 }}>${Number(item.price).toFixed(2)}</span>
           {((Array.isArray(item.allergens) && item.allergens.length > 0) || (Array.isArray(item.dietaryTags) && item.dietaryTags.length > 0)) && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {(Array.isArray(item.allergens) ? item.allergens : []).map((a: string) => (
@@ -2740,33 +2863,33 @@ function SortableMenuRow({
             {qty !== null ? (
               <span className="font-data" style={{ fontSize: '0.5625rem', letterSpacing: '0.06em', color: isLow ? '#B85450' : '#5E5E5E' }}>{qty} in stock</span>
             ) : (
-              <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>—</span>
+              <span className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>—</span>
             )}
             {isLow && <span className="font-data" style={{ fontSize: '0.5rem', background: 'rgba(184,84,80,0.12)', color: '#B85450', padding: '1px 5px', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Low</span>}
           </div>
           {stockFormOpen === item.id ? (
             <div className="flex flex-col gap-1" style={{ minWidth: 120 }}>
-              <input type="number" min={0} placeholder="Qty" value={stockForm.quantity} onChange={e => setStockForm({ ...stockForm, quantity: e.target.value })} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
-              <input type="number" min={0} placeholder="Alert at" value={stockForm.quantityAlert} onChange={e => setStockForm({ ...stockForm, quantityAlert: e.target.value })} style={{ border: '1px solid rgba(24,24,24,0.15)', padding: '3px 6px', fontSize: 12, background: '#fff', color: '#181818', width: '100%' }} />
+              <input type="number" min={0} placeholder="Qty" value={stockForm.quantity} onChange={e => setStockForm({ ...stockForm, quantity: e.target.value })} style={{ border: '1px solid var(--op-card-border)', padding: '3px 6px', fontSize: 12, background: 'var(--op-card-bg)', color: 'var(--op-text)', width: '100%' }} />
+              <input type="number" min={0} placeholder="Alert at" value={stockForm.quantityAlert} onChange={e => setStockForm({ ...stockForm, quantityAlert: e.target.value })} style={{ border: '1px solid var(--op-card-border)', padding: '3px 6px', fontSize: 12, background: 'var(--op-card-bg)', color: 'var(--op-text)', width: '100%' }} />
               <div className="flex gap-1">
                 <button onClick={() => { setInventoryQty.mutate({ menuItemId: item.id, quantity: Number(stockForm.quantity), quantityAlert: stockForm.quantityAlert ? Number(stockForm.quantityAlert) : undefined }, { onSuccess: () => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); } }); }} style={{ flex: 1, background: '#181818', color: '#F3F2EE', border: 'none', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}>Save</button>
-                <button onClick={() => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', fontSize: 11, padding: '3px 6px', cursor: 'pointer', color: '#5E5E5E' }}>✕</button>
+                <button onClick={() => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', fontSize: 11, padding: '3px 6px', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>✕</button>
               </div>
             </div>
           ) : (
-            <button onClick={() => { setStockFormOpen(item.id); setStockForm({ quantity: qty !== null ? String(qty) : '', quantityAlert: alert !== null ? String(alert) : '' }); }} style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '2px 7px', cursor: 'pointer', color: '#5E5E5E' }}>Set Stock</button>
+            <button onClick={() => { setStockFormOpen(item.id); setStockForm({ quantity: qty !== null ? String(qty) : '', quantityAlert: alert !== null ? String(alert) : '' }); }} style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '2px 7px', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>Set Stock</button>
           )}
         </div>
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={() => setOpenModifiers(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })} title="Manage Modifiers" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+          <button onClick={() => setOpenModifiers(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })} title="Manage Modifiers" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}>
             {openModifiers.has(item.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-          <button onClick={() => startEdit(item)} title="Edit" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+          <button onClick={() => startEdit(item)} title="Edit" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}>
             <Edit2 size={14} />
           </button>
-          <button onClick={() => setDeleteConfirm(item.id)} title="Delete" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}>
+          <button onClick={() => setDeleteConfirm(item.id)} title="Delete" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -2776,12 +2899,12 @@ function SortableMenuRow({
 
       {deleteConfirm === item.id && (
         <div className="p-4 border-x border-b" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#F3F2EE' }}>
-          <p style={{ fontSize: '0.8125rem', color: '#181818', marginBottom: 12 }}>Delete this item? Orders referencing it will be preserved.</p>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--op-text)', marginBottom: 12 }}>Delete this item? Orders referencing it will be preserved.</p>
           <div className="flex items-center gap-3">
             <button onClick={() => deleteMutation.mutate({ token, menuItemId: item.id })} disabled={deleteMutation.isPending} className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#B85450', color: '#F3F2EE', fontSize: '0.75rem' }}>
               {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Yes, Delete
             </button>
-            <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 font-button" style={{ background: 'transparent', color: '#181818', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}>
+            <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 font-button" style={{ background: 'transparent', color: 'var(--op-text)', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}>
               Keep Item
             </button>
           </div>
@@ -2817,8 +2940,8 @@ function MenuTab({ venue }: { venue: any }) {
   const [deleteError, setDeleteError] = useState('');
 
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
-  const labelStyle = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const labelStyle = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)' };
 
   const slugify = (s: string) =>
     s.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 64);
@@ -2963,7 +3086,7 @@ function MenuTab({ venue }: { venue: any }) {
     <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Menu Management</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Menu Management</h2>
         {!isFormMode && (
           <button
             onClick={startCreate}
@@ -2998,16 +3121,16 @@ function MenuTab({ venue }: { venue: any }) {
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin" style={{ color: '#5E5E5E' }} />
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && items?.length === 0 && !isFormMode && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Coffee size={40} style={{ color: '#5E5E5E', marginBottom: 16 }} />
-          <h3 style={{ fontWeight: 500, fontSize: '1rem', color: '#181818', marginBottom: 8 }}>No menu items yet</h3>
-          <p style={{ fontSize: '0.875rem', color: '#5E5E5E', marginBottom: 24 }}>Add your first item to start building your menu.</p>
+          <Coffee size={40} style={{ color: 'var(--op-text-secondary)', marginBottom: 16 }} />
+          <h3 style={{ fontWeight: 500, fontSize: '1rem', color: 'var(--op-text)', marginBottom: 8 }}>No menu items yet</h3>
+          <p style={{ fontSize: '0.875rem', color: 'var(--op-text-secondary)', marginBottom: 24 }}>Add your first item to start building your menu.</p>
           <button
             onClick={startCreate}
             className="px-6 py-3 font-button flex items-center gap-2"
@@ -3035,10 +3158,10 @@ function MenuTab({ venue }: { venue: any }) {
                 <div key={cat}>
                   {/* Category section header */}
                   <div className="flex items-center gap-3 mb-3">
-                    <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700, color: '#5E5E5E' }}>
+                    <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--op-text-secondary)' }}>
                       {categoryLabel(cat)}
                     </span>
-                    <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', color: '#9CA3AF' }}>({catItems.length})</span>
+                    <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', color: 'var(--op-text-muted)' }}>({catItems.length})</span>
                     <div style={{ flex: 1, height: 1, background: 'rgba(24,24,24,0.08)' }} />
                   </div>
                   <SortableContext items={catItems.map((i: any) => i.id)} strategy={verticalListSortingStrategy}>
@@ -3075,8 +3198,8 @@ function MenuTab({ venue }: { venue: any }) {
 
       {/* Create / Edit Form */}
       {isFormMode && (
-        <div className="border p-6 mt-2" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#FAFAF8' }}>
-          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1.25rem' }}>
+        <div className="border p-6 mt-2" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1.25rem' }}>
             {isEditMode ? 'Edit Item' : 'New Menu Item'}
           </h3>
 
@@ -3136,7 +3259,7 @@ function MenuTab({ venue }: { venue: any }) {
                   const tags = form.dietary ? form.dietary.split(',').map((t) => t.trim()).filter(Boolean) : [];
                   const checked = tags.includes(tag);
                   return (
-                    <label key={tag} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer', fontSize: '0.8125rem', color: '#181818' }}>
+                    <label key={tag} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--op-text)' }}>
                       <input
                         type="checkbox"
                         checked={checked}
@@ -3149,7 +3272,7 @@ function MenuTab({ venue }: { venue: any }) {
                         }}
                         style={{ accentColor: '#181818' }}
                       />
-                      <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E' }}>{label}</span>
+                      <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{label}</span>
                     </label>
                   );
                 })}
@@ -3176,7 +3299,7 @@ function MenuTab({ venue }: { venue: any }) {
                 value={form.image}
                 onChange={(url) => setForm({ ...form, image: url })}
               />
-              <p className="font-data mt-1" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
+              <p className="font-data mt-1" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em' }}>
                 Leave blank to hide image on your public menu.
               </p>
             </div>
@@ -3225,7 +3348,7 @@ function MenuTab({ venue }: { venue: any }) {
             <button
               onClick={handleDiscard}
               className="px-6 py-3 font-button flex items-center gap-2"
-              style={{ background: 'transparent', color: '#181818', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}
+              style={{ background: 'transparent', color: 'var(--op-text)', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}
             >
               <X size={14} /> Discard Changes
             </button>
@@ -3285,12 +3408,12 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
   };
 
   const inputStyle = {
-    padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
-    fontSize: 13, background: '#fff', color: '#181818', width: '100%',
+    padding: '8px 12px', borderRadius: 'var(--op-radius-input)', border: '1px solid var(--op-card-border)',
+    fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%',
   };
   const labelStyle = {
     fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-    color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4,
+    color: 'var(--op-text-muted)', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4,
   };
 
   return (
@@ -3298,7 +3421,7 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
 
       {/* Create Card Form */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>
           Create Gift Card
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -3348,7 +3471,7 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
             <p style={{ fontSize: 12, color: '#388E3C', marginBottom: 4, fontFamily: 'Geist Mono', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               Gift Card Created — Share this code:
             </p>
-            <p style={{ fontSize: 22, fontWeight: 700, color: '#181818', letterSpacing: 4, fontFamily: 'Geist Mono' }}>
+            <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', letterSpacing: 4, fontFamily: 'Geist Mono' }}>
               {newCode}
             </p>
           </div>
@@ -3357,18 +3480,18 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
 
       {/* Cards List */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>
           All Gift Cards
         </h2>
         {!cards || cards.length === 0 ? (
-          <p style={{ color: '#5E5E5E', fontSize: 14 }}>No gift cards yet.</p>
+          <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No gift cards yet.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                   {['Code', 'Amount', 'Balance', 'Recipient', 'Created'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -3380,8 +3503,8 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
                     <td style={{ padding: '10px 12px', color: Number(card.balance) > 0 ? '#16a34a' : '#5E5E5E' }}>
                       ${Number(card.balance).toFixed(2)}
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#5E5E5E' }}>{card.recipientName || '—'}</td>
-                    <td style={{ padding: '10px 12px', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
+                    <td style={{ padding: '10px 12px', color: 'var(--op-text-secondary)' }}>{card.recipientName || '—'}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
                       {new Date(card.createdAt).toLocaleDateString()}
                     </td>
                   </tr>
@@ -3462,12 +3585,12 @@ function PassesTab({ venueId }: { venueId: number }) {
   };
 
   const inputStyle = {
-    padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
-    fontSize: 13, background: '#fff', color: '#181818', width: '100%',
+    padding: '8px 12px', borderRadius: 'var(--op-radius-input)', border: '1px solid var(--op-card-border)',
+    fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%',
   };
   const labelStyle = {
     fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-    color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4,
+    color: 'var(--op-text-muted)', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4,
   };
 
   return (
@@ -3475,10 +3598,10 @@ function PassesTab({ venueId }: { venueId: number }) {
 
       {/* Pass Configuration */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 4 }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 4 }}>
           Pass Configuration
         </h2>
-        <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 16 }}>
           Define the pass your customers purchase (e.g. "10 coffees for $45").
           {passConfig && (
             <span style={{ marginLeft: 8, color: '#16a34a', fontWeight: 600 }}>
@@ -3516,10 +3639,10 @@ function PassesTab({ venueId }: { venueId: number }) {
 
       {/* Issue Pass to Customer */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 4 }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 4 }}>
           Issue Pass to Customer
         </h2>
-        <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 16 }}>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 16 }}>
           Record a pass purchase for a customer by phone number.
         </p>
         {!passConfig && (
@@ -3593,43 +3716,43 @@ function LocationsTab({ venue }: { venue: any }) {
   };
 
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
 
   if (mode === 'create' || (typeof mode === 'object' && mode.type === 'edit')) {
     const isEdit = typeof mode === 'object';
     return (
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
         <div className="flex items-center justify-between mb-6">
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>
             {isEdit ? 'Edit Location' : 'Add Location'}
           </h2>
-          <button onClick={() => setMode('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
+          <button onClick={() => setMode('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>
             <X size={18} />
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>Name *</label>
+            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Name *</label>
             <input className={inputCls} style={inputStyle} placeholder="e.g. City Centre" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </div>
           <div>
-            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>Address *</label>
+            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Address *</label>
             <input className={inputCls} style={inputStyle} placeholder="e.g. 123 Main St" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
           </div>
           <div>
-            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>Phone</label>
+            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Phone</label>
             <input className={inputCls} style={inputStyle} placeholder="e.g. 03 9999 0000" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
           </div>
           <div>
-            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>Weekday Hours</label>
+            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Weekday Hours</label>
             <input className={inputCls} style={inputStyle} placeholder="e.g. 7am — 4pm" value={form.hoursWeekday} onChange={e => setForm(f => ({ ...f, hoursWeekday: e.target.value }))} />
           </div>
           <div>
-            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>Saturday Hours</label>
+            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Saturday Hours</label>
             <input className={inputCls} style={inputStyle} placeholder="e.g. 8am — 2pm" value={form.hoursSaturday} onChange={e => setForm(f => ({ ...f, hoursSaturday: e.target.value }))} />
           </div>
           <div>
-            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>Sunday Hours</label>
+            <label style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Sunday Hours</label>
             <input className={inputCls} style={inputStyle} placeholder="e.g. 9am — 1pm or Closed" value={form.hoursSunday} onChange={e => setForm(f => ({ ...f, hoursSunday: e.target.value }))} />
           </div>
         </div>
@@ -3648,7 +3771,7 @@ function LocationsTab({ venue }: { venue: any }) {
           >
             {isEdit ? 'SAVE CHANGES' : 'ADD LOCATION'}
           </button>
-          <button onClick={() => setMode('list')} className="px-6 py-3 font-button border" style={{ background: 'none', color: '#181818', fontSize: '0.75rem', borderColor: 'rgba(24,24,24,0.15)' }}>
+          <button onClick={() => setMode('list')} className="px-6 py-3 font-button border" style={{ background: 'none', color: 'var(--op-text)', fontSize: '0.75rem', borderColor: 'rgba(24,24,24,0.15)' }}>
             CANCEL
           </button>
         </div>
@@ -3659,7 +3782,7 @@ function LocationsTab({ venue }: { venue: any }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Locations</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Locations</h2>
         <button onClick={() => { setMode('create'); setForm({ name: '', address: '', phone: '', hoursWeekday: '', hoursSaturday: '', hoursSunday: '', isDefault: false }); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: 'pointer' }}>
           <Plus size={14} /> ADD LOCATION
         </button>
@@ -3671,7 +3794,7 @@ function LocationsTab({ venue }: { venue: any }) {
         </div>
       )}
       {locationsList && locationsList.length === 0 && (
-        <div className="border p-8 text-center" style={{ borderColor: 'rgba(24,24,24,0.08)', color: '#5E5E5E' }}>
+        <div className="border p-8 text-center" style={{ borderColor: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)' }}>
           <MapPin size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
           <p style={{ fontSize: '0.875rem' }}>No locations added yet. Add your first location to enable location-based ordering.</p>
         </div>
@@ -3680,22 +3803,22 @@ function LocationsTab({ venue }: { venue: any }) {
         {locationsList?.map((loc) => (
           <div key={loc.id} className="border p-5 flex items-start justify-between" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
             <div>
-              <div style={{ fontWeight: 500, fontSize: '0.9375rem', color: '#181818', marginBottom: 4 }}>{loc.name}</div>
-              <div style={{ fontSize: '0.8125rem', color: '#5E5E5E', marginBottom: 2 }}>{loc.address}</div>
-              {loc.phone && <div style={{ fontSize: '0.8125rem', color: '#5E5E5E', marginBottom: 2 }}>{loc.phone}</div>}
-              {loc.hoursWeekday && <div className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E', marginTop: 6 }}>Mon–Fri: {loc.hoursWeekday}</div>}
-              {loc.hoursSaturday && <div className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>Sat: {loc.hoursSaturday}</div>}
-              {loc.hoursSunday && <div className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>Sun: {loc.hoursSunday}</div>}
+              <div style={{ fontWeight: 500, fontSize: '0.9375rem', color: 'var(--op-text)', marginBottom: 4 }}>{loc.name}</div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)', marginBottom: 2 }}>{loc.address}</div>
+              {loc.phone && <div style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)', marginBottom: 2 }}>{loc.phone}</div>}
+              {loc.hoursWeekday && <div className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', marginTop: 6 }}>Mon–Fri: {loc.hoursWeekday}</div>}
+              {loc.hoursSaturday && <div className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>Sat: {loc.hoursSaturday}</div>}
+              {loc.hoursSunday && <div className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>Sun: {loc.hoursSunday}</div>}
             </div>
             <div className="flex gap-2 ml-4 shrink-0">
-              <button onClick={() => handleEdit(loc)} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818' }}>
+              <button onClick={() => handleEdit(loc)} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)' }}>
                 <Edit2 size={14} />
               </button>
               <button
                 onClick={() => { setDeleteError(''); deleteMutation.mutate({ token, locationId: loc.id }); }}
                 disabled={deleteMutation.isPending}
                 className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
-                style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818' }}
+                style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)' }}
               >
                 <Trash2 size={14} />
               </button>
@@ -3752,7 +3875,7 @@ function CateringTab({ venueId }: { venueId: number }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Catering Requests</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Catering Requests</h2>
         <div className="flex gap-2">
           {['all', 'new', 'quoted', 'confirmed', 'completed'].map((s) => (
             <button
@@ -3777,7 +3900,7 @@ function CateringTab({ venueId }: { venueId: number }) {
       </div>
 
       {requestsList && requestsList.length === 0 && (
-        <div className="border p-8 text-center" style={{ borderColor: 'rgba(24,24,24,0.08)', color: '#5E5E5E' }}>
+        <div className="border p-8 text-center" style={{ borderColor: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)' }}>
           <Briefcase size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
           <p style={{ fontSize: '0.875rem' }}>No catering requests yet.</p>
         </div>
@@ -3788,8 +3911,8 @@ function CateringTab({ venueId }: { venueId: number }) {
           <div key={req.id} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)', background: editingId === req.id ? '#E8E4DD' : '#fff' }}>
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <div style={{ fontWeight: 500, fontSize: '0.9375rem', color: '#181818', marginBottom: 2 }}>{req.name}</div>
-                <div style={{ fontSize: '0.8125rem', color: '#5E5E5E' }}>{req.phone}{req.email ? ` · ${req.email}` : ''}</div>
+                <div style={{ fontWeight: 500, fontSize: '0.9375rem', color: 'var(--op-text)', marginBottom: 2 }}>{req.name}</div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)' }}>{req.phone}{req.email ? ` · ${req.email}` : ''}</div>
               </div>
               <span style={{
                 fontFamily: 'Geist Mono', fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -3801,16 +3924,16 @@ function CateringTab({ venueId }: { venueId: number }) {
             </div>
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
-                <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E' }}>Event Date</span>
-                <div style={{ fontSize: '0.875rem', color: '#181818' }}>{req.eventDate}</div>
+                <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Event Date</span>
+                <div style={{ fontSize: '0.875rem', color: 'var(--op-text)' }}>{req.eventDate}</div>
               </div>
               <div>
-                <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E' }}>Guest Count</span>
-                <div style={{ fontSize: '0.875rem', color: '#181818' }}>{req.guestCount}</div>
+                <span className="font-data" style={{ fontSize: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Guest Count</span>
+                <div style={{ fontSize: '0.875rem', color: 'var(--op-text)' }}>{req.guestCount}</div>
               </div>
             </div>
             {req.details && (
-              <p style={{ fontSize: '0.875rem', color: '#5E5E5E', marginBottom: 12, fontStyle: 'italic' }}>{req.details}</p>
+              <p style={{ fontSize: '0.875rem', color: 'var(--op-text-secondary)', marginBottom: 12, fontStyle: 'italic' }}>{req.details}</p>
             )}
 
             {/* Confirm-gate: select picks next status, confirm button fires mutation */}
@@ -3818,7 +3941,7 @@ function CateringTab({ venueId }: { venueId: number }) {
               <div>
                 {editingId === req.id ? (
                   <div className="flex gap-2 items-center">
-                    <span style={{ fontSize: '0.8125rem', color: '#5E5E5E' }}>Move to <strong>{CATERING_STATUS_LABELS[pendingStatus]}</strong>?</span>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)' }}>Move to <strong>{CATERING_STATUS_LABELS[pendingStatus]}</strong>?</span>
                     <button
                       onClick={() => updateStatus.mutate({ token, requestId: req.id, status: pendingStatus as any })}
                       disabled={updateStatus.isPending}
@@ -3830,7 +3953,7 @@ function CateringTab({ venueId }: { venueId: number }) {
                     <button
                       onClick={() => { setEditingId(null); setPendingStatus(''); }}
                       className="px-4 py-2 font-button border"
-                      style={{ background: 'none', color: '#181818', fontSize: '0.625rem', borderColor: 'rgba(24,24,24,0.15)', cursor: 'pointer' }}
+                      style={{ background: 'none', color: 'var(--op-text)', fontSize: '0.625rem', borderColor: 'rgba(24,24,24,0.15)', cursor: 'pointer' }}
                     >
                       CANCEL
                     </button>
@@ -3839,7 +3962,7 @@ function CateringTab({ venueId }: { venueId: number }) {
                   <select
                     value=""
                     onChange={(e) => { if (e.target.value) { setEditingId(req.id); setPendingStatus(e.target.value); } }}
-                    style={{ padding: '6px 10px', border: '1px solid rgba(24,24,24,0.15)', background: '#F3F2EE', fontSize: '0.8125rem', color: '#181818', cursor: 'pointer' }}
+                    style={{ padding: '6px 10px', border: '1px solid rgba(24,24,24,0.15)', background: '#F3F2EE', fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}
                   >
                     <option value="">Update status…</option>
                     {CATERING_STATUS_NEXT[req.status]?.map((s) => (
@@ -3873,13 +3996,13 @@ function BundlesTab({ venueId }: { venueId: number }) {
   const [msg, setMsg] = useState('');
   const resetForm = () => setForm(emptyForm);
 
-  const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
-  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+  const inputStyle = { padding: '8px 12px', border: '1px solid var(--op-card-border)', borderRadius: 'var(--op-radius-input)', fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%' };
+  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="flex justify-between items-center">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Bundles</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Bundles</h2>
         <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
           <Plus size={14} /> New Bundle
         </button>
@@ -3888,29 +4011,29 @@ function BundlesTab({ venueId }: { venueId: number }) {
       {msg && <p style={{ fontSize: 13, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
 
       {showForm && (
-        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#FAFAF8' }}>
-          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: 12 }}>New Bundle</h3>
+        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 12 }}>New Bundle</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div><label style={labelStyle}>Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder="e.g. Breakfast Combo" /></div>
             <div><label style={labelStyle}>Bundle Price ($) *</label><input type="number" min="0" step="0.01" value={form.bundlePrice} onChange={e => setForm({ ...form, bundlePrice: e.target.value })} style={inputStyle} placeholder="e.g. 12.00" /></div>
-            <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Item Slugs (comma-separated)</label><input value={form.itemSlugs} onChange={e => setForm({ ...form, itemSlugs: e.target.value })} style={inputStyle} placeholder="flat-white,croissant" /><p style={{ fontSize: 11, color: '#5E5E5E', marginTop: 3, fontFamily: 'Geist Mono' }}>Enter the slugs of menu items to include, separated by commas.</p></div>
+            <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Item Slugs (comma-separated)</label><input value={form.itemSlugs} onChange={e => setForm({ ...form, itemSlugs: e.target.value })} style={inputStyle} placeholder="flat-white,croissant" /><p style={{ fontSize: 11, color: 'var(--op-text-secondary)', marginTop: 3, fontFamily: 'Geist Mono' }}>Enter the slugs of menu items to include, separated by commas.</p></div>
             <div style={{ gridColumn: '1/-1' }}><label style={labelStyle}>Description</label><textarea rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inputStyle, resize: 'vertical' }} /></div>
           </div>
           <div className="flex items-center gap-3 mb-3">
             <input type="checkbox" id="bundle-active-new" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} style={{ accentColor: '#181818' }} />
-            <label htmlFor="bundle-active-new" style={{ fontSize: '0.8125rem', color: '#181818', cursor: 'pointer' }}>Active</label>
+            <label htmlFor="bundle-active-new" style={{ fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}>Active</label>
           </div>
           <div className="flex gap-3">
             <button onClick={() => { if (!form.name || !form.bundlePrice) { setMsg('Error: Name and price required'); return; } setMsg(''); createBundle.mutate({ venueId, name: form.name, description: form.description || undefined, itemSlugs: form.itemSlugs.split(',').map(s => s.trim()).filter(Boolean), bundlePrice: form.bundlePrice, isActive: form.isActive }); }} disabled={createBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
               {createBundle.isPending ? 'Saving…' : 'Create Bundle'}
             </button>
-            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
           </div>
         </div>
       )}
 
-      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
-      {!isLoading && (!bundles || (bundles as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No bundles yet.</p>}
+      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
+      {!isLoading && (!bundles || (bundles as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No bundles yet.</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {(bundles as any[] | undefined)?.map((b) => (
@@ -3925,33 +4048,33 @@ function BundlesTab({ venueId }: { venueId: number }) {
                 </div>
                 <div className="flex items-center gap-3 mb-3">
                   <input type="checkbox" id={`bundle-active-${b.id}`} checked={editForm.isActive} onChange={e => setEditForm({ ...editForm, isActive: e.target.checked })} style={{ accentColor: '#181818' }} />
-                  <label htmlFor={`bundle-active-${b.id}`} style={{ fontSize: '0.8125rem', color: '#181818', cursor: 'pointer' }}>Active</label>
+                  <label htmlFor={`bundle-active-${b.id}`} style={{ fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}>Active</label>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => { updateBundle.mutate({ bundleId: b.id, name: editForm.name, description: editForm.description || undefined, itemSlugs: editForm.itemSlugs.split(',').map((s: string) => s.trim()).filter(Boolean), bundlePrice: editForm.bundlePrice, isActive: editForm.isActive }); }} disabled={updateBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setEditId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+                  <button onClick={() => setEditId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="flex items-start justify-between gap-4">
                 <div style={{ flex: 1 }}>
                   <div className="flex items-center gap-2 mb-1">
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{b.name}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)' }}>{b.name}</span>
                     <span style={{ fontFamily: 'Geist Mono', fontSize: 11, padding: '1px 6px', background: b.isActive ? 'rgba(94,139,94,0.12)' : 'rgba(184,84,80,0.10)', color: b.isActive ? '#5E8B5E' : '#B85450' }}>{b.isActive ? 'ACTIVE' : 'OFF'}</span>
-                    <span style={{ fontFamily: 'Geist Mono', fontSize: 13, fontWeight: 600, color: '#181818' }}>${Number(b.bundlePrice).toFixed(2)}</span>
+                    <span style={{ fontFamily: 'Geist Mono', fontSize: 13, fontWeight: 600, color: 'var(--op-text)' }}>${Number(b.bundlePrice).toFixed(2)}</span>
                   </div>
-                  {b.description && <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 4 }}>{b.description}</p>}
-                  <p style={{ fontSize: 11, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Items: {Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || '').slice(0, 60)}</p>
+                  {b.description && <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 4 }}>{b.description}</p>}
+                  <p style={{ fontSize: 11, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' }}>Items: {Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || '').slice(0, 60)}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Edit2 size={14} /></button>
+                  <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
                   {deleteConfirm === b.id ? (
                     <div className="flex gap-1 items-center">
                       <button onClick={() => { deleteBundle.mutate({ bundleId: b.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
                       <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                     </div>
                   ) : (
-                    <button onClick={() => setDeleteConfirm(b.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Trash2 size={14} /></button>
+                    <button onClick={() => setDeleteConfirm(b.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Trash2 size={14} /></button>
                   )}
                 </div>
               </div>
@@ -3978,15 +4101,15 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
   const [msg, setMsg] = useState('');
   const resetForm = () => setForm(emptyForm);
 
-  const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
-  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+  const inputStyle = { padding: '8px 12px', border: '1px solid var(--op-card-border)', borderRadius: 'var(--op-radius-input)', fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%' };
+  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
   const segmentLabel: Record<string, string> = { all: 'All Customers', active_30d: 'Active last 30 days', high_value: 'High value (≥100 pts)' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="flex justify-between items-center">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Campaigns</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Campaigns</h2>
         <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
           <Plus size={14} /> New Campaign
         </button>
@@ -3995,8 +4118,8 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
       {msg && <p style={{ fontSize: 13, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
 
       {showForm && (
-        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#FAFAF8' }}>
-          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: 12 }}>New Campaign</h3>
+        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 12 }}>New Campaign</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div><label style={labelStyle}>Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder="e.g. Summer Promo" /></div>
             <div>
@@ -4011,7 +4134,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
               <label style={labelStyle}>Type</label>
               <div className="flex gap-6">
                 {(['email', 'sms'] as const).map(t => (
-                  <label key={t} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: 14, color: '#181818' }}>
+                  <label key={t} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: 14, color: 'var(--op-text)' }}>
                     <input type="radio" name="camp-type" value={t} checked={form.type === t} onChange={() => setForm({ ...form, type: t })} style={{ accentColor: '#181818' }} />
                     {t === 'email' ? 'Email' : 'SMS'}
                   </label>
@@ -4033,13 +4156,13 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
               }}
               style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
             >{createCampaign.isPending ? 'Saving…' : 'Save Draft'}</button>
-            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
           </div>
         </div>
       )}
 
-      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
-      {!isLoading && (!campaigns || (campaigns as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No campaigns yet.</p>}
+      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
+      {!isLoading && (!campaigns || (campaigns as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No campaigns yet.</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {(campaigns as any[] | undefined)?.map((c) => (
@@ -4047,13 +4170,13 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
             <div className="flex items-start justify-between gap-4">
               <div style={{ flex: 1 }}>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{c.name}</span>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)' }}>{c.name}</span>
                   <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: c.type === 'email' ? 'rgba(37,99,235,0.10)' : 'rgba(196,149,58,0.12)', color: c.type === 'email' ? '#2563EB' : '#C4953A', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{c.type}</span>
                   <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: c.status === 'sent' ? 'rgba(94,139,94,0.12)' : 'rgba(24,24,24,0.06)', color: c.status === 'sent' ? '#5E8B5E' : '#5E5E5E', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{c.status}</span>
-                  <span style={{ fontSize: 12, color: '#5E5E5E' }}>{segmentLabel[c.segment] || c.segment}</span>
+                  <span style={{ fontSize: 12, color: 'var(--op-text-secondary)' }}>{segmentLabel[c.segment] || c.segment}</span>
                 </div>
-                {c.sentAt && <p style={{ fontSize: 11, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Sent: {new Date(c.sentAt).toLocaleString()}</p>}
-                {c.recipientCount != null && <p style={{ fontSize: 11, color: '#5E5E5E' }}>Recipients: {c.recipientCount}</p>}
+                {c.sentAt && <p style={{ fontSize: 11, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' }}>Sent: {new Date(c.sentAt).toLocaleString()}</p>}
+                {c.recipientCount != null && <p style={{ fontSize: 11, color: 'var(--op-text-secondary)' }}>Recipients: {c.recipientCount}</p>}
               </div>
               <div className="flex gap-2 items-center">
                 {c.status === 'draft' && (
@@ -4073,7 +4196,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
                     <button
                       onClick={() => { if (window.confirm('Delete this campaign?')) deleteCampaign.mutate({ token, id: c.id }); }}
                       className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
-                      style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}
+                      style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}
                     ><Trash2 size={14} /></button>
                   </>
                 )}
@@ -4106,8 +4229,8 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
   const [msg, setMsg] = useState('');
   const resetRewardForm = () => setRewardForm(emptyReward);
 
-  const inputStyle = { padding: '8px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%' };
-  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
+  const inputStyle = { padding: '8px 12px', border: '1px solid var(--op-card-border)', borderRadius: 'var(--op-radius-input)', fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%' };
+  const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
   const rewardTypeOpts = [
     { value: 'free_item', label: 'Free Item' },
@@ -4120,12 +4243,12 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Loyalty Accounts */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>Loyalty Accounts</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>Loyalty Accounts</h2>
         {/* Tier thresholds info box */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 14, padding: '10px 14px', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 7, fontSize: 12, color: '#374151', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 600, fontSize: 11, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Tier Thresholds:</span>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 14, padding: '10px 14px', background: 'var(--op-bg)', border: '1px solid var(--op-card-border)', borderRadius: 7, fontSize: 12, color: 'var(--op-text)', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 600, fontSize: 11, color: 'var(--op-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Tier Thresholds:</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF9C3', color: '#713F12', fontSize: 11, fontWeight: 600 }}>Bronze</span> 0 pts</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#F3F4F6', color: '#374151', fontSize: 11, fontWeight: 600 }}>Silver</span> 500 pts</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--op-bg)', color: 'var(--op-text)', fontSize: 11, fontWeight: 600 }}>Silver</span> 500 pts</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 600 }}>Gold</span> 2,000 pts</span>
         </div>
         {/* Search */}
@@ -4135,14 +4258,14 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
             placeholder="Search by phone..."
             value={loyaltySearch}
             onChange={e => setLoyaltySearch(e.target.value)}
-            style={{ padding: '7px 12px', border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, background: '#fff', color: '#181818', width: '100%', maxWidth: 280 }}
+            style={{ padding: '7px 12px', border: '1px solid var(--op-card-border)', borderRadius: 'var(--op-radius-input)', fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%', maxWidth: 280 }}
           />
         </div>
-        {accsLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
-        {!accsLoading && (!accounts || (accounts as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No loyalty accounts yet.</p>}
+        {accsLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
+        {!accsLoading && (!accounts || (accounts as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No loyalty accounts yet.</p>}
         {(accounts as any[] | undefined) && (accounts as any[]).length > 0 && (() => {
           const getTier = (pts: number) => pts >= 2000 ? { label: 'Gold', bg: '#FEF3C7', color: '#92400E' }
-            : pts >= 500 ? { label: 'Silver', bg: '#F3F4F6', color: '#374151' }
+            : pts >= 500 ? { label: 'Silver', bg: '#F3F4F6', color: 'var(--op-text)' }
             : { label: 'Bronze', bg: '#FEF9C3', color: '#713F12' };
           const filtered = loyaltySearch
             ? (accounts as any[]).filter(a => a.phone?.includes(loyaltySearch))
@@ -4153,7 +4276,7 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                 <thead>
                   <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                     {['Phone', 'Points', 'Lifetime Pts', 'Tier', 'Joined'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -4162,13 +4285,13 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                     const tier = getTier(a.totalLifetimePoints ?? 0);
                     return (
                       <tr key={a.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                        <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: 12, color: '#374151' }}>{a.phone || '—'}</td>
-                        <td style={{ padding: '10px 10px', fontWeight: 600, color: '#181818' }}>{a.pointsBalance ?? 0}</td>
-                        <td style={{ padding: '10px 10px', color: '#5E5E5E' }}>{a.totalLifetimePoints ?? 0}</td>
+                        <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: 12, color: 'var(--op-text)' }}>{a.phone || '—'}</td>
+                        <td style={{ padding: '10px 10px', fontWeight: 600, color: 'var(--op-text)' }}>{a.pointsBalance ?? 0}</td>
+                        <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)' }}>{a.totalLifetimePoints ?? 0}</td>
                         <td style={{ padding: '10px 10px' }}>
                           <span style={{ padding: '3px 10px', borderRadius: 99, background: tier.bg, color: tier.color, fontSize: 11, fontWeight: 600 }}>{tier.label}</span>
                         </td>
-                        <td style={{ padding: '10px 10px', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: 11 }}>{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
+                        <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', fontSize: 11 }}>{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
                       </tr>
                     );
                   })}
@@ -4182,7 +4305,7 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
       {/* Rewards Catalogue */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
         <div className="flex justify-between items-center mb-4">
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Rewards Catalogue</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Rewards Catalogue</h2>
           <button onClick={() => { setShowRewardForm(true); resetRewardForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
             <Plus size={14} /> New Reward
           </button>
@@ -4191,8 +4314,8 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
         {msg && <p style={{ fontSize: 13, marginBottom: 8, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
 
         {showRewardForm && (
-          <div className="border p-4 mb-4" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#FAFAF8' }}>
-            <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: 12 }}>New Reward</h3>
+          <div className="border p-4 mb-4" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+            <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 12 }}>New Reward</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div><label style={labelStyle}>Name *</label><input value={rewardForm.name} onChange={e => setRewardForm({ ...rewardForm, name: e.target.value })} style={inputStyle} placeholder="e.g. Free Coffee" /></div>
               <div><label style={labelStyle}>Points Cost *</label><input type="number" min="1" value={rewardForm.pointsCost} onChange={e => setRewardForm({ ...rewardForm, pointsCost: e.target.value })} style={inputStyle} placeholder="e.g. 100" /></div>
@@ -4217,13 +4340,13 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                 }}
                 style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
               >{createReward.isPending ? 'Saving…' : 'Create Reward'}</button>
-              <button onClick={() => { setShowRewardForm(false); resetRewardForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+              <button onClick={() => { setShowRewardForm(false); resetRewardForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
             </div>
           </div>
         )}
 
-        {rewardsLoading && <Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} />}
-        {!rewardsLoading && (!rewards || (rewards as any[]).length === 0) && <p style={{ color: '#5E5E5E', fontSize: 14 }}>No rewards yet.</p>}
+        {rewardsLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
+        {!rewardsLoading && (!rewards || (rewards as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No rewards yet.</p>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(rewards as any[] | undefined)?.map((r) => (
@@ -4245,32 +4368,32 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                   </div>
                   <div className="flex gap-2">
                     <button disabled={updateReward.isPending} onClick={() => { updateReward.mutate({ rewardId: r.id, name: editRewardForm.name, pointsCost: Number(editRewardForm.pointsCost), rewardType: editRewardForm.rewardType, rewardValue: editRewardForm.rewardValue || undefined, menuItemSlug: editRewardForm.menuItemSlug || undefined, sortOrder: editRewardForm.sortOrder ? Number(editRewardForm.sortOrder) : undefined }); }} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
-                    <button onClick={() => setEditRewardId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: '#181818' }}>Cancel</button>
+                    <button onClick={() => setEditRewardId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-start justify-between gap-4">
                   <div style={{ flex: 1 }}>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span style={{ fontWeight: 600, fontSize: 14, color: '#181818' }}>{r.name}</span>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)' }}>{r.name}</span>
                       <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'rgba(94,139,139,0.12)', color: '#5E8B8B' }}>{r.pointsCost} PTS</span>
-                      <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'rgba(24,24,24,0.06)', color: '#5E5E5E', textTransform: 'uppercase' as const }}>{r.rewardType?.replace('_', ' ')}</span>
+                      <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'rgba(24,24,24,0.06)', color: 'var(--op-text-secondary)', textTransform: 'uppercase' as const }}>{r.rewardType?.replace('_', ' ')}</span>
                       <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: r.isActive ? 'rgba(94,139,94,0.12)' : 'rgba(184,84,80,0.10)', color: r.isActive ? '#5E8B5E' : '#B85450' }}>{r.isActive ? 'ACTIVE' : 'OFF'}</span>
                     </div>
-                    {r.description && <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 2 }}>{r.description}</p>}
-                    {r.rewardValue && <p style={{ fontSize: 12, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Value: {r.rewardValue}</p>}
-                    {r.menuItemSlug && <p style={{ fontSize: 12, color: '#5E5E5E', fontFamily: 'Geist Mono' }}>Item: {r.menuItemSlug}</p>}
-                    {r.sortOrder != null && <p style={{ fontSize: 11, color: '#5E5E5E' }}>Sort: {r.sortOrder}</p>}
+                    {r.description && <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 2 }}>{r.description}</p>}
+                    {r.rewardValue && <p style={{ fontSize: 12, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' }}>Value: {r.rewardValue}</p>}
+                    {r.menuItemSlug && <p style={{ fontSize: 12, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' }}>Item: {r.menuItemSlug}</p>}
+                    {r.sortOrder != null && <p style={{ fontSize: 11, color: 'var(--op-text-secondary)' }}>Sort: {r.sortOrder}</p>}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => { setEditRewardId(r.id); setEditRewardForm({ name: r.name, description: r.description || '', pointsCost: String(r.pointsCost), rewardType: r.rewardType || 'free_item', rewardValue: r.rewardValue || '', menuItemSlug: r.menuItemSlug || '', sortOrder: r.sortOrder != null ? String(r.sortOrder) : '' }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Edit2 size={14} /></button>
+                    <button onClick={() => { setEditRewardId(r.id); setEditRewardForm({ name: r.name, description: r.description || '', pointsCost: String(r.pointsCost), rewardType: r.rewardType || 'free_item', rewardValue: r.rewardValue || '', menuItemSlug: r.menuItemSlug || '', sortOrder: r.sortOrder != null ? String(r.sortOrder) : '' }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
                     {deleteConfirm === r.id ? (
                       <div className="flex gap-1 items-center">
                         <button onClick={() => { deleteReward.mutate({ rewardId: r.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
                         <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                       </div>
                     ) : (
-                      <button onClick={() => setDeleteConfirm(r.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F85450] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#181818', background: 'transparent' }}><Trash2 size={14} /></button>
+                      <button onClick={() => setDeleteConfirm(r.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F85450] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Trash2 size={14} /></button>
                     )}
                   </div>
                 </div>
@@ -4311,12 +4434,12 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
   const [msg, setMsg] = useState('');
 
   const inputStyle = {
-    padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(24,24,24,0.15)',
-    fontSize: 13, background: '#fff', color: '#181818', width: '100%', boxSizing: 'border-box' as const,
+    padding: '8px 12px', borderRadius: 'var(--op-radius-input)', border: '1px solid var(--op-card-border)',
+    fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%', boxSizing: 'border-box' as const,
   };
   const labelStyle = {
     fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-    color: '#5E5E5E', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4,
+    color: 'var(--op-text-muted)', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4,
   };
 
   function handleCreate() {
@@ -4340,7 +4463,7 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Create form */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>
           New Discount Code
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -4392,15 +4515,15 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
 
       {/* Codes list */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: 16 }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>
           All Codes ({codes.length})
         </h2>
         {codes.length === 0 ? (
-          <p style={{ color: '#5E5E5E', fontSize: 14 }}>No discount codes yet.</p>
+          <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No discount codes yet.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.08)', color: '#5E5E5E', fontFamily: 'Geist Mono', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 <th style={{ textAlign: 'left', padding: '8px 4px' }}>Code</th>
                 <th style={{ textAlign: 'left', padding: '8px 4px' }}>Discount</th>
                 <th style={{ textAlign: 'right', padding: '8px 4px' }}>Used</th>
@@ -4418,8 +4541,8 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
                     {c.type === 'percentage' ? `${c.value}% off` : `$${Number(c.value).toFixed(2)} off`}
                   </td>
                   <td style={{ padding: '10px 4px', textAlign: 'right' }}>{c.usedCount}</td>
-                  <td style={{ padding: '10px 4px', textAlign: 'right', color: '#5E5E5E' }}>{c.maxUses ?? '∞'}</td>
-                  <td style={{ padding: '10px 4px', color: '#5E5E5E', fontSize: 12 }}>
+                  <td style={{ padding: '10px 4px', textAlign: 'right', color: 'var(--op-text-secondary)' }}>{c.maxUses ?? '∞'}</td>
+                  <td style={{ padding: '10px 4px', color: 'var(--op-text-secondary)', fontSize: 12 }}>
                     {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : 'No expiry'}
                   </td>
                   <td style={{ padding: '10px 4px', textAlign: 'right' }}>
@@ -4434,7 +4557,7 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
                   <td style={{ padding: '10px 4px', textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => toggleMut.mutate({ token, id: c.id, isActive: !c.isActive })}
-                      style={{ fontSize: 12, background: 'none', border: '1px solid rgba(24,24,24,0.15)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', color: '#181818' }}>
+                      style={{ fontSize: 12, background: 'none', border: '1px solid rgba(24,24,24,0.15)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', color: 'var(--op-text)' }}>
                       {c.isActive ? 'Disable' : 'Enable'}
                     </button>
                     <button
@@ -4476,8 +4599,8 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
   );
 
   const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
-  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
-  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
   function downloadGSTCsv() {
     if (!(gstSummary as any)?.csv) return;
@@ -4495,7 +4618,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
       {/* Period Comparison */}
       {pc && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Period Comparison</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Period Comparison</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { label: 'Revenue', cur: pc.revenue?.current, prev: pc.revenue?.previous, prefix: '$' },
@@ -4512,7 +4635,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
                   <span style={bigNum}>{card.prefix}{typeof card.cur === 'number' ? card.cur.toFixed(2) : '—'}</span>
                   {card.prev !== undefined && (
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E' }}>
+                      <span className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>
                         prev: {card.prefix}{typeof card.prev === 'number' ? card.prev.toFixed(2) : '—'}
                       </span>
                       {change !== null && (
@@ -4532,7 +4655,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
       {/* Revenue Forecast */}
       {revenueForecast && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Predicted Revenue — Next 7 Days</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Predicted Revenue — Next 7 Days</h2>
           {(revenueForecast as any).days && (revenueForecast as any).days.length > 0 && (
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={(revenueForecast as any).days} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -4545,8 +4668,8 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
             </ResponsiveContainer>
           )}
           {(revenueForecast as any).total !== undefined && (
-            <p className="font-data mt-3" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>
-              Predicted total: <span style={{ color: '#181818', fontWeight: 600 }}>${Number((revenueForecast as any).total).toFixed(2)}</span>
+            <p className="font-data mt-3" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
+              Predicted total: <span style={{ color: 'var(--op-text)', fontWeight: 600 }}>${Number((revenueForecast as any).total).toFixed(2)}</span>
             </p>
           )}
         </div>
@@ -4555,13 +4678,13 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
       {/* Menu Scorecard */}
       {menuScorecard && (menuScorecard as any[]).length > 0 && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Menu Scorecard</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Menu Scorecard</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                   {['Rank', 'Item', 'Units Sold', 'Revenue', 'Rev Share %', 'Trend'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -4571,8 +4694,8 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
                   const trendArrow = row.trendPct > 5 ? '↑' : row.trendPct < -5 ? '↓' : '→';
                   return (
                     <tr key={row.name} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                      <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: '#5E5E5E' }}>{idx + 1}</td>
-                      <td style={{ padding: '10px 10px', fontWeight: 500, color: '#181818' }}>{row.name}</td>
+                      <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>{idx + 1}</td>
+                      <td style={{ padding: '10px 10px', fontWeight: 500, color: 'var(--op-text)' }}>{row.name}</td>
                       <td style={{ padding: '10px 10px' }}>{row.unitsSold}</td>
                       <td style={{ padding: '10px 10px', color: '#5E8B5E' }}>${Number(row.revenue).toFixed(2)}</td>
                       <td style={{ padding: '10px 10px' }}>{Number(row.revenueShare).toFixed(1)}%</td>
@@ -4592,19 +4715,19 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
 
       {/* GST Summary */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>GST Summary</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>GST Summary</h2>
         <div className="flex flex-wrap items-end gap-3 mb-4">
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>From</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>From</label>
             <input type="date" value={gstFromDate} onChange={e => { setGstFromDate(e.target.value); setShowGST(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
           </div>
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>To</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>To</label>
             <input type="date" value={gstToDate} onChange={e => { setGstToDate(e.target.value); setShowGST(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
           </div>
           <button
             disabled={!gstFromDate || !gstToDate || gstFetching}
@@ -4635,14 +4758,14 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
                     {['Payment Method', 'Revenue', 'GST', 'Net Ex-GST'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {(gstSummary as any).byPaymentMethod.map((row: any) => (
                     <tr key={row.method} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                      <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: '#181818' }}>{row.method || 'Other'}</td>
+                      <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: 'var(--op-text)' }}>{row.method || 'Other'}</td>
                       <td style={{ padding: '8px 10px' }}>${Number(row.revenue).toFixed(2)}</td>
                       <td style={{ padding: '8px 10px', color: '#C4953A' }}>${Number(row.gst).toFixed(2)}</td>
                       <td style={{ padding: '8px 10px', color: '#5E8B5E' }}>${Number(row.net).toFixed(2)}</td>
@@ -4697,7 +4820,7 @@ function DeliveryTab() {
     if (p === 'uber_eats') return { bg: 'rgba(255,102,0,0.12)', color: '#FF6600' };
     if (p === 'doordash') return { bg: 'rgba(255,59,48,0.12)', color: '#FF3B30' };
     if (p === 'menulog') return { bg: 'rgba(94,139,94,0.12)', color: '#5E8B5E' };
-    return { bg: 'rgba(24,24,24,0.08)', color: '#5E5E5E' };
+    return { bg: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)' };
   };
   const platformLabel = (p: string) => ({ uber_eats: 'Uber Eats', doordash: 'DoorDash', menulog: 'Menulog', manual: 'Manual' } as Record<string, string>)[p] ?? p;
 
@@ -4708,15 +4831,15 @@ function DeliveryTab() {
   const totalFees = summary?.totalFees ?? orders.reduce((s: number, o: any) => s + Number(o.platformFee ?? 0), 0);
 
   const inputCls = "w-full bg-transparent border px-3 py-2 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
-  const labelStyle = { fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.375rem' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const labelStyle = { fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.375rem' };
 
   return (
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PLATFORM:</span>
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PLATFORM:</span>
           {(['all', 'uber_eats', 'doordash', 'menulog', 'manual'] as DeliveryPlatform[]).map((p) => (
             <button key={p} onClick={() => setPlatformFilter(p)}
               className="px-3 py-1 font-data"
@@ -4726,7 +4849,7 @@ function DeliveryTab() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>DAYS:</span>
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>DAYS:</span>
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className="px-3 py-1 font-data"
@@ -4752,8 +4875,8 @@ function DeliveryTab() {
           { label: 'Platform Fees', value: `$${Number(totalFees).toFixed(2)}` },
         ].map(s => (
           <div key={s.label} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
-            <span style={{ fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' }}>{s.label}</span>
-            <span style={{ fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' }}>{s.value}</span>
+            <span style={{ fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>{s.label}</span>
+            <span style={{ fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' }}>{s.value}</span>
           </div>
         ))}
       </div>
@@ -4761,7 +4884,7 @@ function DeliveryTab() {
       {/* Log Manual Order form */}
       {showLogForm && (
         <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Log Manual Order</h2>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Log Manual Order</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label style={labelStyle}>Platform</label>
@@ -4822,7 +4945,7 @@ function DeliveryTab() {
             </button>
             <button onClick={() => setShowLogForm(false)}
               className="px-4 py-2 font-data border"
-              style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#5E5E5E', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
+              style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
               Cancel
             </button>
           </div>
@@ -4831,16 +4954,16 @@ function DeliveryTab() {
 
       {/* Orders table */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Orders</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Orders</h2>
         {orders.length === 0 ? (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No delivery orders for this period.</p>
+          <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No delivery orders for this period.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                   {['Platform', 'Customer', 'Items', 'Subtotal', 'Fee', 'Net', 'Status', 'Date'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -4854,8 +4977,8 @@ function DeliveryTab() {
                           {platformLabel(order.platform)}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 10px', color: '#181818' }}>{order.customerName || '—'}</td>
-                      <td style={{ padding: '10px 10px', color: '#5E5E5E', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.items}>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text)' }}>{order.customerName || '—'}</td>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={order.items}>
                         {order.items ? (order.items.length > 40 ? order.items.slice(0, 40) + '…' : order.items) : '—'}
                       </td>
                       <td style={{ padding: '10px 10px' }}>${Number(order.subtotal ?? 0).toFixed(2)}</td>
@@ -4866,7 +4989,7 @@ function DeliveryTab() {
                           {order.status || 'delivered'}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 10px', color: '#5E5E5E', fontSize: 12, whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '—'}
                       </td>
                     </tr>
@@ -4933,19 +5056,19 @@ function AuditTab() {
     <div className="space-y-6">
       {/* Export buttons */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Exports</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Exports</h2>
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>Orders From</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Orders From</label>
             <input type="date" value={exportFromDate} onChange={e => { setExportFromDate(e.target.value); setTriggerOrderExport(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
           </div>
           <div>
-            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5E5E5E' }}>To</label>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>To</label>
             <input type="date" value={exportToDate} onChange={e => { setExportToDate(e.target.value); setTriggerOrderExport(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
           </div>
           <button
             disabled={!exportFromDate || !exportToDate}
@@ -4968,7 +5091,7 @@ function AuditTab() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>ENTITY:</span>
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>ENTITY:</span>
           {entityTypes.map((e) => (
             <button key={e} onClick={() => setEntityFilter(e)}
               className="px-3 py-1 font-data"
@@ -4978,7 +5101,7 @@ function AuditTab() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>DAYS:</span>
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>DAYS:</span>
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className="px-3 py-1 font-data"
@@ -4991,12 +5114,12 @@ function AuditTab() {
 
       {/* Audit log table */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Audit Log</h2>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Audit Log</h2>
         {auditLoading && (
-          <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+          <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
         )}
         {!auditLoading && rows.length === 0 && (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No audit entries for this period.</p>
+          <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No audit entries for this period.</p>
         )}
         {!auditLoading && rows.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
@@ -5004,7 +5127,7 @@ function AuditTab() {
               <thead>
                 <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                   {['Time', 'Actor', 'Action', 'Entity', 'Details'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -5014,17 +5137,17 @@ function AuditTab() {
                   try { detailStr = typeof row.details === 'string' ? row.details : JSON.stringify(row.details); } catch { detailStr = ''; }
                   return (
                     <tr key={row.id ?? idx} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                      <td style={{ padding: '10px 10px', whiteSpace: 'nowrap', fontFamily: 'Geist Mono', fontSize: 11, color: '#5E5E5E' }}>
+                      <td style={{ padding: '10px 10px', whiteSpace: 'nowrap', fontFamily: 'Geist Mono', fontSize: 11, color: 'var(--op-text-secondary)' }}>
                         {row.createdAt ? new Date(row.createdAt).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                       </td>
-                      <td style={{ padding: '10px 10px', color: '#181818' }}>{row.actor || row.actorEmail || '—'}</td>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text)' }}>{row.actor || row.actorEmail || '—'}</td>
                       <td style={{ padding: '10px 10px' }}>
                         <span style={{ fontSize: 11, fontFamily: 'Geist Mono', padding: '2px 8px', background: 'rgba(94,139,139,0.1)', color: '#5E8B8B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           {row.action || '—'}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 10px', color: '#5E5E5E', textTransform: 'capitalize' }}>{row.entityType || '—'}{row.entityId ? ` #${row.entityId}` : ''}</td>
-                      <td style={{ padding: '10px 10px', color: '#5E5E5E', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={detailStr}>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', textTransform: 'capitalize' }}>{row.entityType || '—'}{row.entityId ? ` #${row.entityId}` : ''}</td>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={detailStr}>
                         {detailStr.length > 60 ? detailStr.slice(0, 60) + '…' : detailStr}
                       </td>
                     </tr>
@@ -5060,24 +5183,24 @@ function AllVenuesTab() {
   const comparisonData = (comparison as any[]) ?? [];
 
   const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
-  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
-  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
   return (
     <div className="space-y-6">
       {/* Header + period selector */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Building2 size={20} style={{ color: '#5E5E5E' }} />
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>
+          <Building2 size={20} style={{ color: 'var(--op-text-secondary)' }} />
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>
             All Venues
             {venues.length > 0 && (
-              <span className="font-data ml-2" style={{ fontSize: '0.625rem', color: '#5E5E5E', letterSpacing: '0.08em' }}>({venues.length})</span>
+              <span className="font-data ml-2" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.08em' }}>({venues.length})</span>
             )}
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#5E5E5E' }}>PERIOD:</span>
+          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PERIOD:</span>
           {([7, 30, 90] as const).map((d) => (
             <button key={d} onClick={() => setPeriod(d)}
               className="px-3 py-1 font-data"
@@ -5090,7 +5213,7 @@ function AllVenuesTab() {
 
       {/* Consolidated revenue card */}
       {(consolidatedLoading) && (
-        <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+        <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
       )}
       {!consolidatedLoading && consolidatedData && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -5119,19 +5242,19 @@ function AllVenuesTab() {
 
       {/* Loading */}
       {venuesLoading && (
-        <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+        <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
       )}
 
       {/* Per-venue cards */}
       {!venuesLoading && venues.length === 0 && !venuesError && (
-        <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No venues found.</p>
+        <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No venues found.</p>
       )}
 
       {!venuesLoading && venues.length > 0 && (
         <div>
-          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Venue Breakdown</h3>
+          <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Venue Breakdown</h3>
           {(comparisonLoading) && (
-            <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+            <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {venues.map((v: any) => {
@@ -5142,15 +5265,15 @@ function AllVenuesTab() {
                 <div key={v.id} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.1)', background: '#E8E4DD' }}>
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span style={{ fontWeight: 500, fontSize: '1rem', color: '#181818', display: 'block' }}>{v.name}</span>
+                      <span style={{ fontWeight: 500, fontSize: '1rem', color: 'var(--op-text)', display: 'block' }}>{v.name}</span>
                       {v.address && (
-                        <span className="font-data" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>{v.address}</span>
+                        <span className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em' }}>{v.address}</span>
                       )}
                     </div>
                     <a
                       href={`/dashboard?v=${v.id}`}
                       className="px-3 py-1.5 font-data"
-                      style={{ fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.2)', color: '#181818', textDecoration: 'none', background: 'transparent', whiteSpace: 'nowrap' as const }}>
+                      style={{ fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.2)', color: 'var(--op-text)', textDecoration: 'none', background: 'transparent', whiteSpace: 'nowrap' as const }}>
                       Open Dashboard
                     </a>
                   </div>
@@ -5158,11 +5281,11 @@ function AllVenuesTab() {
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <span style={monoLabel}>Revenue</span>
-                        <span style={{ fontWeight: 500, fontSize: '0.9375rem', color: '#181818' }}>${Number(stats.revenue ?? 0).toFixed(2)}</span>
+                        <span style={{ fontWeight: 500, fontSize: '0.9375rem', color: 'var(--op-text)' }}>${Number(stats.revenue ?? 0).toFixed(2)}</span>
                       </div>
                       <div>
                         <span style={monoLabel}>Orders</span>
-                        <span style={{ fontWeight: 500, fontSize: '0.9375rem', color: '#181818' }}>{stats.orderCount ?? 0}</span>
+                        <span style={{ fontWeight: 500, fontSize: '0.9375rem', color: 'var(--op-text)' }}>{stats.orderCount ?? 0}</span>
                       </div>
                       <div>
                         <span style={monoLabel}>Change</span>
@@ -5172,12 +5295,12 @@ function AllVenuesTab() {
                             {Math.abs(Number(change)).toFixed(1)}%
                           </span>
                         ) : (
-                          <span style={{ fontSize: '0.875rem', color: '#5E5E5E' }}>—</span>
+                          <span style={{ fontSize: '0.875rem', color: 'var(--op-text-secondary)' }}>—</span>
                         )}
                       </div>
                     </div>
                   ) : !comparisonLoading ? (
-                    <p className="font-data" style={{ fontSize: '0.625rem', color: '#5E5E5E' }}>No data for this period.</p>
+                    <p className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>No data for this period.</p>
                   ) : null}
                 </div>
               );
@@ -5234,20 +5357,20 @@ function SmsMarketingTab() {
   const charCount = message.length;
   const maxChars = 160;
 
-  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <MessageSquare size={20} style={{ color: '#5E5E5E' }} />
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>SMS Marketing</h2>
+        <MessageSquare size={20} style={{ color: 'var(--op-text-secondary)' }} />
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>SMS Marketing</h2>
       </div>
 
       {/* Segment selector */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Select Audience</h3>
-        {segmentsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Select Audience</h3>
+        {segmentsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {SMS_SEGMENTS.map((seg) => {
             const segStats = segments.find((s: any) => (s.key ?? s.id) === seg.id) as any | undefined;
@@ -5285,7 +5408,7 @@ function SmsMarketingTab() {
 
       {/* Message composer */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Compose Message</h3>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Compose Message</h3>
         <div className="relative">
           <textarea
             value={message}
@@ -5296,7 +5419,7 @@ function SmsMarketingTab() {
               width: '100%',
               fontFamily: 'Inter',
               fontSize: '0.9375rem',
-              color: '#181818',
+              color: 'var(--op-text)',
               background: 'transparent',
               border: '1px solid rgba(24,24,24,0.15)',
               padding: '12px 14px',
@@ -5368,7 +5491,7 @@ function SmsMarketingTab() {
                 onClick={() => setConfirmVisible(false)}
                 disabled={sendBulk.isPending}
                 className="px-4 py-2 font-data border"
-                style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#5E5E5E', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
+                style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
               >
                 Cancel
               </button>
@@ -5379,10 +5502,10 @@ function SmsMarketingTab() {
 
       {/* Campaign history */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Campaign History</h3>
-        {historyLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Campaign History</h3>
+        {historyLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!historyLoading && history.length === 0 && (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No campaigns sent yet.</p>
+          <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No campaigns sent yet.</p>
         )}
         {!historyLoading && history.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
@@ -5390,20 +5513,20 @@ function SmsMarketingTab() {
               <thead>
                 <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                   {['Date', 'Segment', 'Message', 'Sent'].map((h) => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {history.map((row: any, i: number) => (
                   <tr key={row.id ?? i} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                    <td style={{ padding: '10px 10px', color: '#5E5E5E', whiteSpace: 'nowrap' as const, fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
+                    <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', whiteSpace: 'nowrap' as const, fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
                       {new Date(row.sentAt ?? row.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
-                    <td style={{ padding: '10px 10px', color: '#181818', textTransform: 'capitalize' as const, fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
+                    <td style={{ padding: '10px 10px', color: 'var(--op-text)', textTransform: 'capitalize' as const, fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
                       {SMS_SEGMENTS.find((s) => s.id === row.segment)?.label ?? row.segment}
                     </td>
-                    <td style={{ padding: '10px 10px', color: '#5E5E5E', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                    <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                       {row.body ?? row.message}
                     </td>
                     <td style={{ padding: '10px 10px', color: '#5E8B5E', fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
@@ -5464,19 +5587,19 @@ function FranchiseeTab() {
     setScheduleInput(config.payoutSchedule ?? 'monthly');
   }
 
-  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E', display: 'block', marginBottom: '0.5rem' };
-  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: '#181818', fontFamily: 'Inter' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
   const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
 
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: '#181818', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Percent size={20} style={{ color: '#5E5E5E' }} />
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818' }}>Franchisee</h2>
+        <Percent size={20} style={{ color: 'var(--op-text-secondary)' }} />
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Franchisee</h2>
       </div>
 
       {/* Config error */}
@@ -5489,12 +5612,12 @@ function FranchiseeTab() {
 
       {/* Config section */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Platform Configuration</h3>
-        {configLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Platform Configuration</h3>
+        {configLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!configLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E' }}>Platform Fee %</label>
+              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)' }}>Platform Fee %</label>
               <input
                 type="number"
                 min={0}
@@ -5508,7 +5631,7 @@ function FranchiseeTab() {
               />
             </div>
             <div>
-              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#5E5E5E' }}>Payout Schedule</label>
+              <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)' }}>Payout Schedule</label>
               <select
                 value={scheduleInput}
                 onChange={(e) => setScheduleInput(e.target.value)}
@@ -5542,13 +5665,13 @@ function FranchiseeTab() {
 
       {/* Current month revenue split */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>
           Current Month Revenue Split
-          <span className="font-data ml-2" style={{ fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em' }}>
+          <span className="font-data ml-2" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em' }}>
             {new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }).toUpperCase()}
           </span>
         </h3>
-        {splitLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        {splitLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!splitLoading && split && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="border p-5" style={statCardStyle}>
@@ -5566,7 +5689,7 @@ function FranchiseeTab() {
           </div>
         )}
         {!splitLoading && !split && (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No revenue data for the current month.</p>
+          <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No revenue data for the current month.</p>
         )}
 
         {/* Process payout */}
@@ -5596,7 +5719,7 @@ function FranchiseeTab() {
               <button
                 onClick={() => setConfirmPayout(false)}
                 className="px-4 py-2 font-data border"
-                style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#5E5E5E', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
+                style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
               >
                 Cancel
               </button>
@@ -5610,10 +5733,10 @@ function FranchiseeTab() {
 
       {/* Payout history */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>Payout History</h3>
-        {payoutsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>}
+        <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Payout History</h3>
+        {payoutsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!payoutsLoading && payouts.length === 0 && (
-          <p className="font-data" style={{ fontSize: '0.75rem', color: '#5E5E5E' }}>No payouts processed yet.</p>
+          <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No payouts processed yet.</p>
         )}
         {!payoutsLoading && payouts.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
@@ -5621,7 +5744,7 @@ function FranchiseeTab() {
               <thead>
                 <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
                   {['Period', 'Gross', 'Fee', 'Net', 'Status'].map((h) => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#5E5E5E', fontWeight: 400 }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -5630,10 +5753,10 @@ function FranchiseeTab() {
                   const statusColor = row.status === 'paid' ? '#5E8B5E' : '#C4953A';
                   return (
                     <tr key={row.id ?? i} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
-                      <td style={{ padding: '10px 10px', color: '#181818', fontFamily: 'Geist Mono', fontSize: '0.625rem', whiteSpace: 'nowrap' as const }}>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text)', fontFamily: 'Geist Mono', fontSize: '0.625rem', whiteSpace: 'nowrap' as const }}>
                         {row.periodStart ? new Date(row.periodStart).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }) : '—'}
                       </td>
-                      <td style={{ padding: '10px 10px', color: '#181818' }}>${Number(row.grossRevenue ?? 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px', color: 'var(--op-text)' }}>${Number(row.grossRevenue ?? 0).toFixed(2)}</td>
                       <td style={{ padding: '10px 10px', color: '#B85450' }}>${Number(row.platformFee ?? 0).toFixed(2)}</td>
                       <td style={{ padding: '10px 10px', color: '#5E8B5E', fontWeight: 500 }}>${Number(row.netPayout ?? 0).toFixed(2)}</td>
                       <td style={{ padding: '10px 10px' }}>
@@ -5672,7 +5795,7 @@ function QRCodesTab({ venue }: { venue: any }) {
     fontSize: '0.625rem',
     letterSpacing: '0.12em',
     textTransform: 'uppercase' as const,
-    color: '#5E5E5E',
+    color: 'var(--op-text-secondary)',
     display: 'block',
     marginBottom: '0.375rem',
   };
@@ -5743,13 +5866,13 @@ function QRCodesTab({ venue }: { venue: any }) {
 
   const qrSectionStyle = { borderColor: 'rgba(24,24,24,0.08)' };
   const qrBtnPrimary = { background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' };
-  const qrBtnSecondary = { borderColor: 'rgba(24,24,24,0.15)', color: '#181818', fontSize: '0.75rem' };
+  const qrBtnSecondary = { borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', fontSize: '0.75rem' };
 
   return (
     <div className="space-y-6">
       {/* Table QR Codes */}
       <div className="border p-6" style={qrSectionStyle}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>
           Table QR Codes
         </h2>
         <div className="flex items-end gap-3 mb-5">
@@ -5762,7 +5885,7 @@ function QRCodesTab({ venue }: { venue: any }) {
               value={tableCount}
               onChange={(e) => setTableCount(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
               className="w-full bg-transparent border px-4 py-3 focus:outline-none"
-              style={{ borderColor: 'rgba(24,24,24,0.15)', fontSize: '0.875rem', color: '#181818' }}
+              style={{ borderColor: 'rgba(24,24,24,0.15)', fontSize: '0.875rem', color: 'var(--op-text)' }}
             />
           </div>
           <button
@@ -5782,7 +5905,7 @@ function QRCodesTab({ venue }: { venue: any }) {
               {tableQRs.map((q) => (
                 <div key={q.table} className="text-center border p-2 group relative" style={{ borderColor: 'rgba(24,24,24,0.1)' }}>
                   <img src={q.dataUrl} alt={`Table ${q.table}`} className="w-full" />
-                  <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5rem', color: '#5E5E5E', marginTop: '4px' }}>
+                  <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5rem', color: 'var(--op-text-secondary)', marginTop: '4px' }}>
                     T{q.table}
                   </p>
                   <button
@@ -5811,10 +5934,10 @@ function QRCodesTab({ venue }: { venue: any }) {
 
       {/* Menu QR */}
       <div className="border p-6" style={qrSectionStyle}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>
           Menu QR Code
         </h2>
-        <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em', marginBottom: '1rem' }}>
+        <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em', marginBottom: '1rem' }}>
           {origin}/v/{slug}
         </p>
         {menuQR ? (
@@ -5838,16 +5961,16 @@ function QRCodesTab({ venue }: { venue: any }) {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+          <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
         )}
       </div>
 
       {/* Kiosk Mode QR */}
       <div className="border p-6" style={qrSectionStyle}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: '#181818', marginBottom: '1rem' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>
           Kiosk Mode QR
         </h2>
-        <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5625rem', color: '#5E5E5E', letterSpacing: '0.06em', marginBottom: '1rem' }}>
+        <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em', marginBottom: '1rem' }}>
           {origin}/kiosk/{slug}
         </p>
         {kioskQR ? (
@@ -5871,7 +5994,7 @@ function QRCodesTab({ venue }: { venue: any }) {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: '#5E5E5E' }} /></div>
+          <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
         )}
       </div>
     </div>
