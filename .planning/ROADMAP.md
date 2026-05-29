@@ -259,7 +259,7 @@ Plans:
 **Plans**: 4 plansPlans:
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — Backend: Connect application fee on order checkout + webhook persists confirmed order with line items (PAY-01/02/06)
+- [x] 08-01-PLAN.md — Backend: Connect application fee on order checkout + webhook persists confirmed order with line items (PAY-01/02/06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -341,7 +341,7 @@ Plans:
 | 5. Venue Expansion | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
-| 8. Stripe Payments & Checkout | v2.1 | 0/4 | Planned | - |
+| 8. Stripe Payments & Checkout | v2.1 | 1/4 | In Progress|  |
 | 9. Real-Time Orders & Staff Scheduling | v2.1 | 0/? | Not started | - |
 | 10. Dine-In & Bookings | v2.1 | 0/? | Not started | - |
 | 11. Automated Marketing & Square POS | v2.1 | 0/? | Not started | - |
