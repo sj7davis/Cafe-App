@@ -34,7 +34,7 @@ export function AppShell({
         minHeight: '100vh',
         background: 'var(--op-bg, #FAFAFA)',
         color: 'var(--op-text, #09090B)',
-        fontFamily: 'var(--op-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)',
+        fontFamily: 'var(--op-font-sans, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)',
       }}
     >
       {/* Top bar — 56px */}
