@@ -4,9 +4,11 @@ import Stripe from "stripe";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchiseeAccounts, franchiseePayouts, orders, venues } from "@db/schema";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, sum } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
+
+const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -153,7 +155,7 @@ export const franchiseeRouter = createRouter({
     let stripePayoutId: string | null = null;
     if (config.stripeConnectAccountId && env.stripeSecretKey && netPayout > 0) {
       try {
-        const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+        const stripe = new Stripe(env.stripeSecretKey, { apiVersion: STRIPE_API_VERSION });
         const account = await stripe.accounts.retrieve(config.stripeConnectAccountId);
         if (account.charges_enabled && account.payouts_enabled) {
           const transfer = await stripe.transfers.create({
@@ -197,7 +199,7 @@ export const franchiseeRouter = createRouter({
     const db = getDb();
 
     if (!env.stripeSecretKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
-    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: STRIPE_API_VERSION });
 
     const [config] = await db.select().from(franchiseeAccounts)
       .where(eq(franchiseeAccounts.venueId, venueId)).limit(1);
@@ -240,7 +242,7 @@ export const franchiseeRouter = createRouter({
     if (!config?.stripeConnectAccountId) return { ready: false, accountId: null, message: "No Stripe account linked" };
 
     if (!env.stripeSecretKey) return { ready: false, accountId: config.stripeConnectAccountId, message: "Stripe not configured" };
-    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: STRIPE_API_VERSION });
 
     try {
       const account = await stripe.accounts.retrieve(config.stripeConnectAccountId);
@@ -255,6 +257,42 @@ export const franchiseeRouter = createRouter({
       };
     } catch {
       return { ready: false, accountId: config.stripeConnectAccountId, message: "Could not retrieve account status" };
+    }
+  }),
+
+  // Retrieve the Stripe Connect payout balance for the caller's venue
+  getPayoutBalance: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+
+    const [config] = await db.select().from(franchiseeAccounts)
+      .where(eq(franchiseeAccounts.venueId, venueId)).limit(1);
+
+    if (!config?.stripeConnectAccountId || !env.stripeSecretKey) {
+      return { connected: false, available: 0, pending: 0, currency: "aud", lastPayoutDate: null };
+    }
+
+    try {
+      const stripe = new Stripe(env.stripeSecretKey, { apiVersion: STRIPE_API_VERSION });
+      const stripeAccount = config.stripeConnectAccountId;
+
+      const [balance, payouts] = await Promise.all([
+        stripe.balance.retrieve({ stripeAccount }),
+        stripe.payouts.list({ limit: 1 }, { stripeAccount }),
+      ]);
+
+      return {
+        connected: true,
+        available: (balance.available[0]?.amount ?? 0) / 100,
+        pending: (balance.pending[0]?.amount ?? 0) / 100,
+        currency: balance.available[0]?.currency ?? "aud",
+        lastPayoutDate: payouts.data[0]?.arrival_date
+          ? new Date(payouts.data[0].arrival_date * 1000).toISOString()
+          : null,
+      };
+    } catch {
+      return { connected: false, available: 0, pending: 0, currency: "aud", lastPayoutDate: null };
     }
   }),
 });

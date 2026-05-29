@@ -30,6 +30,11 @@ export default function SuperAdmin() {
     { enabled: !!token && !!admin }
   );
 
+  const { data: feesData } = trpc.platformAdmin.platformFees.useQuery(
+    token ? { token } : { token: "" },
+    { enabled: !!token && !!admin }
+  );
+
   const { data: allVenues } = trpc.platformAdmin.listVenues.useQuery(
     token ? { token } : { token: "" },
     { enabled: !!token && !!admin }
@@ -189,6 +194,42 @@ export default function SuperAdmin() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Platform Fees Collected */}
+            {feesData && (
+              <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <h2 style={{ fontWeight: 600, fontSize: 15, color: '#09090B', margin: 0 }}>Platform Fees Collected</h2>
+                  <span style={{ fontWeight: 700, fontSize: 22, color: '#09090B' }}>
+                    ${feesData.totalPlatformFee.toFixed(2)} <span style={{ fontSize: 12, fontWeight: 400, color: '#71717A' }}>AUD</span>
+                  </span>
+                </div>
+                {feesData.byVenue.length > 0 ? (
+                  <div style={{ border: '1px solid #E4E4E7', borderRadius: 8, overflow: 'hidden' }}>
+                    {/* Table header */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px', gap: 0, padding: '8px 16px', borderBottom: '1px solid #E4E4E7', background: '#F9F9F9' }}>
+                      {['Venue', 'Platform Fee', 'Payouts'].map(col => (
+                        <span key={col} style={{ fontSize: 11, fontWeight: 600, color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{col}</span>
+                      ))}
+                    </div>
+                    {feesData.byVenue.map((v: { venueId: number; venueName: string; platformFee: number; payoutCount: number }, idx: number) => (
+                      <div key={v.venueId} style={{
+                        display: 'grid', gridTemplateColumns: '2fr 1fr 80px', gap: 0,
+                        padding: '12px 16px',
+                        borderBottom: idx < feesData.byVenue.length - 1 ? '1px solid #E4E4E7' : 'none',
+                        alignItems: 'center',
+                      }}>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: '#09090B' }}>{v.venueName}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: '#09090B' }}>${v.platformFee.toFixed(2)}</span>
+                        <span style={{ fontSize: 12, color: '#71717A' }}>{v.payoutCount}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 13, color: '#71717A', margin: 0 }}>No payouts recorded yet. Fees will appear here after venues complete their first payout.</p>
+                )}
               </div>
             )}
           </div>
