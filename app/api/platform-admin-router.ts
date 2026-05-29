@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, platformAdmins, orders, menuItems } from "@db/schema";
-import { eq, count, desc } from "drizzle-orm";
+import { venues, platformAdmins, orders, menuItems, franchiseePayouts } from "@db/schema";
+import { eq, count, desc, sum } from "drizzle-orm";
 import { compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
@@ -97,5 +97,43 @@ export const platformAdminRouter = createRouter({
     const db = getDb();
     await db.update(venues).set(input.data).where(eq(venues.id, input.venueId));
     return { success: true };
+  }),
+
+  // Aggregate platform fees collected per venue and in total (platform admin only)
+  platformFees: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+    await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const db = getDb();
+
+    // Total platform fee across all payouts
+    const [totalRow] = await db
+      .select({ total: sum(franchiseePayouts.platformFee) })
+      .from(franchiseePayouts);
+    const totalPlatformFee = Number(totalRow?.total ?? 0);
+
+    // Per-venue breakdown
+    const byVenueRows = await db
+      .select({
+        venueId: franchiseePayouts.venueId,
+        platformFee: sum(franchiseePayouts.platformFee),
+        payoutCount: count(franchiseePayouts.id),
+      })
+      .from(franchiseePayouts)
+      .groupBy(franchiseePayouts.venueId);
+
+    // Join venue names
+    let venueNames: Record<number, string> = {};
+    if (byVenueRows.length > 0) {
+      const allVenueRows = await db.select({ id: venues.id, name: venues.name }).from(venues);
+      venueNames = Object.fromEntries(allVenueRows.map(v => [v.id, v.name]));
+    }
+
+    const byVenue = byVenueRows.map(r => ({
+      venueId: r.venueId,
+      venueName: venueNames[r.venueId] ?? `Venue ${r.venueId}`,
+      platformFee: Number(r.platformFee ?? 0),
+      payoutCount: Number(r.payoutCount ?? 0),
+    }));
+
+    return { totalPlatformFee, byVenue };
   }),
 });
