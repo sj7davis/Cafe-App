@@ -302,6 +302,26 @@ export default function VenuePublic() {
   // ── Push notifications ────────────────────────────────────────────────────────
   const [wantsPushNotify, setWantsPushNotify] = useState(false);
 
+  // ── Stripe return verification ────────────────────────────────────────────────
+  const stripeSessionParam = searchParams.get('session');
+  const stripeOrderParam = searchParams.get('order');
+  const stripeGiftcardParam = searchParams.get('giftcard');
+  const stripePassParam = searchParams.get('pass');
+  const [stripeConfirmed, setStripeConfirmed] = useState(false);
+
+  // ── Loyalty redemption ────────────────────────────────────────────────────────
+  const [redeemPoints, setRedeemPoints] = useState(0);
+
+  // ── Gift card purchase panel state ────────────────────────────────────────────
+  const [showGiftCardPanel, setShowGiftCardPanel] = useState(false);
+  const [giftCardAmount, setGiftCardAmount] = useState('');
+  const [giftCardRecipientName, setGiftCardRecipientName] = useState('');
+  const [giftCardRecipientEmail, setGiftCardRecipientEmail] = useState('');
+  const [giftCardMessage, setGiftCardMessage] = useState('');
+
+  // ── Pass purchase panel state ─────────────────────────────────────────────────
+  const [showPassPanel, setShowPassPanel] = useState(false);
+
   // ── Abandoned cart debounce ───────────────────────────────────────────────────
   const abandonedCartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -417,6 +437,18 @@ export default function VenuePublic() {
   const usePassCreditMutation = trpc.venue.usePassCredit.useMutation();
   const validateDiscountMut = trpc.promo.validateDiscount.useMutation();
 
+  // ── Stripe session verification (called when ?session= is in URL after payment) ─
+  const verifySessionQuery = trpc.stripeCheckout.verifySession.useQuery(
+    { sessionId: stripeSessionParam ?? '', venueSlug: slug ?? '' },
+    { enabled: !!stripeSessionParam && !!slug && stripeOrderParam === 'success' }
+  );
+
+  // ── Pass config for public pass purchase panel ────────────────────────────────
+  const passConfigQuery = trpc.venue.getPassConfig.useQuery(
+    { venueId: venue?.id ?? 0 },
+    { enabled: !!venue?.id }
+  );
+
   const loyaltyQuery = trpc.loyalty.getAccount.useQuery(
     { venueId: venue?.id ?? 0, phone: checkoutPhone },
     { enabled: !!venue?.id && checkoutPhone.length >= 8 }
@@ -433,6 +465,11 @@ export default function VenuePublic() {
 
   const saveAbandonedCartMutation = trpc.venue.saveAbandonedCart.useMutation();
   const clearAbandonedCartMutation = trpc.venue.clearAbandonedCart.useMutation();
+
+  // ── Stripe Checkout mutations ─────────────────────────────────────────────────
+  const createCheckoutSession = trpc.stripeCheckout.createCheckoutSession.useMutation();
+  const createGiftCardCheckout = trpc.stripeCheckout.createGiftCardCheckoutSession.useMutation();
+  const createPassCheckout = trpc.stripeCheckout.createPassCheckoutSession.useMutation();
 
   // ── Favourite orders queries/mutations ────────────────────────────────────────
   const favouriteOrdersQuery = trpc.venue.listFavouriteOrders.useQuery(
@@ -522,6 +559,22 @@ export default function VenuePublic() {
     const id = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(id);
   }, []);
+
+  // Stripe return — show toasts for gift card and pass successes
+  useEffect(() => {
+    if (stripeGiftcardParam === 'success') showToast('Gift card purchased! Check your email for the code.');
+    if (stripePassParam === 'success') showToast('Pass purchased! Use it at checkout.');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripeGiftcardParam, stripePassParam]);
+
+  // Stripe order confirmed — clear cart when verifySession reports paid
+  useEffect(() => {
+    if (verifySessionQuery.data?.paid && !stripeConfirmed) {
+      setStripeConfirmed(true);
+      setCart([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verifySessionQuery.data?.paid]);
 
   // Happy hour check
   useEffect(() => {
@@ -683,7 +736,14 @@ export default function VenuePublic() {
   const promoDiscountAmount = appliedDiscount?.amount ?? 0;
   const happyHourDiscountAmount = happyHourDiscount > 0 ? (cartSubtotal * happyHourDiscount) / 100 : 0;
   const effectivePromo = promoDiscountAmount > 0 ? promoDiscountAmount : happyHourDiscountAmount;
-  const totalAfterDiscounts = Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount);
+
+  // Loyalty discount: redeemPoints / 10 = dollar value, clamped so it never exceeds remaining total
+  const loyaltyDiscount = Math.min(
+    redeemPoints / 10,
+    Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount)
+  );
+
+  const totalAfterDiscounts = Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount - loyaltyDiscount);
 
   // Public holiday surcharge
   const surchargePercent = isPublicHoliday
@@ -709,7 +769,7 @@ export default function VenuePublic() {
     }
   }
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (cart.length === 0 || !venue?.id) return;
     const notesParts: string[] = [];
     if (appliedGiftDiscount > 0) notesParts.push(`Gift card: -$${appliedGiftDiscount.toFixed(2)}`);
@@ -723,22 +783,40 @@ export default function VenuePublic() {
           ? `${scheduleDay === 'today' ? 'Today' : 'Tomorrow'} at ${scheduleSlot}`
           : (checkoutPickupTime || 'ASAP');
 
-    createOrder.mutate({
-      venueId: venue.id,
-      customerName: checkoutName || 'Guest',
-      customerPhone: checkoutPhone || '0000000000',
-      pickupTime: resolvedPickupTime,
-      locationId: selectedLocationId ?? undefined,
-      customerEmail: checkoutEmail || undefined,
-      orderNote: notesParts.join('; ') || undefined,
-      items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity, note: c.note, modifiers: c.modifiers })),
-      tipAmount: tipAmount + surchargeAmount,
-      discountCode: appliedDiscount?.code,
-      discountAmount: effectivePromo + appliedGiftDiscount,
-      earnLoyalty: true,
-      orderType: orderType,
-      tableNumber: tableNumber ?? undefined,
+    // Build items array for Stripe — each cart line maps to { menuItemId, name, itemName, quantity, unitPrice }
+    const stripeItems = cart.map(c => {
+      const menuItem = allMenuItems.find(m => m.id === c.menuItemId);
+      return {
+        menuItemId: c.menuItemId,
+        name: menuItem?.name ?? c.name ?? 'Item',
+        itemName: menuItem?.name ?? c.name ?? 'Item',
+        quantity: c.quantity,
+        unitPrice: c.price, // already includes modifier price adjustments
+      };
     });
+
+    try {
+      const result = await createCheckoutSession.mutateAsync({
+        venueId: venue.id,
+        items: stripeItems,
+        tipAmount: tipAmount + surchargeAmount,
+        discountAmount: effectivePromo + appliedGiftDiscount + loyaltyDiscount,
+        discountCode: appliedDiscount?.code,
+        customerName: checkoutName || 'Guest',
+        customerPhone: checkoutPhone || '0000000000',
+        customerEmail: checkoutEmail || undefined,
+        pickupTime: resolvedPickupTime,
+        orderNote: notesParts.join('; ') || undefined,
+        locationId: selectedLocationId ?? undefined,
+        loyaltyPhone: redeemPoints > 0 ? checkoutPhone : undefined,
+        loyaltyPointsRedeemed: redeemPoints,
+      });
+      if (result.url) {
+        window.location.href = result.url;
+      }
+    } catch (e: unknown) {
+      showToast((e as { message?: string }).message ?? 'Could not start checkout. Please try again.');
+    }
   };
 
   // Allergen warnings
@@ -762,7 +840,79 @@ export default function VenuePublic() {
   const happyHourInfo = happyHourData as { startTime?: string; endTime?: string; discountPercent?: number; label?: string } | undefined;
 
   return (
-    <div style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+    <div style={{ background: '#F8F6F2', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+
+      {/* ── Stripe order confirmation banner ────────────────────────────────── */}
+      {stripeOrderParam === 'success' && verifySessionQuery.data?.paid && (
+        <div style={{
+          background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.25)',
+          borderRadius: 12, padding: '20px 24px', margin: '16px auto',
+          maxWidth: 560, display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <CheckCircle size={22} style={{ color: accentColor, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', marginBottom: 4, letterSpacing: '-0.02em' }}>
+              Payment confirmed
+            </div>
+            {verifySessionQuery.data.orderNumber ? (
+              <div style={{ fontSize: 13, color: '#71717A' }}>
+                Order{' '}
+                <span style={{ fontWeight: 700, color: accentColor }}>
+                  #{verifySessionQuery.data.orderNumber}
+                </span>
+                {' '}is being prepared.{' '}
+                <Link
+                  to={`/order/${verifySessionQuery.data.orderNumber}`}
+                  style={{ color: accentColor, fontWeight: 600, textDecoration: 'underline' }}
+                >
+                  View order status →
+                </Link>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#71717A' }}>Your order has been received and is being prepared.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Gift card success banner ─────────────────────────────────────────── */}
+      {stripeGiftcardParam === 'success' && (
+        <div style={{
+          background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.25)',
+          borderRadius: 12, padding: '20px 24px', margin: '16px auto',
+          maxWidth: 560, display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <CheckCircle size={22} style={{ color: accentColor, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', marginBottom: 4, letterSpacing: '-0.02em' }}>
+              Gift card purchased!
+            </div>
+            <div style={{ fontSize: 13, color: '#71717A' }}>
+              Your gift card has been sent. Check your email for the code.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pass success banner ──────────────────────────────────────────────── */}
+      {stripePassParam === 'success' && (
+        <div style={{
+          background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.25)',
+          borderRadius: 12, padding: '20px 24px', margin: '16px auto',
+          maxWidth: 560, display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <CheckCircle size={22} style={{ color: accentColor, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', marginBottom: 4, letterSpacing: '-0.02em' }}>
+              Pass purchased!
+            </div>
+            <div style={{ fontSize: 13, color: '#71717A' }}>
+              Your coffee pass is ready. Enter your phone number at checkout to use your credits.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast notification */}
       {toast && (
         <div style={{
@@ -1325,18 +1475,65 @@ export default function VenuePublic() {
                     </label>
                   )}
                   {loyaltyBalance !== null && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, flexWrap: 'wrap' }}>
-                      <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
-                        ⭐ {loyaltyBalance} pts — ${(loyaltyBalance / 10).toFixed(2)} available to redeem
-                      </span>
-                      {loyaltyBalance > 0 && (
-                        <button
-                          onClick={() => setShowRewardsCatalogue(true)}
-                          style={{ fontSize: 12, color: accentColor, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                        >
-                          Redeem a reward →
-                        </button>
-                      )}
+                    <div style={{ marginTop: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+                        <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
+                          ⭐ {loyaltyBalance} pts — ${(loyaltyBalance / 10).toFixed(2)} available to redeem
+                        </span>
+                        {loyaltyBalance > 0 && (
+                          <button
+                            onClick={() => setShowRewardsCatalogue(true)}
+                            style={{ fontSize: 12, color: accentColor, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                          >
+                            Redeem a reward →
+                          </button>
+                        )}
+                      </div>
+                      {/* ── Loyalty points redemption control ────────────────── */}
+                      {loyaltyBalance >= 100 ? (
+                        <div style={{
+                          background: '#FFFFFF', borderRadius: 8, border: '1px solid #E4E4E7',
+                          padding: '12px 14px',
+                        }}>
+                          <label style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            fontSize: 13, color: '#09090B', cursor: 'pointer',
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={redeemPoints > 0}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  // Redeem up to the lesser of (balance floored to multiple of 10)
+                                  // and (subtotal * 10 = max points that would cover the subtotal)
+                                  const maxByBalance = Math.floor(loyaltyBalance / 10) * 10;
+                                  const maxByTotal = Math.floor(cartSubtotal * 10 / 10) * 10;
+                                  setRedeemPoints(Math.min(maxByBalance, Math.max(0, maxByTotal)));
+                                } else {
+                                  setRedeemPoints(0);
+                                }
+                              }}
+                              style={{ width: 15, height: 15, accentColor: accentColor }}
+                            />
+                            <span>
+                              Redeem{' '}
+                              <span style={{ fontWeight: 700, color: accentColor }}>
+                                {redeemPoints > 0 ? redeemPoints : Math.min(Math.floor(loyaltyBalance / 10) * 10, Math.floor(cartSubtotal * 10 / 10) * 10)} pts
+                              </span>
+                              {' '}= <span style={{ fontWeight: 700, color: '#09090B' }}>${(Math.min(Math.floor(loyaltyBalance / 10) * 10, Math.floor(cartSubtotal * 10 / 10) * 10) / 10).toFixed(2)} off</span>
+                            </span>
+                          </label>
+                          {redeemPoints > 0 && (
+                            <div style={{ marginTop: 6, fontSize: 12, color: '#71717A' }}>
+                              -{redeemPoints} pts = -${loyaltyDiscount.toFixed(2)} applied to your total
+                            </div>
+                          )}
+                        </div>
+                      ) : loyaltyBalance > 0 && loyaltyBalance < 100 ? (
+                        <div style={{ fontSize: 12, color: '#71717A', padding: '6px 0' }}>
+                          Earn {100 - loyaltyBalance} more points to unlock redemption (minimum 100 pts)
+                        </div>
+                      ) : null}
                     </div>
                   )}
                   <div>
@@ -1652,6 +1849,12 @@ export default function VenuePublic() {
                       <span>-${appliedGiftDiscount.toFixed(2)}</span>
                     </div>
                   )}
+                  {loyaltyDiscount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#d97706', fontSize: 13 }}>
+                      <span>⭐ Loyalty points ({redeemPoints} pts)</span>
+                      <span>-${loyaltyDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
                   {isPublicHoliday && surchargeAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#92400e', fontSize: '13px', marginBottom: 6 }}>
                       <span>🎉 Public Holiday Surcharge ({surchargePercent}%)</span>
@@ -1670,18 +1873,19 @@ export default function VenuePublic() {
                   </div>
                   <button
                     onClick={handlePlaceOrder}
-                    disabled={createOrder.isPending}
+                    disabled={createCheckoutSession.isPending}
                     style={{
                       width: '100%', padding: 14, borderRadius: 8, border: 'none',
-                      background: primaryColor, color: '#F3F2EE', fontSize: 14, fontWeight: 600,
-                      cursor: createOrder.isPending ? 'not-allowed' : 'pointer',
-                      opacity: createOrder.isPending ? 0.7 : 1,
+                      background: accentColor || primaryColor, color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                      cursor: createCheckoutSession.isPending ? 'not-allowed' : 'pointer',
+                      opacity: createCheckoutSession.isPending ? 0.5 : 1,
+                      fontFamily: 'Inter, -apple-system, sans-serif',
                     }}
                   >
-                    {createOrder.isPending ? 'Placing Order...' : 'Place Order'}
+                    {createCheckoutSession.isPending ? 'Redirecting to Checkout…' : 'Pay with Stripe'}
                   </button>
-                  {createOrder.error && (
-                    <p style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{createOrder.error.message}</p>
+                  {createCheckoutSession.error && (
+                    <p style={{ color: '#DC2626', fontSize: 13, marginTop: 8 }}>{createCheckoutSession.error.message}</p>
                   )}
                 </div>
               </>
@@ -2210,6 +2414,258 @@ export default function VenuePublic() {
             <p>Menu coming soon</p>
           </div>
         )}
+      </section>
+
+      {/* ── Gift Cards & Pass Purchase ──────────────────────────────────────── */}
+      <section className="content-container" style={{ paddingTop: 32, paddingBottom: 32 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560, margin: '0 auto' }}>
+
+          {/* Gift Card Panel */}
+          <div style={{
+            background: '#FFFFFF', borderRadius: 12, border: '1px solid #E4E4E7',
+            padding: '20px 24px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showGiftCardPanel ? 16 : 0 }}>
+              <div>
+                <div style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                  color: accentColor, marginBottom: 4,
+                }}>
+                  Gift Cards
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', letterSpacing: '-0.02em' }}>
+                  Send a gift to someone special
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGiftCardPanel(p => !p)}
+                style={{
+                  background: showGiftCardPanel ? 'transparent' : accentColor,
+                  color: showGiftCardPanel ? '#09090B' : '#FFFFFF',
+                  border: showGiftCardPanel ? '1px solid #E4E4E7' : 'none',
+                  borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer', flexShrink: 0, fontFamily: 'Inter, -apple-system, sans-serif',
+                }}
+              >
+                {showGiftCardPanel ? 'Cancel' : 'Buy a gift card'}
+              </button>
+            </div>
+            {showGiftCardPanel && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#71717A', display: 'block', marginBottom: 6 }}>
+                    Amount ($)
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: giftCardAmount ? 0 : 0 }}>
+                    {[20, 50, 100].map(amt => (
+                      <button
+                        key={amt}
+                        onClick={() => setGiftCardAmount(String(amt))}
+                        style={{
+                          flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 14, fontWeight: 600,
+                          border: giftCardAmount === String(amt) ? 'none' : '1px solid #E4E4E7',
+                          background: giftCardAmount === String(amt) ? accentColor : '#FAFAFA',
+                          color: giftCardAmount === String(amt) ? '#FFFFFF' : '#09090B',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ${amt}
+                      </button>
+                    ))}
+                    <input
+                      type="number"
+                      min="5"
+                      step="5"
+                      placeholder="Other"
+                      value={[20, 50, 100].includes(Number(giftCardAmount)) ? '' : giftCardAmount}
+                      onChange={e => setGiftCardAmount(e.target.value)}
+                      style={{
+                        flex: 1, padding: '11px 14px', border: '1px solid #E4E4E7',
+                        borderRadius: 8, fontSize: 14, color: '#09090B', background: '#FAFAFA',
+                        outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif',
+                      }}
+                    />
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Recipient name (optional)"
+                  value={giftCardRecipientName}
+                  onChange={e => setGiftCardRecipientName(e.target.value)}
+                  style={{
+                    padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                    fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                    boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                  }}
+                />
+                <input
+                  type="email"
+                  placeholder="Recipient email (send gift card to them)"
+                  value={giftCardRecipientEmail}
+                  onChange={e => setGiftCardRecipientEmail(e.target.value)}
+                  style={{
+                    padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                    fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                    boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                  }}
+                />
+                <textarea
+                  placeholder="Personal message (optional)"
+                  value={giftCardMessage}
+                  onChange={e => setGiftCardMessage(e.target.value)}
+                  rows={2}
+                  style={{
+                    padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                    fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                    resize: 'vertical', fontFamily: 'Inter, sans-serif', width: '100%',
+                    boxSizing: 'border-box' as const,
+                  }}
+                />
+                {createGiftCardCheckout.error && (
+                  <div style={{
+                    background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8,
+                    padding: '10px 14px', fontSize: 13, color: '#DC2626',
+                  }}>
+                    {createGiftCardCheckout.error.message}
+                  </div>
+                )}
+                <button
+                  disabled={!giftCardAmount || Number(giftCardAmount) < 5 || createGiftCardCheckout.isPending || !venue?.id}
+                  onClick={async () => {
+                    if (!venue?.id || !giftCardAmount || Number(giftCardAmount) < 5) return;
+                    try {
+                      const result = await createGiftCardCheckout.mutateAsync({
+                        venueId: venue.id,
+                        amount: Number(giftCardAmount),
+                        recipientName: giftCardRecipientName || undefined,
+                        recipientEmail: giftCardRecipientEmail || undefined,
+                        message: giftCardMessage || undefined,
+                        senderName: checkoutName || undefined,
+                      });
+                      if (result.url) window.location.href = result.url;
+                    } catch {
+                      // error shown via createGiftCardCheckout.error
+                    }
+                  }}
+                  style={{
+                    padding: '11px 18px', borderRadius: 8, border: 'none',
+                    background: accentColor, color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                    cursor: (!giftCardAmount || Number(giftCardAmount) < 5 || createGiftCardCheckout.isPending) ? 'not-allowed' : 'pointer',
+                    opacity: (!giftCardAmount || Number(giftCardAmount) < 5 || createGiftCardCheckout.isPending) ? 0.5 : 1,
+                    fontFamily: 'Inter, -apple-system, sans-serif',
+                  }}
+                >
+                  {createGiftCardCheckout.isPending
+                    ? 'Redirecting…'
+                    : giftCardAmount && Number(giftCardAmount) >= 5
+                      ? `Pay $${Number(giftCardAmount).toFixed(2)} with Stripe`
+                      : 'Choose an amount to continue'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Pass Purchase Panel — only shown when passConfig exists */}
+          {passConfigQuery.data && (
+            <div style={{
+              background: '#FFFFFF', borderRadius: 12, border: '1px solid #E4E4E7',
+              padding: '20px 24px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showPassPanel ? 16 : 0 }}>
+                <div>
+                  <div style={{
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                    color: accentColor, marginBottom: 4,
+                  }}>
+                    Coffee Pass
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', letterSpacing: '-0.02em' }}>
+                    {(passConfigQuery.data as { name?: string }).name || 'Coffee Pass'} — ${Number((passConfigQuery.data as { price?: number }).price ?? 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#71717A', marginTop: 2 }}>
+                    {(passConfigQuery.data as { totalCredits?: number }).totalCredits ?? ''} drinks included
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPassPanel(p => !p)}
+                  style={{
+                    background: showPassPanel ? 'transparent' : accentColor,
+                    color: showPassPanel ? '#09090B' : '#FFFFFF',
+                    border: showPassPanel ? '1px solid #E4E4E7' : 'none',
+                    borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', flexShrink: 0, fontFamily: 'Inter, -apple-system, sans-serif',
+                  }}
+                >
+                  {showPassPanel ? 'Cancel' : 'Buy a pass'}
+                </button>
+              </div>
+              {showPassPanel && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={checkoutName}
+                    onChange={e => setCheckoutName(e.target.value)}
+                    style={{
+                      padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                      fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                      boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                    }}
+                  />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Phone number (to link your pass)"
+                    value={checkoutPhone}
+                    onChange={e => setCheckoutPhone(e.target.value)}
+                    style={{
+                      padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                      fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                      boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                    }}
+                  />
+                  {createPassCheckout.error && (
+                    <div style={{
+                      background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8,
+                      padding: '10px 14px', fontSize: 13, color: '#DC2626',
+                    }}>
+                      {createPassCheckout.error.message}
+                    </div>
+                  )}
+                  <button
+                    disabled={!checkoutName.trim() || checkoutPhone.length < 8 || createPassCheckout.isPending || !venue?.id}
+                    onClick={async () => {
+                      if (!venue?.id || !checkoutName.trim() || checkoutPhone.length < 8) return;
+                      try {
+                        const result = await createPassCheckout.mutateAsync({
+                          venueId: venue.id,
+                          phone: checkoutPhone,
+                          name: checkoutName,
+                        });
+                        if (result.url) window.location.href = result.url;
+                      } catch {
+                        // error shown via createPassCheckout.error
+                      }
+                    }}
+                    style={{
+                      padding: '11px 18px', borderRadius: 8, border: 'none',
+                      background: accentColor, color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                      cursor: (!checkoutName.trim() || checkoutPhone.length < 8 || createPassCheckout.isPending) ? 'not-allowed' : 'pointer',
+                      opacity: (!checkoutName.trim() || checkoutPhone.length < 8 || createPassCheckout.isPending) ? 0.5 : 1,
+                      fontFamily: 'Inter, -apple-system, sans-serif',
+                    }}
+                  >
+                    {createPassCheckout.isPending
+                      ? 'Redirecting…'
+                      : `Pay $${Number((passConfigQuery.data as { price?: number }).price ?? 0).toFixed(2)} with Stripe`}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Hours Detail */}
