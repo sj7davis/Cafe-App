@@ -312,6 +312,16 @@ export default function VenuePublic() {
   // ── Loyalty redemption ────────────────────────────────────────────────────────
   const [redeemPoints, setRedeemPoints] = useState(0);
 
+  // ── Gift card purchase panel state ────────────────────────────────────────────
+  const [showGiftCardPanel, setShowGiftCardPanel] = useState(false);
+  const [giftCardAmount, setGiftCardAmount] = useState('');
+  const [giftCardRecipientName, setGiftCardRecipientName] = useState('');
+  const [giftCardRecipientEmail, setGiftCardRecipientEmail] = useState('');
+  const [giftCardMessage, setGiftCardMessage] = useState('');
+
+  // ── Pass purchase panel state ─────────────────────────────────────────────────
+  const [showPassPanel, setShowPassPanel] = useState(false);
+
   // ── Abandoned cart debounce ───────────────────────────────────────────────────
   const abandonedCartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2404,6 +2414,258 @@ export default function VenuePublic() {
             <p>Menu coming soon</p>
           </div>
         )}
+      </section>
+
+      {/* ── Gift Cards & Pass Purchase ──────────────────────────────────────── */}
+      <section className="content-container" style={{ paddingTop: 32, paddingBottom: 32 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560, margin: '0 auto' }}>
+
+          {/* Gift Card Panel */}
+          <div style={{
+            background: '#FFFFFF', borderRadius: 12, border: '1px solid #E4E4E7',
+            padding: '20px 24px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showGiftCardPanel ? 16 : 0 }}>
+              <div>
+                <div style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                  color: accentColor, marginBottom: 4,
+                }}>
+                  Gift Cards
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', letterSpacing: '-0.02em' }}>
+                  Send a gift to someone special
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGiftCardPanel(p => !p)}
+                style={{
+                  background: showGiftCardPanel ? 'transparent' : accentColor,
+                  color: showGiftCardPanel ? '#09090B' : '#FFFFFF',
+                  border: showGiftCardPanel ? '1px solid #E4E4E7' : 'none',
+                  borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer', flexShrink: 0, fontFamily: 'Inter, -apple-system, sans-serif',
+                }}
+              >
+                {showGiftCardPanel ? 'Cancel' : 'Buy a gift card'}
+              </button>
+            </div>
+            {showGiftCardPanel && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#71717A', display: 'block', marginBottom: 6 }}>
+                    Amount ($)
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: giftCardAmount ? 0 : 0 }}>
+                    {[20, 50, 100].map(amt => (
+                      <button
+                        key={amt}
+                        onClick={() => setGiftCardAmount(String(amt))}
+                        style={{
+                          flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 14, fontWeight: 600,
+                          border: giftCardAmount === String(amt) ? 'none' : '1px solid #E4E4E7',
+                          background: giftCardAmount === String(amt) ? accentColor : '#FAFAFA',
+                          color: giftCardAmount === String(amt) ? '#FFFFFF' : '#09090B',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ${amt}
+                      </button>
+                    ))}
+                    <input
+                      type="number"
+                      min="5"
+                      step="5"
+                      placeholder="Other"
+                      value={[20, 50, 100].includes(Number(giftCardAmount)) ? '' : giftCardAmount}
+                      onChange={e => setGiftCardAmount(e.target.value)}
+                      style={{
+                        flex: 1, padding: '11px 14px', border: '1px solid #E4E4E7',
+                        borderRadius: 8, fontSize: 14, color: '#09090B', background: '#FAFAFA',
+                        outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif',
+                      }}
+                    />
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Recipient name (optional)"
+                  value={giftCardRecipientName}
+                  onChange={e => setGiftCardRecipientName(e.target.value)}
+                  style={{
+                    padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                    fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                    boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                  }}
+                />
+                <input
+                  type="email"
+                  placeholder="Recipient email (send gift card to them)"
+                  value={giftCardRecipientEmail}
+                  onChange={e => setGiftCardRecipientEmail(e.target.value)}
+                  style={{
+                    padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                    fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                    boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                  }}
+                />
+                <textarea
+                  placeholder="Personal message (optional)"
+                  value={giftCardMessage}
+                  onChange={e => setGiftCardMessage(e.target.value)}
+                  rows={2}
+                  style={{
+                    padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                    fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                    resize: 'vertical', fontFamily: 'Inter, sans-serif', width: '100%',
+                    boxSizing: 'border-box' as const,
+                  }}
+                />
+                {createGiftCardCheckout.error && (
+                  <div style={{
+                    background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8,
+                    padding: '10px 14px', fontSize: 13, color: '#DC2626',
+                  }}>
+                    {createGiftCardCheckout.error.message}
+                  </div>
+                )}
+                <button
+                  disabled={!giftCardAmount || Number(giftCardAmount) < 5 || createGiftCardCheckout.isPending || !venue?.id}
+                  onClick={async () => {
+                    if (!venue?.id || !giftCardAmount || Number(giftCardAmount) < 5) return;
+                    try {
+                      const result = await createGiftCardCheckout.mutateAsync({
+                        venueId: venue.id,
+                        amount: Number(giftCardAmount),
+                        recipientName: giftCardRecipientName || undefined,
+                        recipientEmail: giftCardRecipientEmail || undefined,
+                        message: giftCardMessage || undefined,
+                        senderName: checkoutName || undefined,
+                      });
+                      if (result.url) window.location.href = result.url;
+                    } catch {
+                      // error shown via createGiftCardCheckout.error
+                    }
+                  }}
+                  style={{
+                    padding: '11px 18px', borderRadius: 8, border: 'none',
+                    background: accentColor, color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                    cursor: (!giftCardAmount || Number(giftCardAmount) < 5 || createGiftCardCheckout.isPending) ? 'not-allowed' : 'pointer',
+                    opacity: (!giftCardAmount || Number(giftCardAmount) < 5 || createGiftCardCheckout.isPending) ? 0.5 : 1,
+                    fontFamily: 'Inter, -apple-system, sans-serif',
+                  }}
+                >
+                  {createGiftCardCheckout.isPending
+                    ? 'Redirecting…'
+                    : giftCardAmount && Number(giftCardAmount) >= 5
+                      ? `Pay $${Number(giftCardAmount).toFixed(2)} with Stripe`
+                      : 'Choose an amount to continue'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Pass Purchase Panel — only shown when passConfig exists */}
+          {passConfigQuery.data && (
+            <div style={{
+              background: '#FFFFFF', borderRadius: 12, border: '1px solid #E4E4E7',
+              padding: '20px 24px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showPassPanel ? 16 : 0 }}>
+                <div>
+                  <div style={{
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                    color: accentColor, marginBottom: 4,
+                  }}>
+                    Coffee Pass
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', letterSpacing: '-0.02em' }}>
+                    {(passConfigQuery.data as { name?: string }).name || 'Coffee Pass'} — ${Number((passConfigQuery.data as { price?: number }).price ?? 0).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#71717A', marginTop: 2 }}>
+                    {(passConfigQuery.data as { totalCredits?: number }).totalCredits ?? ''} drinks included
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPassPanel(p => !p)}
+                  style={{
+                    background: showPassPanel ? 'transparent' : accentColor,
+                    color: showPassPanel ? '#09090B' : '#FFFFFF',
+                    border: showPassPanel ? '1px solid #E4E4E7' : 'none',
+                    borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', flexShrink: 0, fontFamily: 'Inter, -apple-system, sans-serif',
+                  }}
+                >
+                  {showPassPanel ? 'Cancel' : 'Buy a pass'}
+                </button>
+              </div>
+              {showPassPanel && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={checkoutName}
+                    onChange={e => setCheckoutName(e.target.value)}
+                    style={{
+                      padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                      fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                      boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                    }}
+                  />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Phone number (to link your pass)"
+                    value={checkoutPhone}
+                    onChange={e => setCheckoutPhone(e.target.value)}
+                    style={{
+                      padding: '11px 14px', border: '1px solid #E4E4E7', borderRadius: 8,
+                      fontSize: 14, color: '#09090B', background: '#FAFAFA', outline: 'none',
+                      boxSizing: 'border-box' as const, fontFamily: 'Inter, sans-serif', width: '100%',
+                    }}
+                  />
+                  {createPassCheckout.error && (
+                    <div style={{
+                      background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8,
+                      padding: '10px 14px', fontSize: 13, color: '#DC2626',
+                    }}>
+                      {createPassCheckout.error.message}
+                    </div>
+                  )}
+                  <button
+                    disabled={!checkoutName.trim() || checkoutPhone.length < 8 || createPassCheckout.isPending || !venue?.id}
+                    onClick={async () => {
+                      if (!venue?.id || !checkoutName.trim() || checkoutPhone.length < 8) return;
+                      try {
+                        const result = await createPassCheckout.mutateAsync({
+                          venueId: venue.id,
+                          phone: checkoutPhone,
+                          name: checkoutName,
+                        });
+                        if (result.url) window.location.href = result.url;
+                      } catch {
+                        // error shown via createPassCheckout.error
+                      }
+                    }}
+                    style={{
+                      padding: '11px 18px', borderRadius: 8, border: 'none',
+                      background: accentColor, color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                      cursor: (!checkoutName.trim() || checkoutPhone.length < 8 || createPassCheckout.isPending) ? 'not-allowed' : 'pointer',
+                      opacity: (!checkoutName.trim() || checkoutPhone.length < 8 || createPassCheckout.isPending) ? 0.5 : 1,
+                      fontFamily: 'Inter, -apple-system, sans-serif',
+                    }}
+                  >
+                    {createPassCheckout.isPending
+                      ? 'Redirecting…'
+                      : `Pay $${Number((passConfigQuery.data as { price?: number }).price ?? 0).toFixed(2)} with Stripe`}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Hours Detail */}
