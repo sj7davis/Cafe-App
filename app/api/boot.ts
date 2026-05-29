@@ -7,10 +7,10 @@ import { nodeHTTPRequestHandler } from "@trpc/server/adapters/node-http";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
-import { addSseClient, removeSseClient } from "./lib/sse-store";
+import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems } from "@db/schema";
-import { eq, and, gte, isNull, lte } from "drizzle-orm";
+import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems } from "@db/schema";
+import { eq, and, gte, isNull, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import cron from "node-cron";
@@ -471,7 +471,7 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
 
   try {
     const { default: Stripe } = await import("stripe");
-    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2026-04-22.dahlia" });
     const sig = req.headers["stripe-signature"] as string;
     const event = stripe.webhooks.constructEvent(rawBody, sig, env.stripeWebhookSecret);
 
@@ -483,9 +483,15 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
         if (!venueId) { res.writeHead(200); res.end("ok"); return; }
 
         const db = getDb();
-        // Build items from session — we stored them in metadata as a JSON blob
-        // The actual items come via the tRPC createOrder call triggered by the
-        // success page load. Here we just create the order record if not exists.
+
+        // Parse cart items stored in session metadata by createCheckoutSession (Task 2)
+        type CartItem = { menuItemId: number; itemName: string; quantity: number; unitPrice: number };
+        let parsedItems: CartItem[] = [];
+        if (meta.itemsJson) {
+          try { parsedItems = JSON.parse(meta.itemsJson) as CartItem[]; } catch { /* malformed — skip items */ }
+        }
+
+        // Idempotency: skip if an order with this session ID already exists
         const existing = await db.select({ id: orders.id })
           .from(orders)
           .where(eq(orders.stripeSessionId, session.id))
@@ -494,8 +500,8 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
         if (!existing[0]) {
           const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
           const totalCents = session.amount_total ?? 0;
-          const tipCents = session.total_details?.amount_discount ? 0 : 0;
 
+          // PAY-01 / PAY-02: order is confirmed only after webhook fires with payment_status === "paid"
           const [orderResult] = await db.insert(orders).values({
             venueId,
             orderNumber,
@@ -511,27 +517,58 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
             tipAmount: meta.tipAmount ? meta.tipAmount : "0",
             discountCode: meta.discountCode || null,
             discountAmount: meta.discountAmount ? meta.discountAmount : "0",
-            status: "pending",
+            status: "confirmed",
           }).returning({ id: orders.id });
+
+          const orderId = orderResult.id;
+
+          // Persist order line items from metadata cart
+          for (const item of parsedItems) {
+            try {
+              await db.insert(orderItems).values({
+                orderId,
+                menuItemId: Number(item.menuItemId),
+                itemName: String(item.itemName),
+                quantity: Number(item.quantity),
+                unitPrice: Number(item.unitPrice).toFixed(2),
+              });
+            } catch { /* non-blocking per item — order already committed */ }
+          }
+
+          // Broadcast new confirmed order to KDS/staff SSE listeners
+          broadcastToVenue(venueId, "order_update", { orderId, status: "confirmed", orderNumber });
+
+          // Discount code: increment usedCount (non-blocking)
+          if (meta.discountCode) {
+            try {
+              await db.update(discountCodes)
+                .set({ usedCount: sql`used_count + 1` })
+                .where(and(
+                  eq(discountCodes.venueId, venueId),
+                  eq(discountCodes.code, meta.discountCode.toUpperCase()),
+                ));
+            } catch { /* non-blocking */ }
+          }
 
           // Earn loyalty points: 1pt per $1 of order subtotal (excluding tip)
           const subtotal = Math.max(0, (totalCents / 100) - Number(meta.tipAmount ?? 0));
           const pointsEarned = Math.floor(subtotal);
-          if (meta.customerPhone && pointsEarned > 0) {
+          const loyaltyPhone = meta.loyaltyPhone || meta.customerPhone;
+          if (loyaltyPhone && pointsEarned > 0) {
             try {
               let loyaltyAcc = await db.select().from(loyaltyAccounts)
-                .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, meta.customerPhone)))
+                .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
                 .limit(1);
               if (!loyaltyAcc[0]) {
                 await db.insert(loyaltyAccounts).values({
                   venueId,
-                  phone: meta.customerPhone,
+                  phone: loyaltyPhone,
                   name: meta.customerName ?? null,
                   pointsBalance: 0,
                   totalLifetimePoints: 0,
                 });
                 loyaltyAcc = await db.select().from(loyaltyAccounts)
-                  .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, meta.customerPhone)))
+                  .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
                   .limit(1);
               }
               const acc = loyaltyAcc[0];
@@ -546,7 +583,7 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
                   type: "earn",
                   points: pointsEarned,
                   description: `Online order ${orderNumber} — ${pointsEarned} pts`,
-                  orderId: orderResult.id,
+                  orderId,
                 });
               }
             } catch { /* non-blocking */ }

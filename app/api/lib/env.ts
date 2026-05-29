@@ -18,6 +18,7 @@ export const env = {
   appUrl: process.env.APP_URL || "https://b1platform.com",
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+  stripePlatformFeePercent: process.env.STRIPE_PLATFORM_FEE_PERCENT || "3",
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || "",
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || "",
   twilioFromNumber: process.env.TWILIO_FROM_NUMBER || "",
