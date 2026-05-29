@@ -302,6 +302,16 @@ export default function VenuePublic() {
   // ── Push notifications ────────────────────────────────────────────────────────
   const [wantsPushNotify, setWantsPushNotify] = useState(false);
 
+  // ── Stripe return verification ────────────────────────────────────────────────
+  const stripeSessionParam = searchParams.get('session');
+  const stripeOrderParam = searchParams.get('order');
+  const stripeGiftcardParam = searchParams.get('giftcard');
+  const stripePassParam = searchParams.get('pass');
+  const [stripeConfirmed, setStripeConfirmed] = useState(false);
+
+  // ── Loyalty redemption ────────────────────────────────────────────────────────
+  const [redeemPoints, setRedeemPoints] = useState(0);
+
   // ── Abandoned cart debounce ───────────────────────────────────────────────────
   const abandonedCartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -417,6 +427,18 @@ export default function VenuePublic() {
   const usePassCreditMutation = trpc.venue.usePassCredit.useMutation();
   const validateDiscountMut = trpc.promo.validateDiscount.useMutation();
 
+  // ── Stripe session verification (called when ?session= is in URL after payment) ─
+  const verifySessionQuery = trpc.stripeCheckout.verifySession.useQuery(
+    { sessionId: stripeSessionParam ?? '', venueSlug: slug ?? '' },
+    { enabled: !!stripeSessionParam && !!slug && stripeOrderParam === 'success' }
+  );
+
+  // ── Pass config for public pass purchase panel ────────────────────────────────
+  const passConfigQuery = trpc.venue.getPassConfig.useQuery(
+    { venueId: venue?.id ?? 0 },
+    { enabled: !!venue?.id }
+  );
+
   const loyaltyQuery = trpc.loyalty.getAccount.useQuery(
     { venueId: venue?.id ?? 0, phone: checkoutPhone },
     { enabled: !!venue?.id && checkoutPhone.length >= 8 }
@@ -433,6 +455,11 @@ export default function VenuePublic() {
 
   const saveAbandonedCartMutation = trpc.venue.saveAbandonedCart.useMutation();
   const clearAbandonedCartMutation = trpc.venue.clearAbandonedCart.useMutation();
+
+  // ── Stripe Checkout mutations ─────────────────────────────────────────────────
+  const createCheckoutSession = trpc.stripeCheckout.createCheckoutSession.useMutation();
+  const createGiftCardCheckout = trpc.stripeCheckout.createGiftCardCheckoutSession.useMutation();
+  const createPassCheckout = trpc.stripeCheckout.createPassCheckoutSession.useMutation();
 
   // ── Favourite orders queries/mutations ────────────────────────────────────────
   const favouriteOrdersQuery = trpc.venue.listFavouriteOrders.useQuery(
@@ -522,6 +549,22 @@ export default function VenuePublic() {
     const id = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(id);
   }, []);
+
+  // Stripe return — show toasts for gift card and pass successes
+  useEffect(() => {
+    if (stripeGiftcardParam === 'success') showToast('Gift card purchased! Check your email for the code.');
+    if (stripePassParam === 'success') showToast('Pass purchased! Use it at checkout.');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripeGiftcardParam, stripePassParam]);
+
+  // Stripe order confirmed — clear cart when verifySession reports paid
+  useEffect(() => {
+    if (verifySessionQuery.data?.paid && !stripeConfirmed) {
+      setStripeConfirmed(true);
+      setCart([]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verifySessionQuery.data?.paid]);
 
   // Happy hour check
   useEffect(() => {
@@ -683,7 +726,14 @@ export default function VenuePublic() {
   const promoDiscountAmount = appliedDiscount?.amount ?? 0;
   const happyHourDiscountAmount = happyHourDiscount > 0 ? (cartSubtotal * happyHourDiscount) / 100 : 0;
   const effectivePromo = promoDiscountAmount > 0 ? promoDiscountAmount : happyHourDiscountAmount;
-  const totalAfterDiscounts = Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount);
+
+  // Loyalty discount: redeemPoints / 10 = dollar value, clamped so it never exceeds remaining total
+  const loyaltyDiscount = Math.min(
+    redeemPoints / 10,
+    Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount)
+  );
+
+  const totalAfterDiscounts = Math.max(0, cartSubtotal - effectivePromo - appliedGiftDiscount - loyaltyDiscount);
 
   // Public holiday surcharge
   const surchargePercent = isPublicHoliday
@@ -709,7 +759,7 @@ export default function VenuePublic() {
     }
   }
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (cart.length === 0 || !venue?.id) return;
     const notesParts: string[] = [];
     if (appliedGiftDiscount > 0) notesParts.push(`Gift card: -$${appliedGiftDiscount.toFixed(2)}`);
@@ -723,22 +773,40 @@ export default function VenuePublic() {
           ? `${scheduleDay === 'today' ? 'Today' : 'Tomorrow'} at ${scheduleSlot}`
           : (checkoutPickupTime || 'ASAP');
 
-    createOrder.mutate({
-      venueId: venue.id,
-      customerName: checkoutName || 'Guest',
-      customerPhone: checkoutPhone || '0000000000',
-      pickupTime: resolvedPickupTime,
-      locationId: selectedLocationId ?? undefined,
-      customerEmail: checkoutEmail || undefined,
-      orderNote: notesParts.join('; ') || undefined,
-      items: cart.map(c => ({ menuItemId: c.menuItemId, quantity: c.quantity, note: c.note, modifiers: c.modifiers })),
-      tipAmount: tipAmount + surchargeAmount,
-      discountCode: appliedDiscount?.code,
-      discountAmount: effectivePromo + appliedGiftDiscount,
-      earnLoyalty: true,
-      orderType: orderType,
-      tableNumber: tableNumber ?? undefined,
+    // Build items array for Stripe — each cart line maps to { menuItemId, name, itemName, quantity, unitPrice }
+    const stripeItems = cart.map(c => {
+      const menuItem = allMenuItems.find(m => m.id === c.menuItemId);
+      return {
+        menuItemId: c.menuItemId,
+        name: menuItem?.name ?? c.name ?? 'Item',
+        itemName: menuItem?.name ?? c.name ?? 'Item',
+        quantity: c.quantity,
+        unitPrice: c.price, // already includes modifier price adjustments
+      };
     });
+
+    try {
+      const result = await createCheckoutSession.mutateAsync({
+        venueId: venue.id,
+        items: stripeItems,
+        tipAmount: tipAmount + surchargeAmount,
+        discountAmount: effectivePromo + appliedGiftDiscount + loyaltyDiscount,
+        discountCode: appliedDiscount?.code,
+        customerName: checkoutName || 'Guest',
+        customerPhone: checkoutPhone || '0000000000',
+        customerEmail: checkoutEmail || undefined,
+        pickupTime: resolvedPickupTime,
+        orderNote: notesParts.join('; ') || undefined,
+        locationId: selectedLocationId ?? undefined,
+        loyaltyPhone: redeemPoints > 0 ? checkoutPhone : undefined,
+        loyaltyPointsRedeemed: redeemPoints,
+      });
+      if (result.url) {
+        window.location.href = result.url;
+      }
+    } catch (e: unknown) {
+      showToast((e as { message?: string }).message ?? 'Could not start checkout. Please try again.');
+    }
   };
 
   // Allergen warnings
@@ -762,7 +830,79 @@ export default function VenuePublic() {
   const happyHourInfo = happyHourData as { startTime?: string; endTime?: string; discountPercent?: number; label?: string } | undefined;
 
   return (
-    <div style={{ background: '#F3F2EE', fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif' }}>
+    <div style={{ background: '#F8F6F2', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+
+      {/* ── Stripe order confirmation banner ────────────────────────────────── */}
+      {stripeOrderParam === 'success' && verifySessionQuery.data?.paid && (
+        <div style={{
+          background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.25)',
+          borderRadius: 12, padding: '20px 24px', margin: '16px auto',
+          maxWidth: 560, display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <CheckCircle size={22} style={{ color: accentColor, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', marginBottom: 4, letterSpacing: '-0.02em' }}>
+              Payment confirmed
+            </div>
+            {verifySessionQuery.data.orderNumber ? (
+              <div style={{ fontSize: 13, color: '#71717A' }}>
+                Order{' '}
+                <span style={{ fontWeight: 700, color: accentColor }}>
+                  #{verifySessionQuery.data.orderNumber}
+                </span>
+                {' '}is being prepared.{' '}
+                <Link
+                  to={`/order/${verifySessionQuery.data.orderNumber}`}
+                  style={{ color: accentColor, fontWeight: 600, textDecoration: 'underline' }}
+                >
+                  View order status →
+                </Link>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#71717A' }}>Your order has been received and is being prepared.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Gift card success banner ─────────────────────────────────────────── */}
+      {stripeGiftcardParam === 'success' && (
+        <div style={{
+          background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.25)',
+          borderRadius: 12, padding: '20px 24px', margin: '16px auto',
+          maxWidth: 560, display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <CheckCircle size={22} style={{ color: accentColor, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', marginBottom: 4, letterSpacing: '-0.02em' }}>
+              Gift card purchased!
+            </div>
+            <div style={{ fontSize: 13, color: '#71717A' }}>
+              Your gift card has been sent. Check your email for the code.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pass success banner ──────────────────────────────────────────────── */}
+      {stripePassParam === 'success' && (
+        <div style={{
+          background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.25)',
+          borderRadius: 12, padding: '20px 24px', margin: '16px auto',
+          maxWidth: 560, display: 'flex', alignItems: 'flex-start', gap: 14,
+        }}>
+          <CheckCircle size={22} style={{ color: accentColor, flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', marginBottom: 4, letterSpacing: '-0.02em' }}>
+              Pass purchased!
+            </div>
+            <div style={{ fontSize: 13, color: '#71717A' }}>
+              Your coffee pass is ready. Enter your phone number at checkout to use your credits.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast notification */}
       {toast && (
         <div style={{
@@ -1670,18 +1810,19 @@ export default function VenuePublic() {
                   </div>
                   <button
                     onClick={handlePlaceOrder}
-                    disabled={createOrder.isPending}
+                    disabled={createCheckoutSession.isPending}
                     style={{
                       width: '100%', padding: 14, borderRadius: 8, border: 'none',
-                      background: primaryColor, color: '#F3F2EE', fontSize: 14, fontWeight: 600,
-                      cursor: createOrder.isPending ? 'not-allowed' : 'pointer',
-                      opacity: createOrder.isPending ? 0.7 : 1,
+                      background: accentColor || primaryColor, color: '#FFFFFF', fontSize: 14, fontWeight: 600,
+                      cursor: createCheckoutSession.isPending ? 'not-allowed' : 'pointer',
+                      opacity: createCheckoutSession.isPending ? 0.5 : 1,
+                      fontFamily: 'Inter, -apple-system, sans-serif',
                     }}
                   >
-                    {createOrder.isPending ? 'Placing Order...' : 'Place Order'}
+                    {createCheckoutSession.isPending ? 'Redirecting to Checkout…' : 'Pay with Stripe'}
                   </button>
-                  {createOrder.error && (
-                    <p style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{createOrder.error.message}</p>
+                  {createCheckoutSession.error && (
+                    <p style={{ color: '#DC2626', fontSize: 13, marginTop: 8 }}>{createCheckoutSession.error.message}</p>
                   )}
                 </div>
               </>

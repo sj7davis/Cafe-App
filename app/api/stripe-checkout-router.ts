@@ -153,8 +153,8 @@ export const stripeCheckoutRouter = createRouter({
       discounts = [{ coupon: coupon.id }];
     }
 
-    const successUrl = `${env.appUrl}/${venue.slug}/order-status?session={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${env.appUrl}/${venue.slug}`;
+    const successUrl = `${env.appUrl}/v/${venue.slug}?order=success&session={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${env.appUrl}/v/${venue.slug}`;
 
     // Serialize cart items for webhook order reconstruction
     const itemsForWebhook = input.items.map(item => ({
