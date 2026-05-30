@@ -2,9 +2,9 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { staffClockEvents, staffAccounts } from "@db/schema";
+import { staffClockEvents, staffAccounts, venues } from "@db/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
-import { jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { env } from "./lib/env";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
@@ -128,5 +128,56 @@ export const clockRouter = createRouter({
       ...data,
       totalHours: (data.totalMinutes / 60).toFixed(1),
     }));
+  }),
+
+  // ─── PIN login for shared tablet ───
+  loginByPin: publicQuery.input(z.object({
+    slug: z.string(),
+    pin: z.string().regex(/^\d{4,8}$/),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const venueRows = await db.select({ id: venues.id, name: venues.name })
+      .from(venues).where(eq(venues.slug, input.slug)).limit(1);
+    if (!venueRows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    const venue = venueRows[0];
+
+    const staffRows = await db.select({ id: staffAccounts.id, name: staffAccounts.name, role: staffAccounts.role })
+      .from(staffAccounts)
+      .where(and(
+        eq(staffAccounts.venueId, venue.id),
+        eq(staffAccounts.clockPin, input.pin),
+        eq(staffAccounts.isActive, true),
+      )).limit(1);
+    if (!staffRows[0]) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid PIN" });
+    const staff = staffRows[0];
+
+    const token = await new SignJWT({ staffId: staff.id, venueId: venue.id, role: staff.role, name: staff.name })
+      .setProtectedHeader({ alg: "HS256" }).setExpirationTime("8h").sign(JWT_SECRET);
+
+    return { token, staffName: staff.name, venueName: venue.name };
+  }),
+
+  // ─── Break start ───
+  breakStart: publicQuery.input(z.object({ token: z.string(), note: z.string().optional() })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const staffId = payload.payload.staffId as number;
+    const venueId = payload.payload.venueId as number;
+    if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
+    const db = getDb();
+    const now = new Date();
+    await db.insert(staffClockEvents).values({ venueId, staffId, eventType: "break_start", clockedAt: now, note: input.note });
+    return { ok: true, clockedAt: now.toISOString() };
+  }),
+
+  // ─── Break end ───
+  breakEnd: publicQuery.input(z.object({ token: z.string(), note: z.string().optional() })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const staffId = payload.payload.staffId as number;
+    const venueId = payload.payload.venueId as number;
+    if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
+    const db = getDb();
+    const now = new Date();
+    await db.insert(staffClockEvents).values({ venueId, staffId, eventType: "break_end", clockedAt: now, note: input.note });
+    return { ok: true, clockedAt: now.toISOString() };
   }),
 });

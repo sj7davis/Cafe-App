@@ -393,6 +393,31 @@ export const staffAuthRouter = createRouter({
     return { success: true };
   }),
 
+  // ─── Set clock PIN ───
+  setClockPin: publicQuery.input(z.object({
+    token: z.string(),
+    pin: z.string().regex(/^\d{4,8}$/, "PIN must be 4–8 digits"),
+  })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const staffId = payload.payload.staffId as number;
+    if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
+    const db = getDb();
+    await db.update(staffAccounts).set({ clockPin: input.pin }).where(eq(staffAccounts.id, staffId));
+    return { ok: true };
+  }),
+
+  // ─── Clear clock PIN ───
+  clearClockPin: publicQuery.input(z.object({
+    token: z.string(),
+  })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const staffId = payload.payload.staffId as number;
+    if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
+    const db = getDb();
+    await db.update(staffAccounts).set({ clockPin: null }).where(eq(staffAccounts.id, staffId));
+    return { ok: true };
+  }),
+
   // ─── Reset staff password (admin only) ───
   resetPassword: publicQuery.input(z.object({
     token: z.string(),

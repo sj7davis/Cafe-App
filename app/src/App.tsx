@@ -19,6 +19,7 @@ import GroupOrder from './pages/GroupOrder'
 import BookingPage from './pages/BookingPage'
 import NotFound from './pages/NotFound'
 import TabletPos from './pages/TabletPos'
+import ClockPage from './pages/ClockPage'
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/group/:code" element={<GroupOrder />} />
       <Route path="/book/:slug" element={<BookingPage />} />
       <Route path="/tablet/:slug" element={<TabletPos />} />
+      <Route path="/clock/:slug" element={<ClockPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
