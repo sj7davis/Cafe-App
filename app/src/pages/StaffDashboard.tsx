@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
 import { trpc } from '@/providers/trpc';
+import { useVenueSSE } from '@/hooks/useVenueSSE';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
@@ -542,8 +543,17 @@ function OrdersTab({ venueId, token, venue }: { venueId: number; token: string; 
   const utils = trpc.useUtils();
   const { data: ordersList } = trpc.venue.listOrders.useQuery(
     { venueId, status: statusFilter === 'all' ? undefined : statusFilter, locationId: locationFilter ?? undefined, limit: 50 },
-    { refetchInterval: 20_000 }
+    { refetchInterval: false }
   );
+
+  useVenueSSE({
+    venueId: venueId ?? null,
+    token: token ?? null,
+    events: ['order_update', 'order_new'],
+    onEvent: () => {
+      utils.venue.listOrders.invalidate();
+    },
+  });
   const { data: locationsList } = trpc.venue.listLocations.useQuery({ venueId });
 
   const updateStatus = trpc.venue.updateOrderStatus.useMutation({
