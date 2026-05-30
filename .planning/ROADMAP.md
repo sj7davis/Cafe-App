@@ -307,7 +307,13 @@ Plans:
   6. Scanning a table QR code opens the venue ordering page with the table number already filled in; dine-in orders appear in the KDS with the table number prominently labelled
   7. Venue owner can generate and download individual per-table QR codes from the Integrations tab
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Backend: authenticate SSE endpoint + add listOrdersWithItems query (RT-04, KDS-02, KDS-03, KDS-05, DINE-02)
+- [ ] 09-02-PLAN.md — Frontend: useVenueSSE hook, KDS swimlane + table badge + auto-clear, StaffDashboard SSE wiring (RT-01, RT-02, KDS-01, KDS-02, KDS-03, KDS-04, KDS-05, DINE-01, DINE-02)
+- [ ] 09-03-PLAN.md — OwnerDashboard: activity feed SSE wiring + per-table QR confirmed (RT-03, DINE-03)
+
 **UI hint**: yes
 
 ### Phase 10: Staff Scheduling + Clock-In/Out
