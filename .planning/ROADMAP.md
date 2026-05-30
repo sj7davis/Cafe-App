@@ -339,7 +339,20 @@ Plans:
   7. Staff member can record a break start and end during their shift from the clock page
   8. Venue owner can view a per-staff weekly hours summary in OwnerDashboard and export the timesheet to CSV for payroll
 
-**Plans**: TBD
+**Plans**: 4 plansPlans:
+**Wave 1**
+
+- [ ] 10-01-PLAN.md � Backend: fix timezone bug, clockPin schema, break events, setClockPin mutation (CLOCK-01, CLOCK-02, CLOCK-03, CLOCK-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 10-02-PLAN.md � Clock tablet UI at /clock/:slug + PIN setup in StaffDashboard ProfileTab (CLOCK-01, CLOCK-02, CLOCK-03, CLOCK-04)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 10-03-PLAN.md � OwnerDashboard SchedulingTab + TimesheetTab with CSV export (SCHED-01, SCHED-02, SCHED-05, SCHED-07, CLOCK-05, CLOCK-06)
+- [ ] 10-04-PLAN.md � StaffDashboard MyScheduleTab: availability, swap requests, time-off (SCHED-02, SCHED-03, SCHED-04, SCHED-06)
+
 **UI hint**: yes
 
 ### Phase 11: Tipping + Upsell Engine
@@ -414,6 +427,7 @@ Plans:
 **Depends on:** Phase 7 (existing WebsiteTab + websiteBlocks schema)
 **Requirements:** WEB-01, WEB-02, WEB-03, WEB-04, WEB-05, WEB-06, WEB-07, WEB-08, WEB-09, WEB-10
 **Success Criteria:**
+
 1. Owner opens Website Builder tab and sees their live page rendered in an iframe/preview panel alongside a left section-stack editor
 2. Owner drags a section card up or down and the preview reorders in real time
 3. Owner clicks a section to open an edit panel with fields for heading, body, image URL, button label
