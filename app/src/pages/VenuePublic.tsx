@@ -302,6 +302,11 @@ export default function VenuePublic() {
   // ── Push notifications ────────────────────────────────────────────────────────
   const [wantsPushNotify, setWantsPushNotify] = useState(false);
 
+  // ── PWA install prompt (deferred — shown after first order) ──────────────────
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   // ── Stripe return verification ────────────────────────────────────────────────
   const stripeSessionParam = searchParams.get('session');
   const stripeOrderParam = searchParams.get('order');
@@ -546,6 +551,30 @@ export default function VenuePublic() {
   });
 
   // ── Effects ───────────────────────────────────────────────────────────────────
+
+  // Capture deferred beforeinstallprompt event (not available on iOS)
+  useEffect(() => {
+    if (isIOS) return;
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Show install banner after first successful order (deferred UX)
+  useEffect(() => {
+    if (!placedOrderNumber) return;
+    const dismissed = localStorage.getItem('pwa-install-dismissed');
+    if (dismissed) return;
+    // iOS: show native share instruction; non-iOS: only show when prompt is available
+    if (isIOS || installPrompt) {
+      setShowInstallBanner(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placedOrderNumber, installPrompt]);
 
   useEffect(() => {
     if (locationsList && locationsList.length === 1) {
@@ -1211,6 +1240,65 @@ export default function VenuePublic() {
                 >
                   Dismiss
                 </button>
+
+                {/* ── PWA install banner (deferred — shown after first order) ── */}
+                {showInstallBanner && !isIOS && (
+                  <div style={{
+                    marginTop: 16, padding: '14px 16px', borderRadius: 10,
+                    background: 'rgba(94,139,139,0.09)', border: '1px solid rgba(94,139,139,0.25)',
+                    display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left',
+                  }}>
+                    <p style={{ margin: 0, fontSize: 13, color: '#374151', fontWeight: 500 }}>
+                      Add to your home screen for faster ordering next time
+                    </p>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={async () => {
+                          if (!installPrompt) return;
+                          const prompt = installPrompt as any;
+                          prompt.prompt();
+                          await prompt.userChoice;
+                          setShowInstallBanner(false);
+                          setInstallPrompt(null);
+                        }}
+                        style={{
+                          flex: 1, padding: '9px 0', borderRadius: 7,
+                          background: '#5E8B8B', color: '#fff', border: 'none',
+                          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        }}
+                      >
+                        Add to Home Screen
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowInstallBanner(false);
+                          localStorage.setItem('pwa-install-dismissed', '1');
+                        }}
+                        style={{
+                          padding: '9px 14px', borderRadius: 7, background: 'none',
+                          border: '1px solid rgba(24,24,24,0.18)', color: '#6B7280',
+                          fontSize: 13, cursor: 'pointer',
+                        }}
+                      >
+                        Not now
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── iOS install hint (deferred — shown after first order) ─── */}
+                {showInstallBanner && isIOS && (
+                  <div style={{
+                    marginTop: 16, padding: '12px 16px', borderRadius: 10,
+                    background: 'rgba(94,139,139,0.09)', border: '1px solid rgba(94,139,139,0.25)',
+                    fontSize: 13, color: '#374151', textAlign: 'left',
+                  }}>
+                    <p style={{ margin: '0 0 4px', fontWeight: 500 }}>Add to your home screen</p>
+                    <p style={{ margin: 0, color: '#6B7280' }}>
+                      Tap the Share button then "Add to Home Screen" for faster ordering.
+                    </p>
+                  </div>
+                )}
 
                 {/* ── Split Bill ────────────────────────────────────────────── */}
                 <div style={{ marginTop: 24, borderTop: '1px solid rgba(24,24,24,0.08)', paddingTop: 20 }}>
