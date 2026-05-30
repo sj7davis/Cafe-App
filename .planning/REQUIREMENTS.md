@@ -302,6 +302,21 @@
 
 ---
 
+### Shopify-Style Website Builder
+
+- [ ] **WEB-01**: Venue owner can choose from at least 3 pre-built page templates (Classic, Modern, Bold) from the Website Builder tab
+- [ ] **WEB-02**: Editor shows the page as a stack of section blocks — Hero, Menu Preview, About, Gallery, Reviews, CTA, Opening Hours, Contact/Map
+- [ ] **WEB-03**: Owner can drag and drop sections to reorder them on the page
+- [ ] **WEB-04**: Owner can click any section to open a side panel and edit its content (heading, body text, image URL, button label)
+- [ ] **WEB-05**: Owner can show or hide individual sections without deleting them
+- [ ] **WEB-06**: Owner can set a venue colour scheme (primary, accent, background) and font family from the editor; changes apply live in the preview
+- [ ] **WEB-07**: Editor shows a live preview of the page as edits are made, switchable between desktop and mobile viewport widths
+- [ ] **WEB-08**: Owner can add new sections from a section library (all available block types listed)
+- [ ] **WEB-09**: Saved website configuration is reflected on the live VenuePublic customer page in real time after saving
+- [ ] **WEB-10**: Owner can reset to a template default without losing their menu or venue data
+
+---
+
 ## Traceability
 
 | Requirement | Phase | Status |
@@ -357,35 +372,28 @@
 | PAY-07 | Phase 8 | Pending |
 | CHK-01 | Phase 8 | Pending |
 | CHK-02 | Phase 8 | Pending |
-| RT-01 | Phase 9 | Pending |
-| RT-02 | Phase 9 | Pending |
-| RT-03 | Phase 9 | Pending |
-| SCHED-01 | Phase 9 | Pending |
-| SCHED-02 | Phase 9 | Pending |
-| SCHED-03 | Phase 9 | Pending |
-| SCHED-04 | Phase 9 | Pending |
-| SCHED-05 | Phase 9 | Pending |
-| SCHED-06 | Phase 9 | Pending |
-| SCHED-07 | Phase 9 | Pending |
-| DINE-01 | Phase 10 | Pending |
-| DINE-02 | Phase 10 | Pending |
-| DINE-03 | Phase 10 | Pending |
-| BOOK-01 | Phase 10 | Pending |
-| BOOK-02 | Phase 10 | Pending |
-| BOOK-03 | Phase 10 | Pending |
-| AUTO-01 | Phase 11 | Pending |
-| AUTO-02 | Phase 11 | Pending |
-| AUTO-03 | Phase 11 | Pending |
-| AUTO-04 | Phase 11 | Pending |
-| SQ-01 | Phase 11 | Pending |
-| SQ-02 | Phase 11 | Pending |
-| SQ-03 | Phase 11 | Pending |
+| BOOK-01 | Phase 10 (v2.1) | Pending |
+| BOOK-02 | Phase 10 (v2.1) | Pending |
+| BOOK-03 | Phase 10 (v2.1) | Pending |
 | KDS-01 | Phase 9 | Pending |
 | KDS-02 | Phase 9 | Pending |
 | KDS-03 | Phase 9 | Pending |
 | KDS-04 | Phase 9 | Pending |
 | KDS-05 | Phase 9 | Pending |
+| RT-01 | Phase 9 | Pending |
+| RT-02 | Phase 9 | Pending |
+| RT-03 | Phase 9 | Pending |
 | RT-04 | Phase 9 | Pending |
+| DINE-01 | Phase 9 | Pending |
+| DINE-02 | Phase 9 | Pending |
+| DINE-03 | Phase 9 | Pending |
+| SCHED-01 | Phase 10 | Pending |
+| SCHED-02 | Phase 10 | Pending |
+| SCHED-03 | Phase 10 | Pending |
+| SCHED-04 | Phase 10 | Pending |
+| SCHED-05 | Phase 10 | Pending |
+| SCHED-06 | Phase 10 | Pending |
+| SCHED-07 | Phase 10 | Pending |
 | CLOCK-01 | Phase 10 | Pending |
 | CLOCK-02 | Phase 10 | Pending |
 | CLOCK-03 | Phase 10 | Pending |
@@ -405,3 +413,20 @@
 | PWA-02 | Phase 13 | Pending |
 | PWA-03 | Phase 13 | Pending |
 | PWA-04 | Phase 13 | Pending |
+| AUTO-01 | Phase 14 | Pending |
+| AUTO-02 | Phase 14 | Pending |
+| AUTO-03 | Phase 14 | Pending |
+| AUTO-04 | Phase 14 | Pending |
+| SQ-01 | Phase 14 | Pending |
+| SQ-02 | Phase 14 | Pending |
+| SQ-03 | Phase 14 | Pending |
+| WEB-01 | Phase 15 | Pending |
+| WEB-02 | Phase 15 | Pending |
+| WEB-03 | Phase 15 | Pending |
+| WEB-04 | Phase 15 | Pending |
+| WEB-05 | Phase 15 | Pending |
+| WEB-06 | Phase 15 | Pending |
+| WEB-07 | Phase 15 | Pending |
+| WEB-08 | Phase 15 | Pending |
+| WEB-09 | Phase 15 | Pending |
+| WEB-10 | Phase 15 | Pending |

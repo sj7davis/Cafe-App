@@ -408,9 +408,28 @@ Plans:
 
 ---
 
+### Phase 15: Shopify-Style Website Builder
+
+**Goal:** Replace the basic block editor with a full Shopify-style drag-and-drop page builder — section library, live preview, template picker, colour scheme editor, and mobile/desktop viewport toggle
+**Depends on:** Phase 7 (existing WebsiteTab + websiteBlocks schema)
+**Requirements:** WEB-01, WEB-02, WEB-03, WEB-04, WEB-05, WEB-06, WEB-07, WEB-08, WEB-09, WEB-10
+**Success Criteria:**
+1. Owner opens Website Builder tab and sees their live page rendered in an iframe/preview panel alongside a left section-stack editor
+2. Owner drags a section card up or down and the preview reorders in real time
+3. Owner clicks a section to open an edit panel with fields for heading, body, image URL, button label
+4. Owner picks "Modern" template and the page layout and colour scheme update to the template defaults
+5. Owner toggles to mobile viewport and the preview shrinks to 390px width showing mobile layout
+6. Owner adds a new "Gallery" section from the section library; it appears at the bottom of the stack
+7. Owner changes the accent colour; VenuePublic reflects the new colour without a deploy
+
+**Plans:** TBD
+**UI hint:** yes
+
+---
+
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
@@ -422,9 +441,10 @@ Plans:
 | 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
 | 8. Stripe Payments & Checkout | v2.1 | 1/4 | In Progress | - |
-| 9. SSE Hardening + Full KDS + Dine-In | v2.2 | 0/? | Not started | - |
+| 9. SSE Hardening + Full KDS + Dine-In | v2.2 | 3/3 | Planned | - |
 | 10. Staff Scheduling + Clock-In/Out | v2.2 | 0/? | Not started | - |
 | 11. Tipping + Upsell Engine | v2.2 | 0/? | Not started | - |
 | 12. Customer Order History | v2.2 | 0/? | Not started | - |
 | 13. PWA + Add to Home Screen | v2.2 | 0/? | Not started | - |
 | 14. Automated Marketing + Square POS | v2.2 | 0/? | Not started | - |
+| 15. Shopify-Style Website Builder | v2.2 | 0/? | Not started | - |
