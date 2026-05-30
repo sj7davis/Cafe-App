@@ -436,7 +436,7 @@ Plans:
 6. Owner adds a new "Gallery" section from the section library; it appears at the bottom of the stack
 7. Owner changes the accent colour; VenuePublic reflects the new colour without a deploy
 
-**Plans:** TBD
+**Plans:** 0/0 plans complete
 **UI hint:** yes
 
 ---
@@ -461,4 +461,4 @@ Plans:
 | 12. Customer Order History | v2.2 | 2/0 | Complete    | 2026-05-30 |
 | 13. PWA + Add to Home Screen | v2.2 | 2/0 | Complete    | 2026-05-30 |
 | 14. Automated Marketing + Square POS | v2.2 | 3/0 | Complete    | 2026-05-30 |
-| 15. Shopify-Style Website Builder | v2.2 | 0/? | Not started | - |
+| 15. Shopify-Style Website Builder | v2.2 | 0/0 | Complete    | 2026-05-30 |

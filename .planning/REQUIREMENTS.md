@@ -304,16 +304,16 @@
 
 ### Shopify-Style Website Builder
 
-- [ ] **WEB-01**: Venue owner can choose from at least 3 pre-built page templates (Classic, Modern, Bold) from the Website Builder tab
-- [ ] **WEB-02**: Editor shows the page as a stack of section blocks — Hero, Menu Preview, About, Gallery, Reviews, CTA, Opening Hours, Contact/Map
-- [ ] **WEB-03**: Owner can drag and drop sections to reorder them on the page
-- [ ] **WEB-04**: Owner can click any section to open a side panel and edit its content (heading, body text, image URL, button label)
-- [ ] **WEB-05**: Owner can show or hide individual sections without deleting them
-- [ ] **WEB-06**: Owner can set a venue colour scheme (primary, accent, background) and font family from the editor; changes apply live in the preview
-- [ ] **WEB-07**: Editor shows a live preview of the page as edits are made, switchable between desktop and mobile viewport widths
-- [ ] **WEB-08**: Owner can add new sections from a section library (all available block types listed)
-- [ ] **WEB-09**: Saved website configuration is reflected on the live VenuePublic customer page in real time after saving
-- [ ] **WEB-10**: Owner can reset to a template default without losing their menu or venue data
+- [x] **WEB-01**: Venue owner can choose from at least 3 pre-built page templates (Classic, Modern, Bold) from the Website Builder tab
+- [x] **WEB-02**: Editor shows the page as a stack of section blocks — Hero, Menu Preview, About, Gallery, Reviews, CTA, Opening Hours, Contact/Map
+- [x] **WEB-03**: Owner can drag and drop sections to reorder them on the page
+- [x] **WEB-04**: Owner can click any section to open a side panel and edit its content (heading, body text, image URL, button label)
+- [x] **WEB-05**: Owner can show or hide individual sections without deleting them
+- [x] **WEB-06**: Owner can set a venue colour scheme (primary, accent, background) and font family from the editor; changes apply live in the preview
+- [x] **WEB-07**: Editor shows a live preview of the page as edits are made, switchable between desktop and mobile viewport widths
+- [x] **WEB-08**: Owner can add new sections from a section library (all available block types listed)
+- [x] **WEB-09**: Saved website configuration is reflected on the live VenuePublic customer page in real time after saving
+- [x] **WEB-10**: Owner can reset to a template default without losing their menu or venue data
 
 ---
 
@@ -420,13 +420,13 @@
 | SQ-01 | Phase 14 | Complete |
 | SQ-02 | Phase 14 | Complete |
 | SQ-03 | Phase 14 | Complete |
-| WEB-01 | Phase 15 | Pending |
-| WEB-02 | Phase 15 | Pending |
-| WEB-03 | Phase 15 | Pending |
-| WEB-04 | Phase 15 | Pending |
-| WEB-05 | Phase 15 | Pending |
-| WEB-06 | Phase 15 | Pending |
-| WEB-07 | Phase 15 | Pending |
-| WEB-08 | Phase 15 | Pending |
-| WEB-09 | Phase 15 | Pending |
-| WEB-10 | Phase 15 | Pending |
+| WEB-01 | Phase 15 | Complete |
+| WEB-02 | Phase 15 | Complete |
+| WEB-03 | Phase 15 | Complete |
+| WEB-04 | Phase 15 | Complete |
+| WEB-05 | Phase 15 | Complete |
+| WEB-06 | Phase 15 | Complete |
+| WEB-07 | Phase 15 | Complete |
+| WEB-08 | Phase 15 | Complete |
+| WEB-09 | Phase 15 | Complete |
+| WEB-10 | Phase 15 | Complete |
