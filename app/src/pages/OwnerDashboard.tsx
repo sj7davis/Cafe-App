@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { useVenueSSE } from '@/hooks/useVenueSSE';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical, Bell } from 'lucide-react';
+import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical, Bell, CalendarDays, Clock } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { ThemeProvider } from '@/components/layout/ThemeContext';
 import type { SidebarNavGroup } from '@/components/layout/SidebarNav';
@@ -143,7 +143,7 @@ export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -194,7 +194,9 @@ export default function OwnerDashboard() {
       { id: 'smsmarketing', label: 'SMS Marketing', icon: MessageSquare },
       { id: 'promo', label: 'Promotions', icon: Tag },
     ]},
-    { group: 'Operations', items: [
+    { group: 'Staff & Operations', items: [
+      { id: 'scheduling', label: 'Scheduling', icon: CalendarDays },
+      { id: 'timesheets', label: 'Timesheets', icon: Clock },
       { id: 'audit', label: 'Audit Log', icon: Shield },
       { id: 'allvenues', label: 'All Venues', icon: Building2 },
       { id: 'franchisee', label: 'Franchisee', icon: Percent },
@@ -352,6 +354,8 @@ export default function OwnerDashboard() {
           {activeTab === 'franchisee' && <FranchiseeTab />}
           {activeTab === 'qrcodes' && venue && <QRCodesTab venue={venue} />}
           {activeTab === 'website' && <WebsiteTab venue={venue} />}
+          {activeTab === 'scheduling' && venue && <SchedulingTab token={token} venueId={venue.id} />}
+          {activeTab === 'timesheets' && venue && <TimesheetTab token={token} />}
         </div>
       </AppShell>
     </ThemeProvider>
@@ -6006,6 +6010,206 @@ function QRCodesTab({ venue }: { venue: any }) {
         ) : (
           <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Scheduling Helpers ───────────────────────────────────────────────────────
+function getMonday(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().slice(0, 10);
+}
+function addWeekDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// ─── SchedulingTab ────────────────────────────────────────────────────────────
+function SchedulingTab({ token, venueId: _venueId }: { token: string; venueId: number }) {
+  const [weekStart, setWeekStart] = useState(getMonday(new Date()));
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({ staffId: '' as number | '', shiftDate: '', startTime: '09:00', endTime: '17:00', role: '', notes: '' });
+  const [requestsView, setRequestsView] = useState<'timeoff' | 'swaps'>('timeoff');
+
+  const staff = trpc.scheduling.listStaff.useQuery({ token }, { enabled: !!token });
+  const shifts = trpc.scheduling.listShifts.useQuery({ token, weekStart }, { enabled: !!token });
+  const timeOffReqs = trpc.shiftManagement.listTimeOffRequests.useQuery({ token, status: 'pending' as const }, { enabled: !!token });
+  const swapReqs = trpc.shiftManagement.listShiftSwapRequests.useQuery({ token, status: 'pending' as const }, { enabled: !!token });
+
+  const addShift = trpc.scheduling.addShift.useMutation({ onSuccess: () => { shifts.refetch(); setShowAddForm(false); setAddForm({ staffId: '', shiftDate: '', startTime: '09:00', endTime: '17:00', role: '', notes: '' }); } });
+  const deleteShift = trpc.scheduling.deleteShift.useMutation({ onSuccess: () => shifts.refetch() });
+  const reviewTimeOff = trpc.shiftManagement.reviewTimeOff.useMutation({ onSuccess: () => timeOffReqs.refetch() });
+  const respondSwap = trpc.shiftManagement.respondShiftSwap.useMutation({ onSuccess: () => swapReqs.refetch() });
+
+  const weekDays = WEEK_DAYS.map((_, i) => addWeekDays(weekStart, i));
+  const weekDisplay = new Date(weekStart + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const shiftsData = (shifts.data ?? []) as any[];
+  const staffData = (staff.data ?? []) as any[];
+  const toReqs = (timeOffReqs.data ?? []) as any[];
+  const swData = (swapReqs.data ?? []) as any[];
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em' }}>Scheduling</h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0' }}>Build rosters, approve staff requests, and manage shift swaps.</p>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <button onClick={() => setWeekStart(addWeekDays(weekStart, -7))} style={{ ...DS.btnSecondary }}>← Prev</button>
+        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)' }}>Week of {weekDisplay}</span>
+        <button onClick={() => setWeekStart(addWeekDays(weekStart, 7))} style={{ ...DS.btnSecondary }}>Next →</button>
+        <button onClick={() => setWeekStart(getMonday(new Date()))} style={{ ...DS.btnSecondary, marginLeft: 'auto' }}>Today</button>
+      </div>
+      <div style={{ ...DS.card, marginBottom: 20, overflowX: 'auto' as const }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={DS.sectionTitle}>Shifts</h2>
+          <button onClick={() => setShowAddForm(v => !v)} style={{ ...DS.btnPrimary }}><Plus size={14} /> Add Shift</button>
+        </div>
+        {shifts.isLoading ? <div style={DS.emptyState}><Loader2 size={18} className="animate-spin" /></div> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 12, minWidth: 700 }}>
+            <thead><tr><th style={{ ...DS.tableHeader, minWidth: 100 }}>Staff</th>{WEEK_DAYS.map((d, i) => <th key={d} style={{ ...DS.tableHeader, minWidth: 80 }}>{d} {new Date(weekDays[i] + 'T00:00:00').getDate()}</th>)}</tr></thead>
+            <tbody>
+              {staffData.length === 0 ? <tr><td colSpan={8} style={DS.emptyState}>No staff members found.</td></tr> : staffData.map((s: any) => (
+                <tr key={s.id}><td style={{ ...DS.tableCell, fontWeight: 600 }}>{s.name}</td>
+                  {weekDays.map(day => {
+                    const dayShifts = shiftsData.filter((sh: any) => sh.staffId === s.id && sh.shiftDate?.slice(0, 10) === day);
+                    return (
+                      <td key={day} style={{ ...DS.tableCell, verticalAlign: 'top' as const }}>
+                        {dayShifts.map((sh: any) => (
+                          <div key={sh.id} style={{ background: 'rgba(94,139,139,0.12)', borderRadius: 6, padding: '3px 6px', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+                            <span>{sh.startTime?.slice(0, 5)}–{sh.endTime?.slice(0, 5)}</span>
+                            <button onClick={() => deleteShift.mutate({ token, shiftId: sh.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--op-text-muted)', padding: 0, lineHeight: 1 }}>×</button>
+                          </div>
+                        ))}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {showAddForm && (
+          <div style={{ marginTop: 16, padding: 16, background: 'var(--op-bg)', borderRadius: 8, border: '1px solid var(--op-card-border)' }}>
+            <h3 style={{ ...DS.sectionTitle, marginBottom: 12 }}>Add Shift</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+              <div><label style={DS.label}>Staff</label>
+                <select value={addForm.staffId} onChange={e => setAddForm(f => ({ ...f, staffId: Number(e.target.value) || '' }))} style={{ ...DS.input }}>
+                  <option value="">Select…</option>
+                  {staffData.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div><label style={DS.label}>Date</label><input type="date" value={addForm.shiftDate} onChange={e => setAddForm(f => ({ ...f, shiftDate: e.target.value }))} style={{ ...DS.input }} /></div>
+              <div><label style={DS.label}>Start</label><input type="time" value={addForm.startTime} onChange={e => setAddForm(f => ({ ...f, startTime: e.target.value }))} style={{ ...DS.input }} /></div>
+              <div><label style={DS.label}>End</label><input type="time" value={addForm.endTime} onChange={e => setAddForm(f => ({ ...f, endTime: e.target.value }))} style={{ ...DS.input }} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={() => addShift.mutate({ token, staffId: addForm.staffId as number, shiftDate: addForm.shiftDate, startTime: addForm.startTime, endTime: addForm.endTime, role: addForm.role || undefined, notes: addForm.notes || undefined })} disabled={!addForm.staffId || !addForm.shiftDate || addShift.isPending} style={{ ...DS.btnPrimary, opacity: (!addForm.staffId || !addForm.shiftDate) ? 0.5 : 1 }}>
+                {addShift.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Add
+              </button>
+              <button onClick={() => setShowAddForm(false)} style={{ ...DS.btnSecondary }}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={DS.card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <h2 style={{ ...DS.sectionTitle, margin: 0 }}>Pending Requests</h2>
+          {(toReqs.length + swData.length) > 0 && <span style={{ background: '#5E8B8B', color: '#fff', borderRadius: 99, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{toReqs.length + swData.length}</span>}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            {(['timeoff', 'swaps'] as const).map(v => (
+              <button key={v} onClick={() => setRequestsView(v)} style={{ ...DS.btnSecondary, background: requestsView === v ? 'var(--op-accent)' : undefined, color: requestsView === v ? '#fff' : undefined, fontSize: 12 }}>
+                {v === 'timeoff' ? `Time-Off (${toReqs.length})` : `Swaps (${swData.length})`}
+              </button>
+            ))}
+          </div>
+        </div>
+        {requestsView === 'timeoff' && (toReqs.length === 0 ? <p style={DS.emptyState}>No pending time-off requests.</p> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}>
+            <thead><tr>{['Staff','Period','Type','Reason',''].map(h => <th key={h} style={DS.tableHeader}>{h}</th>)}</tr></thead>
+            <tbody>{toReqs.map((r: any) => (<tr key={r.id}><td style={DS.tableCell}>{r.staffName}</td><td style={DS.tableCell}>{r.startDate} – {r.endDate}</td><td style={DS.tableCell}>{r.leaveType}</td><td style={{ ...DS.tableCell, maxWidth: 180 }}>{r.reason || '—'}</td><td style={{ ...DS.tableCell, whiteSpace: 'nowrap' as const }}><button onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, status: 'approved' })} style={{ ...DS.btnPrimary, fontSize: 11, padding: '4px 10px', marginRight: 4 }}>Approve</button><button onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, status: 'denied' })} style={{ ...DS.btnDanger, fontSize: 11, padding: '4px 10px' }}>Deny</button></td></tr>))}</tbody>
+          </table>
+        ))}
+        {requestsView === 'swaps' && (swData.length === 0 ? <p style={DS.emptyState}>No pending swap requests.</p> : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}>
+            <thead><tr>{['Requesting','Shift','Target','Reason',''].map(h => <th key={h} style={DS.tableHeader}>{h}</th>)}</tr></thead>
+            <tbody>{swData.map((r: any) => (<tr key={r.id}><td style={DS.tableCell}>{r.requestingStaffName ?? r.requestingStaffId}</td><td style={DS.tableCell}>#{r.fromShiftId}</td><td style={DS.tableCell}>{r.targetStaffName ?? r.targetStaffId ?? '—'}</td><td style={DS.tableCell}>{r.reason || '—'}</td><td style={{ ...DS.tableCell, whiteSpace: 'nowrap' as const }}><button onClick={() => respondSwap.mutate({ token, requestId: r.id, status: 'approved' })} style={{ ...DS.btnPrimary, fontSize: 11, padding: '4px 10px', marginRight: 4 }}>Approve</button><button onClick={() => respondSwap.mutate({ token, requestId: r.id, status: 'denied' })} style={{ ...DS.btnDanger, fontSize: 11, padding: '4px 10px' }}>Deny</button></td></tr>))}</tbody>
+          </table>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── TimesheetTab ──────────────────────────────────────────────────────────────
+function TimesheetTab({ token }: { token: string }) {
+  const [days, setDays] = useState<7 | 14 | 28>(14);
+  const summary = trpc.clock.getHoursSummary.useQuery({ token, days }, { enabled: !!token });
+  const summaryData = (summary.data ?? []) as any[];
+
+  const handleExport = () => {
+    const rows = [['Staff Name', 'Total Hours', 'Shifts', 'Penalty Flags']];
+    for (const s of summaryData) {
+      const hours = s.totalHours ?? (s.totalMinutes != null ? (s.totalMinutes / 60).toFixed(1) : '0.0');
+      rows.push([s.name ?? '', String(hours), String(s.shifts ?? 0), (s.penaltyFlags ?? []).join('; ')]);
+    }
+    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `timesheet-${days}d.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em' }}>Timesheets</h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0' }}>Staff hours summary with AEST penalty rate flags. Export to CSV for Xero.</p>
+      </div>
+      <div style={DS.card}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap' as const, gap: 10 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([7, 14, 28] as const).map(d => (
+              <button key={d} onClick={() => setDays(d)} style={{ ...DS.btnSecondary, background: days === d ? 'var(--op-accent)' : undefined, color: days === d ? '#fff' : undefined, fontSize: 12 }}>{d} days</button>
+            ))}
+          </div>
+          <button onClick={handleExport} disabled={summaryData.length === 0} style={{ ...DS.btnSecondary, display: 'inline-flex', alignItems: 'center', gap: 6, opacity: summaryData.length === 0 ? 0.5 : 1 }}>
+            <Download size={13} /> Export CSV
+          </button>
+        </div>
+        {summary.isLoading
+          ? <div style={{ ...DS.emptyState, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Loader2 size={22} className="animate-spin" /></div>
+          : summaryData.length === 0
+            ? <p style={DS.emptyState}>No clock events in the selected period.</p>
+            : (
+              <div style={{ overflowX: 'auto' as const }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 }}>
+                  <thead><tr>{['Staff','Shifts','Total Hours','Penalty Flags'].map(h => <th key={h} style={DS.tableHeader}>{h}</th>)}</tr></thead>
+                  <tbody>{summaryData.map((s: any, i: number) => {
+                    const hours = s.totalHours ?? (s.totalMinutes != null ? (s.totalMinutes / 60).toFixed(1) : '0.0');
+                    const flags: string[] = s.penaltyFlags ?? [];
+                    return (
+                      <tr key={s.staffId ?? i} style={{ borderBottom: '1px solid var(--op-card-border)' }}>
+                        <td style={{ ...DS.tableCell, fontWeight: 600 }}>{s.name}</td>
+                        <td style={DS.tableCell}>{s.shifts ?? 0}</td>
+                        <td style={{ ...DS.tableCell, fontFamily: 'monospace', fontWeight: 700 }}>{hours} h</td>
+                        <td style={DS.tableCell}>{flags.length === 0 ? <span style={{ color: 'var(--op-text-muted)' }}>—</span> : flags.map((f: string, fi: number) => <span key={fi} style={{ background: '#FEF3C7', color: '#92400E', borderRadius: 99, padding: '1px 8px', fontSize: 11, fontWeight: 600, marginRight: 4 }}>{f}</span>)}</td>
+                      </tr>
+                    );
+                  })}</tbody>
+                </table>
+              </div>
+            )}
+        <div style={{ marginTop: 16, padding: '10px 14px', background: 'var(--op-bg)', borderRadius: 8, fontSize: 12, color: 'var(--op-text-muted)', lineHeight: 1.5 }}>
+          Penalty rates flagged based on AEST clock-in time: Sat 125%, Sun 200%, late night/early morning (21:00–06:00) 125%. Export CSV to Xero for payroll calculation.
+        </div>
       </div>
     </div>
   );
