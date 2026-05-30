@@ -5431,6 +5431,11 @@ function ProfileTab({ token, staff }: { token: string; staff: { id: number; name
   const [twoFaMsg, setTwoFaMsg] = useState('');
   const [twoFaError, setTwoFaError] = useState('');
 
+  // Clock PIN
+  const [pinValue, setPinValue] = useState('');
+  const [pinMsg, setPinMsg] = useState('');
+  const [pinError, setPinError] = useState('');
+
   const updateProfile = trpc.staffAuth.updateMyProfile.useMutation({
     onSuccess: () => {
       setProfileMsg('Profile updated!');
@@ -5466,6 +5471,25 @@ function ProfileTab({ token, staff }: { token: string; staff: { id: number; name
       utils.staffAuth.me.invalidate();
     },
     onError: (e: any) => { setTwoFaError(e.message); },
+  });
+
+  const setPin = trpc.staffAuth.setClockPin.useMutation({
+    onSuccess: () => {
+      setPinMsg('PIN set!');
+      setPinError('');
+      setPinValue('');
+      setTimeout(() => setPinMsg(''), 3000);
+    },
+    onError: (e: any) => { setPinError(e.message); },
+  });
+
+  const clearPin = trpc.staffAuth.clearClockPin.useMutation({
+    onSuccess: () => {
+      setPinMsg('PIN cleared.');
+      setPinError('');
+      setTimeout(() => setPinMsg(''), 3000);
+    },
+    onError: (e: any) => { setPinError(e.message); },
   });
 
   const cardStyle: React.CSSProperties = {
@@ -5711,6 +5735,52 @@ function ProfileTab({ token, staff }: { token: string; staff: { id: number; name
             {twoFaError || twoFaMsg}
           </div>
         )}
+      </div>
+
+      {/* ── Clock-In PIN ── */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <KeyRound size={18} color="#5E8B8B" /> Clock-In PIN
+        </h3>
+        <div style={{ marginBottom: '12px' }}>
+          <label style={labelSt}>PIN (4–8 digits)</label>
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={8}
+            pattern="\d{4,8}"
+            placeholder="Enter 4–8 digit PIN"
+            value={pinValue}
+            onChange={e => { setPinError(''); setPinValue(e.target.value.replace(/\D/g, '')); }}
+            style={inputStyle}
+            onFocus={e => { e.currentTarget.style.borderColor = '#a8a29e'; }}
+            onBlur={e => { e.currentTarget.style.borderColor = '#e7e5e4'; }}
+          />
+        </div>
+        <button
+          style={{ ...saveBtnSt, opacity: (pinValue.length < 4 || setPin.isPending) ? 0.6 : 1, cursor: (pinValue.length < 4 || setPin.isPending) ? 'not-allowed' : 'pointer' }}
+          disabled={pinValue.length < 4 || setPin.isPending}
+          onClick={() => setPin.mutate({ token, pin: pinValue })}
+        >
+          {setPin.isPending ? 'Saving…' : 'Set PIN'}
+        </button>
+        <div style={{ marginTop: '8px' }}>
+          <button
+            style={{ background: 'none', border: 'none', color: '#78716c', fontSize: '12px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+            onClick={() => clearPin.mutate({ token })}
+            disabled={clearPin.isPending}
+          >
+            {clearPin.isPending ? 'Clearing…' : 'Clear PIN'}
+          </button>
+        </div>
+        {(pinMsg || pinError) && (
+          <div style={{ marginTop: '8px', fontSize: '13px', color: pinError ? '#dc2626' : '#16a34a' }}>
+            {pinError || pinMsg}
+          </div>
+        )}
+        <div style={{ marginTop: '10px', fontSize: '12px', color: '#a8a29e' }}>
+          Staff enter this PIN on the shared clock-in tablet to clock in or out.
+        </div>
       </div>
     </div>
   );
