@@ -165,18 +165,18 @@
 
 ### Automated Marketing Triggers
 
-- [ ] **AUTO-01**: System sends a re-engagement email/SMS to customers who have not ordered in 30 days
-- [ ] **AUTO-02**: System sends a birthday greeting email/SMS to customers on their birthday
-- [ ] **AUTO-03**: System sends a pass-expiry nudge to customers with 1 credit remaining on their pass
-- [ ] **AUTO-04**: Venue owner can enable or disable each automated trigger per venue from the dashboard
+- [x] **AUTO-01**: System sends a re-engagement email/SMS to customers who have not ordered in 30 days
+- [x] **AUTO-02**: System sends a birthday greeting email/SMS to customers on their birthday
+- [x] **AUTO-03**: System sends a pass-expiry nudge to customers with 1 credit remaining on their pass
+- [x] **AUTO-04**: Venue owner can enable or disable each automated trigger per venue from the dashboard
 
 ---
 
 ### Square POS Integration
 
-- [ ] **SQ-01**: Venue owner can connect their Square account via OAuth from the Integrations tab
-- [ ] **SQ-02**: Owner can trigger a menu sync that imports items from the Square catalog into B1
-- [ ] **SQ-03**: Square OAuth token is stored securely and auto-refreshed before expiry
+- [x] **SQ-01**: Venue owner can connect their Square account via OAuth from the Integrations tab
+- [x] **SQ-02**: Owner can trigger a menu sync that imports items from the Square catalog into B1
+- [x] **SQ-03**: Square OAuth token is stored securely and auto-refreshed before expiry
 
 ---
 
@@ -276,18 +276,18 @@
 
 ### Automated Marketing Triggers
 
-- [ ] **AUTO-01**: System sends a re-engagement email/SMS to customers who have not ordered in 30 days
-- [ ] **AUTO-02**: System sends a birthday greeting email/SMS to customers on their birthday
-- [ ] **AUTO-03**: System sends a pass-expiry nudge to customers with 1 credit remaining on their pass
-- [ ] **AUTO-04**: Venue owner can enable or disable each automated trigger per venue from the dashboard
+- [x] **AUTO-01**: System sends a re-engagement email/SMS to customers who have not ordered in 30 days
+- [x] **AUTO-02**: System sends a birthday greeting email/SMS to customers on their birthday
+- [x] **AUTO-03**: System sends a pass-expiry nudge to customers with 1 credit remaining on their pass
+- [x] **AUTO-04**: Venue owner can enable or disable each automated trigger per venue from the dashboard
 
 ---
 
 ### Square POS Integration
 
-- [ ] **SQ-01**: Venue owner can connect their Square account via OAuth from the Integrations tab
-- [ ] **SQ-02**: Owner can trigger a menu sync that imports items from the Square catalog into B1
-- [ ] **SQ-03**: Square OAuth token is stored securely and auto-refreshed before expiry
+- [x] **SQ-01**: Venue owner can connect their Square account via OAuth from the Integrations tab
+- [x] **SQ-02**: Owner can trigger a menu sync that imports items from the Square catalog into B1
+- [x] **SQ-03**: Square OAuth token is stored securely and auto-refreshed before expiry
 
 ---
 
@@ -413,13 +413,13 @@
 | PWA-02 | Phase 13 | Complete |
 | PWA-03 | Phase 13 | Complete |
 | PWA-04 | Phase 13 | Complete |
-| AUTO-01 | Phase 14 | Pending |
-| AUTO-02 | Phase 14 | Pending |
-| AUTO-03 | Phase 14 | Pending |
-| AUTO-04 | Phase 14 | Pending |
-| SQ-01 | Phase 14 | Pending |
-| SQ-02 | Phase 14 | Pending |
-| SQ-03 | Phase 14 | Pending |
+| AUTO-01 | Phase 14 | Complete |
+| AUTO-02 | Phase 14 | Complete |
+| AUTO-03 | Phase 14 | Complete |
+| AUTO-04 | Phase 14 | Complete |
+| SQ-01 | Phase 14 | Complete |
+| SQ-02 | Phase 14 | Complete |
+| SQ-03 | Phase 14 | Complete |
 | WEB-01 | Phase 15 | Pending |
 | WEB-02 | Phase 15 | Pending |
 | WEB-03 | Phase 15 | Pending |

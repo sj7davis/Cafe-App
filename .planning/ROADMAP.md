@@ -288,7 +288,7 @@ Plans:
 - [ ] **Phase 11: Tipping + Upsell Engine** - ACCC-compliant tip selector and co-purchase upsell panel, both completing before Stripe session creation
 - [x] **Phase 12: Customer Order History** - Phone-based order history with E.164 normalisation migration and one-tap reorder (completed 2026-05-30)
 - [x] **Phase 13: PWA + Add to Home Screen** - vite-plugin-pwa manifest, service worker with offline menu cache, and deferred install prompt (completed 2026-05-30)
-- [ ] **Phase 14: Automated Marketing + Square POS** - Scheduled re-engagement/birthday/pass-expiry triggers and Square OAuth catalog sync
+- [x] **Phase 14: Automated Marketing + Square POS** - Scheduled re-engagement/birthday/pass-expiry triggers and Square OAuth catalog sync (completed 2026-05-30)
 
 ### v2.2 Phase Details
 
@@ -460,5 +460,5 @@ Plans:
 | 11. Tipping + Upsell Engine | v2.2 | 2/0 | Complete    | 2026-05-30 |
 | 12. Customer Order History | v2.2 | 2/0 | Complete    | 2026-05-30 |
 | 13. PWA + Add to Home Screen | v2.2 | 2/0 | Complete    | 2026-05-30 |
-| 14. Automated Marketing + Square POS | v2.2 | 0/? | Not started | - |
+| 14. Automated Marketing + Square POS | v2.2 | 3/0 | Complete    | 2026-05-30 |
 | 15. Shopify-Style Website Builder | v2.2 | 0/? | Not started | - |
