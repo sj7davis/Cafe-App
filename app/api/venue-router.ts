@@ -8,7 +8,7 @@ import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
 import { env } from "./lib/env";
-import { sendEmail } from "./lib/email";
+import { sendEmail, sendOrderConfirmation, sendNewOrderAlert, sendOrderReady, sendReviewRequest } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import { broadcastToVenue } from "./lib/sse-store";
 
@@ -441,12 +441,11 @@ export const venueRouter = createRouter({
         .limit(1);
       const ro = readyOrder[0];
       if (ro?.customerEmail) {
-        sendEmail({
+        void sendOrderReady({
           to: ro.customerEmail,
-          subject: "Your order is ready! ☕",
-          html: `<p>Hi ${ro.customerName},</p>
-<p>Great news — your order <strong>${ro.orderNumber}</strong> is <strong>ready for pickup</strong>!</p>
-<p>Head to the counter and we'll have it waiting for you.</p>`,
+          customerName: ro.customerName ?? 'there',
+          orderNumber: ro.orderNumber,
+          venueName: '', // venue name resolved below if needed
         });
       }
       if (ro?.customerPhone) {
@@ -525,13 +524,12 @@ export const venueRouter = createRouter({
         .limit(1);
       const co = completedOrder[0];
       if (co?.customerEmail) {
-        sendEmail({
+        void sendReviewRequest({
           to: co.customerEmail,
-          subject: "How was your order?",
-          html: `<p>Hi ${co.customerName},</p>
-<p>Thanks for your order <strong>${co.orderNumber}</strong>!</p>
-<p>We'd love your feedback. Leave a review:</p>
-<p><a href="${env.appUrl}/review/${co.id}">${env.appUrl}/review/${co.id}</a></p>`,
+          customerName: co.customerName ?? 'there',
+          venueName: '',
+          orderNumber: co.orderNumber,
+          reviewUrl: `${env.appUrl}/review/${co.id}`,
         });
       }
     }
@@ -704,31 +702,33 @@ export const venueRouter = createRouter({
       .map(i => `<li>${i.quantity}x ${i.itemName} — $${(i.unitPrice * i.quantity).toFixed(2)}</li>`)
       .join("");
 
-    // EMAIL-01: customer confirmation
+    // EMAIL-01: customer confirmation — branded template with idempotency
     if (input.customerEmail) {
-      sendEmail({
+      void sendOrderConfirmation({
         to: input.customerEmail,
-        subject: `Order confirmed — ${orderNumber}`,
-        html: `<p>Hi ${input.customerName},</p>
-<p>Your order <strong>${orderNumber}</strong> has been received!</p>
-<ul>${itemLines}</ul>
-<p><strong>Pickup time:</strong> ${input.pickupTime}</p>
-<p><strong>Total:</strong> $${finalTotal.toFixed(2)}</p>
-<p>Track your order: <a href="${env.appUrl}/order/${orderNumber}">${env.appUrl}/order/${orderNumber}</a></p>`,
+        customerName: input.customerName,
+        orderNumber,
+        venueName: '', // venue name not in scope here; resolved via venueId if needed
+        pickupTime: input.pickupTime,
+        items: itemDetails.map(i => ({ name: i.itemName, quantity: i.quantity, unitPrice: i.unitPrice.toFixed(2) })),
+        totalAmount: finalTotal.toFixed(2),
+        orderStatusUrl: `${env.appUrl}/order/${orderNumber}`,
       });
     }
 
-    // EMAIL-02: owner alert
+    // EMAIL-02: owner alert — branded template with idempotency
     if (ownerEmail) {
-      sendEmail({
+      void sendNewOrderAlert({
         to: ownerEmail,
-        subject: `New order — ${orderNumber}`,
-        html: `<p>A new order has been placed.</p>
-<p><strong>Order:</strong> ${orderNumber}</p>
-<p><strong>Customer:</strong> ${input.customerName} (${input.customerPhone})</p>
-<ul>${itemLines}</ul>
-<p><strong>Pickup time:</strong> ${input.pickupTime}</p>
-<p><strong>Total:</strong> $${finalTotal.toFixed(2)}</p>`,
+        ownerName: '',
+        venueName: '',
+        orderNumber,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        pickupTime: input.pickupTime,
+        items: itemDetails.map(i => ({ name: i.itemName, quantity: i.quantity })),
+        totalAmount: finalTotal.toFixed(2),
+        dashboardUrl: `${env.appUrl}/dashboard`,
       });
     }
 
