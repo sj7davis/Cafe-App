@@ -29,8 +29,15 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallback: null, // don't intercept navigation — multi-page app
+        navigateFallback: null,
+        // Only precache small static assets — not the large JS bundle.
+        // JS changes on every deploy so network-first is better for it.
+        globPatterns: ["**/*.{css,html,png,ico,svg,webmanifest}"],
+        // Raise the per-file limit so a future CSS/icon approaching 3 MB
+        // doesn't break the build without a clear error message.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         runtimeCaching: [
+          // Never cache API or tRPC — always go to network
           {
             urlPattern: /^\/api\//,
             handler: "NetworkOnly",
@@ -39,6 +46,16 @@ export default defineConfig({
             urlPattern: /^\/trpc\//,
             handler: "NetworkOnly",
           },
+          // JS bundles: network-first with 7-day cache fallback
+          {
+            urlPattern: /\.js$/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "js-bundles",
+              expiration: { maxEntries: 10, maxAgeSeconds: 604800 },
+            },
+          },
+          // Venue pages: stale-while-revalidate for fast perceived load
           {
             urlPattern: /\/v\/[^/]+$/,
             handler: "StaleWhileRevalidate",
