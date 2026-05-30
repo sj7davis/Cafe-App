@@ -189,6 +189,119 @@
 
 ---
 
+## Milestone v2.2 Requirements — Full Operations Suite
+
+### Kitchen Display System (KDS)
+
+- [ ] **KDS-01**: Venue owner can access a full-screen KDS at `/kitchen/:slug` without an owner login (PIN or URL token)
+- [ ] **KDS-02**: KDS displays open orders in swimlane columns (New → Confirmed → Ready), updating in real time via SSE
+- [ ] **KDS-03**: Each KDS order card shows items, table number (dine-in), order age in minutes, and colour-codes red when older than 10 minutes
+- [ ] **KDS-04**: Staff can tap a KDS card to advance the order to the next status in one tap
+- [ ] **KDS-05**: KDS filters out completed orders automatically; completed orders disappear within 30 seconds of completion
+
+---
+
+### Real-Time Orders via SSE
+
+- [ ] **RT-01**: Staff dashboard receives new orders via SSE instead of 20-second polling
+- [ ] **RT-02**: KDS updates in real time via SSE when order status changes
+- [ ] **RT-03**: OwnerDashboard activity feed updates live via SSE
+- [ ] **RT-04**: SSE endpoint is authenticated — only the venue's own orders are streamed to authenticated clients
+
+---
+
+### Table Ordering / Dine-In
+
+- [ ] **DINE-01**: Scanning a table QR code pre-fills the table number in the ordering flow
+- [ ] **DINE-02**: Dine-in orders are tagged with a table number and visible as such in the KDS
+- [ ] **DINE-03**: Venue owner can generate per-table QR codes from the Integrations tab
+
+---
+
+### Staff Scheduling
+
+- [ ] **SCHED-01**: Venue owner can create, edit, and delete shifts for staff members
+- [ ] **SCHED-02**: Staff member can view their upcoming shifts from the staff dashboard
+- [ ] **SCHED-03**: Staff member can set their availability preferences (days/hours they can work)
+- [ ] **SCHED-04**: Staff member can submit a shift swap request targeting another staff member
+- [ ] **SCHED-05**: Venue owner can approve or deny pending swap requests from the dashboard
+- [ ] **SCHED-06**: Staff member can submit a time-off request with a date range and reason
+- [ ] **SCHED-07**: Venue owner can approve or deny time-off requests from the dashboard
+
+---
+
+### Staff Clock-In / Clock-Out
+
+- [ ] **CLOCK-01**: Staff member can clock in using a 4-digit PIN on a shared tablet at `/clock/:slug`
+- [ ] **CLOCK-02**: Clock-in/out timestamps are stored in UTC and displayed in the venue's local timezone (AEST/AEDT)
+- [ ] **CLOCK-03**: System prevents double clock-in — a staff member already clocked in cannot clock in again without clocking out first
+- [ ] **CLOCK-04**: Staff member can record a break (start and end) during their shift from the clock page
+- [ ] **CLOCK-05**: Venue owner can view a timesheet summary (hours per staff member per week) in OwnerDashboard
+- [ ] **CLOCK-06**: Venue owner can export the timesheet to CSV for payroll processing
+
+---
+
+### Tipping
+
+- [ ] **TIP-01**: A tip selector (10% / 15% / 20% / custom / no tip) appears in the cart before the Place Order button
+- [ ] **TIP-02**: All tip options including "No tip" start unselected by default (ACCC drip-pricing compliance)
+- [ ] **TIP-03**: Tip selector is hidden for dine-in orders where table service is implicit
+
+---
+
+### Upsell Engine
+
+- [ ] **UPSELL-01**: VenuePublic shows up to 3 "customers also ordered" suggestions when cart has items, based on co-purchase frequency
+- [ ] **UPSELL-02**: Upsell suggestions never include items already in the cart or marked unavailable
+- [ ] **UPSELL-03**: Upsell panel is shown before the Stripe checkout session is created so accepted items are included in the payment
+
+---
+
+### Customer Order History
+
+- [ ] **HIST-01**: Customer can view their last 10 orders at a venue by entering their phone number on VenuePublic
+- [ ] **HIST-02**: Customer can one-tap reorder from their history, which repopulates the cart with the previous order's items
+- [ ] **HIST-03**: Phone numbers are normalised to a consistent format (e.g. +61XXXXXXXXX) at write time so history lookup works regardless of how the number was entered
+
+---
+
+### PWA / Add to Home Screen
+
+- [ ] **PWA-01**: VenuePublic pages are served as a Progressive Web App with a valid `manifest.json` and service worker
+- [ ] **PWA-02**: Customers are prompted to "Add to Home Screen" after completing their first order (not on first page load)
+- [ ] **PWA-03**: Menu items are cached by the service worker so customers can browse the menu without a network connection
+- [ ] **PWA-04**: All `/api/` and `/trpc/` routes are excluded from the service worker cache (network-only)
+
+---
+
+### Automated Marketing Triggers
+
+- [ ] **AUTO-01**: System sends a re-engagement email/SMS to customers who have not ordered in 30 days
+- [ ] **AUTO-02**: System sends a birthday greeting email/SMS to customers on their birthday
+- [ ] **AUTO-03**: System sends a pass-expiry nudge to customers with 1 credit remaining on their pass
+- [ ] **AUTO-04**: Venue owner can enable or disable each automated trigger per venue from the dashboard
+
+---
+
+### Square POS Integration
+
+- [ ] **SQ-01**: Venue owner can connect their Square account via OAuth from the Integrations tab
+- [ ] **SQ-02**: Owner can trigger a menu sync that imports items from the Square catalog into B1
+- [ ] **SQ-03**: Square OAuth token is stored securely and auto-refreshed before expiry
+
+---
+
+## Out of Scope (v2.2)
+
+- AI-powered upsell (ML co-occurrence) — rule-based is sufficient until v2.3 when enough order data exists
+- Native iOS/Android app — PWA covers the use case
+- Break pay calculation — export CSV to Xero/payroll software instead
+- Web push notifications on iOS — not supported by Safari; deferred
+- KDS audio alerts — requires user gesture on iOS; deferred to v2.3
+- KDS item-level completion (tick off individual items) — cafe complexity, not restaurant complexity
+
+---
+
 ## Traceability
 
 | Requirement | Phase | Status |
@@ -267,3 +380,28 @@
 | SQ-01 | Phase 11 | Pending |
 | SQ-02 | Phase 11 | Pending |
 | SQ-03 | Phase 11 | Pending |
+| KDS-01 | Phase 9 | Pending |
+| KDS-02 | Phase 9 | Pending |
+| KDS-03 | Phase 9 | Pending |
+| KDS-04 | Phase 9 | Pending |
+| KDS-05 | Phase 9 | Pending |
+| RT-04 | Phase 9 | Pending |
+| CLOCK-01 | Phase 10 | Pending |
+| CLOCK-02 | Phase 10 | Pending |
+| CLOCK-03 | Phase 10 | Pending |
+| CLOCK-04 | Phase 10 | Pending |
+| CLOCK-05 | Phase 10 | Pending |
+| CLOCK-06 | Phase 10 | Pending |
+| TIP-01 | Phase 11 | Pending |
+| TIP-02 | Phase 11 | Pending |
+| TIP-03 | Phase 11 | Pending |
+| UPSELL-01 | Phase 11 | Pending |
+| UPSELL-02 | Phase 11 | Pending |
+| UPSELL-03 | Phase 11 | Pending |
+| HIST-01 | Phase 12 | Pending |
+| HIST-02 | Phase 12 | Pending |
+| HIST-03 | Phase 12 | Pending |
+| PWA-01 | Phase 13 | Pending |
+| PWA-02 | Phase 13 | Pending |
+| PWA-03 | Phase 13 | Pending |
+| PWA-04 | Phase 13 | Pending |
