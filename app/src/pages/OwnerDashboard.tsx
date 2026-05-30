@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
+import { useVenueSSE } from '@/hooks/useVenueSSE';
 import { trpc } from '@/providers/trpc';
 import { ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap, Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X, AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download, Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign, PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical, Bell } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
@@ -156,8 +157,17 @@ export default function OwnerDashboard() {
   const [activityOpen, setActivityOpen] = useState(false);
   const { data: activityFeed } = trpc.venue.getActivityFeed.useQuery(
     { token },
-    { enabled: !!token, refetchInterval: 30000 }
+    { enabled: !!token, refetchInterval: false }
   );
+  const feedUtils = trpc.useUtils();
+  useVenueSSE({
+    venueId: venue?.id ?? null,
+    token: token || null,
+    events: ['order_new', 'order_update'],
+    onEvent: () => {
+      feedUtils.venue.getActivityFeed.invalidate();
+    },
+  });
 
   // ── Sidebar nav groups ─────────────────────────────────────────────────────
   const NAV_GROUPS: SidebarNavGroup[] = [
