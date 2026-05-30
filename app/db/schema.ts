@@ -192,6 +192,7 @@ export const staffAccounts = pgTable("staff_accounts", {
   hourlyRate: numeric("hourly_rate", { precision: 8, scale: 2 }),
   emergencyContact: varchar("emergency_contact", { length: 255 }),
   emergencyPhone: varchar("emergency_phone", { length: 32 }),
+  clockPin: varchar("clock_pin", { length: 8 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type StaffAccount = typeof staffAccounts.$inferSelect;
@@ -614,7 +615,7 @@ export const staffClockEvents = pgTable("staff_clock_events", {
   id: serial("id").primaryKey(),
   venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
   staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
-  eventType: varchar("event_type", { length: 8 }).notNull().$type<"in" | "out">(),
+  eventType: varchar("event_type", { length: 16 }).notNull().$type<"in" | "out" | "break_start" | "break_end">(),
   clockedAt: timestamp("clocked_at").defaultNow().notNull(),
   note: text("note"),
 });
