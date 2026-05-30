@@ -357,13 +357,14 @@ app.post("/api/webhooks/menulog", async (c) => {
   }
 });
 
-// Server-Sent Events — real-time order updates for KDS
+// Server-Sent Events — real-time order updates for KDS / StaffDashboard / OwnerDashboard
+// Uses Web Streams API so Hono receives a proper Response<ReadableStream> and never
+// hits "Context is not finalized" / ERR_HTTP_HEADERS_SENT.
 app.get("/api/sse/orders/:venueId", async (c) => {
   const venueId = Number(c.req.param("venueId"));
   if (!venueId) return c.text("Bad venueId", 400);
 
-  // Auth: extract token from Authorization header (Bearer) or ?token= query param.
-  // Native browser EventSource cannot set custom headers, so ?token= is the fallback.
+  // Auth: ?token= query param (native EventSource cannot set custom headers)
   const authHeader = c.req.header("Authorization") || "";
   const token = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7)
@@ -379,27 +380,41 @@ app.get("/api/sse/orders/:venueId", async (c) => {
     return c.text("Unauthorized", 401);
   }
 
-  // Ownership check: token's venueId must match the requested :venueId
   if (jwtVenueId !== venueId) return c.text("Forbidden", 403);
 
-  const res = c.env.outgoing;
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    "Connection": "keep-alive",
-    "X-Accel-Buffering": "no",
+  const enc = new TextEncoder();
+  let ctrl: ReadableStreamDefaultController<Uint8Array>;
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      ctrl = controller;
+      // Send initial connected comment
+      try { ctrl.enqueue(enc.encode(": connected\n\n")); } catch { return; }
+      addSseClient(venueId, ctrl);
+
+      // Heartbeat every 25s keeps Railway's load-balancer from closing idle connections
+      const heartbeat = setInterval(() => {
+        try { ctrl.enqueue(enc.encode(": ping\n\n")); }
+        catch { clearInterval(heartbeat); }
+      }, 25000);
+
+      // Store cleanup fn on the controller so cancel() can access it
+      (ctrl as any)._heartbeat = heartbeat;
+    },
+    cancel() {
+      // Client disconnected — clean up
+      if ((ctrl as any)._heartbeat) clearInterval((ctrl as any)._heartbeat);
+      removeSseClient(venueId, ctrl);
+    },
   });
-  res.write(": connected\n\n");
 
-  addSseClient(venueId, res);
-
-  const heartbeat = setInterval(() => {
-    try { res.write(": ping\n\n"); } catch { clearInterval(heartbeat); }
-  }, 25000);
-
-  res.on("close", () => {
-    clearInterval(heartbeat);
-    removeSseClient(venueId, res);
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
   });
 });
 
