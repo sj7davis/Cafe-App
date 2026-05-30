@@ -1187,11 +1187,14 @@ function WebsiteTab({ venue }: { venue: any }) {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(() => {
+    const saved = (venue as any).websiteBlocks;
+    return !Array.isArray(saved) || saved.length === 0;
+  });
   const [saveMsg, setSaveMsg] = useState('');
   const [dragging, setDragging] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>((savedTheme as any)?.templateId || (savedTheme as any)?.template || null);
 
   // ── Live preview state ────────────────────────────────────────────────────────
   const [previewWidth, setPreviewWidth] = useState<'100%' | '390px'>('100%');
@@ -1210,7 +1213,7 @@ function WebsiteTab({ venue }: { venue: any }) {
 
   const handleSave = () => {
     setSaveMsg('');
-    const theme = { primaryColor: themePrimary, accentColor: themeAccent, bgColor: themeBg, font: themeFont };
+    const theme = { primaryColor: themePrimary, accentColor: themeAccent, bgColor: themeBg, font: themeFont, templateId: activeTemplateId || 'fresh', template: activeTemplateId || 'fresh' };
     const existingSettings = (venue?.settingsJson as any) || {};
     updateMutation.mutate({ token, data: { websiteBlocks: blocks, settingsJson: { ...existingSettings, theme } } as any });
   };
@@ -1259,44 +1262,82 @@ function WebsiteTab({ venue }: { venue: any }) {
   };
   const handleDragEnd = () => { setDragging(null); setDragOver(null); };
 
-  const TEMPLATES: { id: string; name: string; desc: string; color: string; blocks: () => Block[] }[] = [
-    { id: 'minimal', name: 'Minimal', desc: 'Clean & simple', color: '#1c1917',
+  const TEMPLATES: { id: string; name: string; tagline: string; preview: { bg: string; accent: string; headline: string }; palette: { primary: string; accent: string; bg: string }; blocks: () => Block[] }[] = [
+    {
+      id: 'fresh',
+      name: 'Fresh',
+      tagline: 'Clean & minimal',
+      preview: { bg: '#FAFAF8', accent: '#16A34A', headline: '#09090B' },
+      palette: { primary: '#09090B', accent: '#16A34A', bg: '#FAFAF8' },
       blocks: () => [
-        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1400&q=80', title: venue.name, tagline: 'Specialty coffee, served with care.', ctaText: 'Order Now' } },
-        { id: genId(), type: 'booking_cta', data: { title: 'Reserve a Table', subtitle: 'Book online in seconds.', buttonText: 'Book Now' } },
-        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
-      ] },
-    { id: 'story', name: 'Story', desc: 'Narrative flow', color: '#3D2B1F',
+        { id: genId(), type: 'hero' as BlockType, data: { imageUrl: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1200&q=80', title: venue.name, tagline: 'Specialty coffee, served with care', ctaText: 'Order Now' } },
+        { id: genId(), type: 'menu_preview' as BlockType, data: {} },
+        { id: genId(), type: 'about' as BlockType, data: { title: 'Our Story', body: 'We started with one idea: great coffee should be simple, accessible, and a little bit joyful. Every cup we make is a small act of care.' } },
+        { id: genId(), type: 'hours' as BlockType, data: { weekday: venue.hoursWeekday || 'Mon-Fri: 7am-4pm', saturday: venue.hoursSaturday || 'Sat: 8am-3pm', sunday: venue.hoursSunday || 'Sun: 9am-2pm' } },
+        { id: genId(), type: 'reviews' as BlockType, data: {} },
+        { id: genId(), type: 'booking_cta' as BlockType, data: { title: 'Reserve a Table', subtitle: 'Skip the queue - book online in seconds.', buttonText: 'Book Now' } },
+      ],
+    },
+    {
+      id: 'warmth',
+      name: 'Warmth',
+      tagline: 'Cozy & artisan',
+      preview: { bg: '#FDF6EE', accent: '#D97706', headline: '#7C3018' },
+      palette: { primary: '#7C3018', accent: '#D97706', bg: '#FDF6EE' },
       blocks: () => [
-        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1400&q=80', title: venue.name, tagline: 'Handcrafted coffee & fresh baked goods.', ctaText: 'See Our Menu' } },
-        { id: genId(), type: 'about', data: { title: 'Our Story', body: 'We believe great coffee starts with great relationships — with our farmers, our team, and you.' } },
-        { id: genId(), type: 'gallery', data: { images: [] } },
-        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
-        { id: genId(), type: 'booking_cta', data: { title: 'Reserve a Table', subtitle: 'Join us for a meal.', buttonText: 'Book Now' } },
-      ] },
-    { id: 'visual', name: 'Visual', desc: 'Photo-first', color: '#1E3A5F',
+        { id: genId(), type: 'hero' as BlockType, data: { imageUrl: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=1200&q=80', title: venue.name, tagline: 'Handcrafted coffee · Fresh baked daily', ctaText: 'View Our Menu' } },
+        { id: genId(), type: 'about' as BlockType, data: { title: 'Baked with Heart', body: 'Every pastry is baked on-site each morning. We use local produce, heritage grains, and recipes passed down through the team. Come in, slow down, and taste the difference.' } },
+        { id: genId(), type: 'gallery' as BlockType, data: { images: [] } },
+        { id: genId(), type: 'menu_preview' as BlockType, data: {} },
+        { id: genId(), type: 'hours' as BlockType, data: { weekday: venue.hoursWeekday || 'Mon-Fri: 7am-5pm', saturday: venue.hoursSaturday || 'Sat: 8am-4pm', sunday: venue.hoursSunday || 'Sun: 9am-3pm' } },
+        { id: genId(), type: 'social' as BlockType, data: { instagram: (venue as any).instagramUrl || '', facebook: (venue as any).facebookUrl || '' } },
+      ],
+    },
+    {
+      id: 'noir',
+      name: 'Noir',
+      tagline: 'Dark & premium',
+      preview: { bg: '#0D0D0F', accent: '#D4AF37', headline: '#FAFAFA' },
+      palette: { primary: '#FAFAFA', accent: '#D4AF37', bg: '#0D0D0F' },
       blocks: () => [
-        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1400&q=80', title: venue.name, tagline: 'Bold coffee for bold mornings.', ctaText: 'Order Now' } },
-        { id: genId(), type: 'gallery', data: { images: [] } },
-        { id: genId(), type: 'about', data: { title: 'Our Coffee', body: 'Sourced from the best farms, roasted to perfection.' } },
-        { id: genId(), type: 'booking_cta', data: { title: 'Come Visit Us', subtitle: '', buttonText: 'Reserve Now' } },
-      ] },
-    { id: 'community', name: 'Community', desc: 'Local-first', color: '#4A7C59',
+        { id: genId(), type: 'hero' as BlockType, data: { imageUrl: 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=1200&q=80', title: venue.name, tagline: 'An exceptional coffee experience', ctaText: 'Reserve a Table' } },
+        { id: genId(), type: 'cta_banner' as BlockType, data: { title: 'Online Ordering Now Available', subtitle: 'Skip the queue. Order ahead and collect when you arrive.', buttonText: 'Order Now', bgColor: '#D4AF37' } },
+        { id: genId(), type: 'about' as BlockType, data: { title: 'The Art of Coffee', body: "We've spent years refining every detail — from single-origin bean selection to the final pour. This is coffee taken seriously." } },
+        { id: genId(), type: 'menu_preview' as BlockType, data: {} },
+        { id: genId(), type: 'reviews' as BlockType, data: {} },
+        { id: genId(), type: 'hours' as BlockType, data: { weekday: venue.hoursWeekday || 'Mon-Fri: 7am-5pm', saturday: venue.hoursSaturday || 'Sat: 8am-4pm', sunday: venue.hoursSunday || 'Closed' } },
+      ],
+    },
+    {
+      id: 'garden',
+      name: 'Garden',
+      tagline: 'Fresh & sustainable',
+      preview: { bg: '#F0F7F1', accent: '#5E8B8B', headline: '#1A3327' },
+      palette: { primary: '#1A3327', accent: '#5E8B8B', bg: '#F0F7F1' },
       blocks: () => [
-        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1400&q=80', title: venue.name, tagline: 'Fresh food. Good coffee. Happy people.', ctaText: 'Order Now' } },
-        { id: genId(), type: 'about', data: { title: 'Part of the Community', body: 'We source locally, bake daily, and grow with our community.' } },
-        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
-        { id: genId(), type: 'social', data: { instagram: (venue as any).instagramUrl || '', facebook: (venue as any).facebookUrl || '' } },
-        { id: genId(), type: 'booking_cta', data: { title: 'Join Us', subtitle: '', buttonText: 'Book a Table' } },
-      ] },
-    { id: 'prestige', name: 'Prestige', desc: 'Premium experience', color: '#1E2B4A',
+        { id: genId(), type: 'hero' as BlockType, data: { imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1200&q=80', title: venue.name, tagline: 'Fresh food · Good coffee · Sustainable sourcing', ctaText: 'See the Menu' } },
+        { id: genId(), type: 'about' as BlockType, data: { title: 'Grown with Care', body: "We source from local farms within 100km and compost everything we can. Good food is good for the people who eat it and the planet that grows it." } },
+        { id: genId(), type: 'menu_preview' as BlockType, data: {} },
+        { id: genId(), type: 'gallery' as BlockType, data: { images: [] } },
+        { id: genId(), type: 'hours' as BlockType, data: { weekday: venue.hoursWeekday || 'Mon-Fri: 7am-4pm', saturday: venue.hoursSaturday || 'Sat: 8am-3pm', sunday: venue.hoursSunday || 'Sun: 9am-2pm' } },
+        { id: genId(), type: 'cta_banner' as BlockType, data: { title: 'Order Fresh Online', subtitle: 'Pick up your order — no waiting, no waste.', buttonText: 'Order Now', bgColor: '#1A3327' } },
+      ],
+    },
+    {
+      id: 'bold',
+      name: 'Bold',
+      tagline: 'Energetic & urban',
+      preview: { bg: '#FFFFFF', accent: '#FF4D4D', headline: '#2D1B69' },
+      palette: { primary: '#2D1B69', accent: '#FF4D4D', bg: '#FFFFFF' },
       blocks: () => [
-        { id: genId(), type: 'hero', data: { imageUrl: 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=1400&q=80', title: venue.name, tagline: 'An exceptional coffee experience.', ctaText: 'Reserve a Table' } },
-        { id: genId(), type: 'about', data: { title: 'The Art of Coffee', body: "We've spent years refining every detail — from bean selection to your final sip." } },
-        { id: genId(), type: 'gallery', data: { images: [] } },
-        { id: genId(), type: 'hours', data: { weekday: venue.hoursWeekday || '', saturday: venue.hoursSaturday || '', sunday: venue.hoursSunday || '' } },
-        { id: genId(), type: 'booking_cta', data: { title: 'Reserve Your Experience', subtitle: 'Tables fill fast — book ahead.', buttonText: 'Book Now' } },
-      ] },
+        { id: genId(), type: 'hero' as BlockType, data: { imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1200&q=80', title: `${venue.name}.`, tagline: 'Bold coffee for bold mornings', ctaText: 'Order Now' } },
+        { id: genId(), type: 'cta_banner' as BlockType, data: { title: 'Skip the Queue', subtitle: 'Order ahead on your phone. Ready when you are.', buttonText: 'Start Your Order', bgColor: '#FF4D4D' } },
+        { id: genId(), type: 'menu_preview' as BlockType, data: {} },
+        { id: genId(), type: 'about' as BlockType, data: { title: 'No Nonsense Coffee', body: 'We cut the fluff and focus on what matters: excellent espresso, fast service, and a vibe that gets you going. This is your third place.' } },
+        { id: genId(), type: 'reviews' as BlockType, data: {} },
+        { id: genId(), type: 'booking_cta' as BlockType, data: { title: 'Book Your Spot', subtitle: 'Tables go fast. Lock in your time.', buttonText: 'Reserve Now' } },
+      ],
+    },
   ];
 
   const CATALOG: { type: BlockType; label: string; icon: string; desc: string }[] = [
@@ -1481,31 +1522,48 @@ function WebsiteTab({ venue }: { venue: any }) {
               </button>
             </div>
             {showTemplates && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
-                {TEMPLATES.map(t => {
-                  const isActive = activeTemplateId === t.id;
-                  const blockCount = t.blocks().length;
-                  return (
-                    <div key={t.id} style={{ borderRadius: 8, overflow: 'hidden', border: `2px solid ${isActive ? '#5E8B8B' : 'var(--op-card-border)'}`, position: 'relative' }}>
-                      {isActive && <div style={{ position: 'absolute', top: 4, right: 4, background: '#5E8B8B', color: '#fff', fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 3 }}>Active</div>}
-                      {/* Visual thumbnail */}
-                      <div style={{ height: 52, background: t.color, padding: '6px 6px 4px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <div style={{ height: 12, background: 'rgba(255,255,255,0.45)', borderRadius: 2 }} />
-                        <div style={{ height: 5, background: 'rgba(255,255,255,0.25)', borderRadius: 2, width: '70%' }} />
-                        <div style={{ height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 2, width: '55%' }} />
-                        <div style={{ height: 5, background: 'rgba(255,255,255,0.15)', borderRadius: 2, width: '80%' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                {TEMPLATES.map(t => (
+                  <div key={t.id} style={{ borderRadius: 12, overflow: 'hidden', border: `2px solid ${activeTemplateId === t.id ? '#5E8B8B' : 'transparent'}`, cursor: 'pointer', background: 'var(--op-bg)' }}>
+                    {/* Preview swatch */}
+                    <div style={{ height: 80, background: t.preview.bg, padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {/* Hero bar */}
+                      <div style={{ height: 28, borderRadius: 4, background: `linear-gradient(135deg, ${t.preview.headline}44, ${t.preview.accent}55)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: '60%', height: 4, borderRadius: 2, background: '#fff8' }} />
                       </div>
-                      <div style={{ padding: '8px 8px 10px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--op-text)' }}>{t.name}</div>
-                        <div style={{ fontSize: 9, color: 'var(--op-text-muted)', marginBottom: 6 }}>{blockCount} sections</div>
-                        <button onClick={() => { const blks = t.blocks(); setBlocks(blks); setActiveTemplateId(t.id); setShowTemplates(false); setEditingId(null); setSaveMsg('Template applied — click Publish'); }}
-                          style={{ width: '100%', padding: '4px 0', background: '#181818', color: '#fff', border: 'none', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
-                          Apply
-                        </button>
-                      </div>
+                      {/* Section bars */}
+                      {[1, 2].map(i => (
+                        <div key={i} style={{ height: 16, borderRadius: 3, background: t.preview.headline + '18', display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 6 }}>
+                          <div style={{ width: '30%', height: 3, borderRadius: 2, background: t.preview.headline + '66' }} />
+                          <div style={{ width: '20%', height: 3, borderRadius: 2, background: t.preview.accent + '99' }} />
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
+                    {/* Info */}
+                    <div style={{ padding: '10px 12px', background: 'var(--op-card-bg)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--op-text)' }}>{t.name}</span>
+                        {activeTemplateId === t.id && <span style={{ fontSize: 9, fontWeight: 700, background: '#5E8B8B', color: '#fff', borderRadius: 4, padding: '2px 6px' }}>ACTIVE</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--op-text-muted)', marginBottom: 10 }}>{t.tagline}</div>
+                      <button
+                        onClick={() => {
+                          setBlocks(t.blocks());
+                          setThemePrimary(t.palette.primary);
+                          setThemeAccent(t.palette.accent);
+                          setThemeBg(t.palette.bg);
+                          setActiveTemplateId(t.id);
+                          setShowTemplates(false);
+                          setEditingId(null);
+                          setSaveMsg('Template applied — click Publish to go live');
+                        }}
+                        style={{ width: '100%', padding: '7px 0', background: 'var(--op-text)', color: 'var(--op-card-bg)', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Apply Template
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
