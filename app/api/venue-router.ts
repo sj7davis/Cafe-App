@@ -2156,6 +2156,47 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return { minutes: (settings?.waitTimeMinutes as number | undefined) ?? 0 };
   }),
 
+  // ─── Automation Settings (AUTO-04) ───
+  getAutomationSettings: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const settings = (venueRows[0]?.settingsJson as any)?.automation ?? {};
+    return {
+      reEngagement: settings.reEngagement !== false, // default true
+      birthday: settings.birthday !== false,         // default true
+      passExpiry: settings.passExpiry !== false,     // default true
+    };
+  }),
+
+  updateAutomationSettings: publicQuery.input(z.object({
+    token: z.string(),
+    reEngagement: z.boolean(),
+    birthday: z.boolean(),
+    passExpiry: z.boolean(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
+    await db.update(venues).set({
+      settingsJson: {
+        ...existing,
+        automation: {
+          reEngagement: input.reEngagement,
+          birthday: input.birthday,
+          passExpiry: input.passExpiry,
+        },
+      },
+      updatedAt: new Date(),
+    }).where(eq(venues.id, venueId));
+    return { success: true };
+  }),
+
   // ─── Subscription Passes List ───
   listSubscriptionPasses: publicQuery.input(z.object({
     token: z.string(),

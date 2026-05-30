@@ -1990,6 +1990,24 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
     }
   }, []);
 
+  // ── Automation triggers (AUTO-04) ────────────────────────────────────────
+  const { data: automationSettings, refetch: refetchAutomation } = trpc.venue.getAutomationSettings.useQuery(
+    { token }, { enabled: !!token }
+  );
+  const updateAutomation = trpc.venue.updateAutomationSettings.useMutation({
+    onSuccess: () => { refetchAutomation(); showToast('Automation settings saved'); },
+    onError: (e) => showToast(e.message, false),
+  });
+  const automationValues = automationSettings ?? { reEngagement: true, birthday: true, passExpiry: true };
+
+  function handleAutomationToggle(key: 'reEngagement' | 'birthday' | 'passExpiry') {
+    updateAutomation.mutate({
+      token,
+      ...automationValues,
+      [key]: !automationValues[key],
+    });
+  }
+
   // ── QR Code ───────────────────────────────────────────────────────────────
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -2490,6 +2508,55 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
             )}
           </div>
 
+        </div>
+      </div>
+
+      {/* ── Section 5: Automation Triggers (AUTO-04) ───────────────────────── */}
+      <div>
+        <p style={sectionHeadStyle}>Automation Triggers</p>
+        <div style={{ ...cardStyle, maxWidth: 560 }}>
+          <div className="flex items-center gap-3">
+            <div style={{ width: 36, height: 36, background: '#5E8B8B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Bell size={18} style={{ color: '#F3F2EE' }} />
+            </div>
+            <div>
+              <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Automated Marketing</p>
+              <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Daily triggers sent to opted-in customers</p>
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid rgba(24,24,24,0.06)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            {[
+              { key: 'reEngagement' as const, label: 'Re-engagement', desc: 'Email/SMS customers who haven\'t ordered in 30 days' },
+              { key: 'birthday' as const, label: 'Birthday Greeting', desc: 'Birthday message to customers who opted in' },
+              { key: 'passExpiry' as const, label: 'Pass Expiry Nudge', desc: 'SMS when a subscription pass has 1 credit remaining' },
+            ].map(({ key, label, desc }) => (
+              <div key={key} className="flex items-center justify-between" style={{ gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 500, color: 'var(--op-text)', margin: 0 }}>{label}</p>
+                  <p className="font-data" style={{ fontSize: '0.5rem', color: 'var(--op-text-secondary)', margin: 0 }}>{desc}</p>
+                </div>
+                <button
+                  onClick={() => handleAutomationToggle(key)}
+                  disabled={updateAutomation.isPending}
+                  style={{
+                    width: 40, height: 22, borderRadius: 99, border: 'none', cursor: 'pointer',
+                    background: automationValues[key] ? '#5E8B5E' : 'rgba(24,24,24,0.15)',
+                    position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                  }}
+                  aria-label={`Toggle ${label}`}
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, left: automationValues[key] ? 21 : 3,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="font-data" style={{ fontSize: '0.5rem', color: 'var(--op-text-secondary)', marginTop: 4 }}>
+            Triggers only send to customers with marketing opt-in enabled.
+          </p>
         </div>
       </div>
 
