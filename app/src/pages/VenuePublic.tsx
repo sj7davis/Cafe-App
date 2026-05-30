@@ -126,8 +126,16 @@ function isWithinHappyHour(startTime: string, endTime: string): boolean {
 }
 
 // ─── Website block renderer ───────────────────────────────────────────────────
-function renderWebsiteBlocks(blocks: any[], primaryColor: string, slug: string) {
-  return blocks.map((block: any) => {
+function renderWebsiteBlocks(
+  blocks: any[],
+  primaryColor: string,
+  slug: string,
+  allMenuItems: any[],
+  reviewsList: any[],
+  accentColor: string,
+) {
+  // Filter hidden blocks
+  return blocks.filter((b: any) => !b?.hidden).map((block: any) => {
     if (!block?.type) return null;
     switch (block.type) {
       case 'hero':
@@ -209,6 +217,67 @@ function renderWebsiteBlocks(blocks: any[], primaryColor: string, slug: string) 
         return block.data?.style === 'line'
           ? <hr key={block.id || 'hr'} style={{ border: 'none', borderTop: '1px solid rgba(24,24,24,0.08)', margin: 0 }} />
           : <div key={block.id || 'space'} style={{ height: 40 }} />;
+
+      case 'menu_preview': {
+        const topItems = allMenuItems.slice(0, 3);
+        if (!topItems.length) return null;
+        return (
+          <section key={block.id || 'menu_preview'} style={{ background: '#fff', padding: 'clamp(36px,5vw,64px) clamp(20px,6vw,80px)', borderBottom: '1px solid rgba(24,24,24,0.07)' }}>
+            <div style={{ maxWidth: 800, margin: '0 auto' }}>
+              <h2 style={{ fontSize: 'clamp(1.2rem,3vw,1.6rem)', fontWeight: 700, color: primaryColor, margin: '0 0 24px', letterSpacing: '-0.02em', textAlign: 'center' }}>Menu Highlights</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+                {topItems.map((item: any) => (
+                  <div key={item.id} style={{ background: '#F9FAFB', borderRadius: 10, padding: '16px 18px', border: '1px solid rgba(24,24,24,0.06)' }}>
+                    {item.imageUrl && <img src={item.imageUrl} alt={item.name} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 7, marginBottom: 10 }} />}
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 4 }}>{item.name}</div>
+                    {item.description && <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, lineHeight: 1.5 }}>{item.description}</div>}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: accentColor }}>${parseFloat(item.price).toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      case 'reviews': {
+        const goodReviews = (reviewsList || []).filter((r: any) => r.rating >= 3).slice(0, 3);
+        if (!goodReviews.length) return null;
+        return (
+          <section key={block.id || 'reviews'} style={{ background: '#F9FAFB', padding: 'clamp(36px,5vw,64px) clamp(20px,6vw,80px)', borderBottom: '1px solid rgba(24,24,24,0.07)' }}>
+            <div style={{ maxWidth: 860, margin: '0 auto' }}>
+              <h2 style={{ fontSize: 'clamp(1.2rem,3vw,1.6rem)', fontWeight: 700, color: primaryColor, margin: '0 0 24px', letterSpacing: '-0.02em', textAlign: 'center' }}>What Our Customers Say</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+                {goodReviews.map((review: any) => (
+                  <div key={review.id} style={{ background: '#fff', borderRadius: 10, padding: '18px 20px', border: '1px solid rgba(24,24,24,0.06)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <div style={{ display: 'flex', gap: 3, marginBottom: 10 }}>
+                      {Array.from({ length: review.rating }).map((_, i) => (
+                        <span key={i} style={{ color: '#F59E0B', fontSize: 16 }}>★</span>
+                      ))}
+                    </div>
+                    {review.comment && <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.65, margin: '0 0 10px', fontStyle: 'italic' }}>"{review.comment}"</p>}
+                    {review.customerName && <div style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{review.customerName}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      case 'cta_banner': {
+        const bannerBg = block.data?.bgColor || accentColor || '#5E8B8B';
+        return (
+          <section key={block.id || 'cta_banner'} style={{ background: bannerBg, padding: 'clamp(40px,6vw,72px) 20px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            {block.data?.title && <h2 style={{ fontSize: 'clamp(1.4rem,3.5vw,2.2rem)', fontWeight: 800, color: '#fff', margin: '0 0 10px', letterSpacing: '-0.03em' }}>{block.data.title}</h2>}
+            {block.data?.subtitle && <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.88)', margin: '0 0 26px' }}>{block.data.subtitle}</p>}
+            <a href="#venue-menu" style={{ display: 'inline-block', padding: '14px 38px', background: '#fff', color: bannerBg, borderRadius: 8, fontSize: 15, fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.18)' }}>
+              {block.data?.buttonText || 'Order Now'}
+            </a>
+          </section>
+        );
+      }
+
       default:
         return null;
     }
@@ -665,6 +734,20 @@ export default function VenuePublic() {
 
   const primaryColor = venue.primaryColor || '#181818';
   const accentColor = venue.accentColor || '#5E8B8B';
+  const themeFont = (venue?.settingsJson as any)?.theme?.font;
+
+  // Inject Google Font if theme font is set
+  useEffect(() => {
+    if (!themeFont || themeFont === 'Inter') return;
+    const id = `gfont-vp-${themeFont.replace(/\s/g, '-')}`;
+    if (!document.getElementById(id)) {
+      const link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(themeFont)}:wght@400;600;700&display=swap`;
+      document.head.appendChild(link);
+    }
+  }, [themeFont]);
 
   const waitMinutes = (venue.settingsJson as { waitTimeMinutes?: number } | null)?.waitTimeMinutes ?? 0;
   const openStatus = getOpenStatus(venue);
@@ -892,7 +975,7 @@ export default function VenuePublic() {
   const happyHourInfo = happyHourData as { startTime?: string; endTime?: string; discountPercent?: number; label?: string } | undefined;
 
   return (
-    <div style={{ background: '#F8F6F2', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+    <div style={{ background: '#F8F6F2', fontFamily: themeFont ? `'${themeFont}', Inter, -apple-system, sans-serif` : 'Inter, -apple-system, sans-serif' }}>
 
       {/* ── Stripe order confirmation banner ────────────────────────────────── */}
       {stripeOrderParam === 'success' && verifySessionQuery.data?.paid && (
@@ -2145,7 +2228,7 @@ export default function VenuePublic() {
 
       {/* Website blocks (from block editor) OR fallback hero/about/gallery */}
       {Array.isArray((venue as any).websiteBlocks) && (venue as any).websiteBlocks.length > 0 ? (
-        renderWebsiteBlocks((venue as any).websiteBlocks, primaryColor, slug || '')
+        renderWebsiteBlocks((venue as any).websiteBlocks, primaryColor, slug || '', allMenuItems, reviewsList || [], accentColor)
       ) : (
         <>
           {(venue as any).heroImageUrl ? (
