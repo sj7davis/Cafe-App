@@ -235,7 +235,7 @@ Plans:
 
 - [ ] **Phase 8: Stripe Payments & Checkout** - Real payment processing for orders, gift cards, and passes via Stripe Connect; discount codes and loyalty redemption at checkout
 - [x] **Phase 9: Real-Time Orders & Staff Scheduling** - Replace 20s polling with SSE push; staff shift management with swap and time-off request workflows *(absorbed into v2.2)* (completed 2026-05-30)
-- [ ] **Phase 10: Dine-In & Bookings** - Table QR ordering flow with kitchen tagging; owner reservation management dashboard *(absorbed into v2.2)*
+- [x] **Phase 10: Dine-In & Bookings** - Table QR ordering flow with kitchen tagging; owner reservation management dashboard *(absorbed into v2.2)* (completed 2026-05-30)
 - [ ] **Phase 11: Automated Marketing & Square POS** - Event-driven email/SMS triggers for re-engagement, birthdays, and pass expiry; Square catalog menu sync *(absorbed into v2.2)*
 
 ### v2.1 Phase Details
@@ -284,7 +284,7 @@ Plans:
 ### v2.2 Phase Summary
 
 - [x] **Phase 9: SSE Hardening + Full KDS + Dine-In** - Fix SSE auth gap, wire real-time push to all dashboards, route KDS at /kitchen/:slug, and add table QR ordering flow (completed 2026-05-30)
-- [ ] **Phase 10: Staff Scheduling + Clock-In/Out** - Full shift management workflow plus Deputy-style PIN clock-in with Fair Work-compliant timezone handling and timesheet export
+- [x] **Phase 10: Staff Scheduling + Clock-In/Out** - Full shift management workflow plus Deputy-style PIN clock-in with Fair Work-compliant timezone handling and timesheet export (completed 2026-05-30)
 - [ ] **Phase 11: Tipping + Upsell Engine** - ACCC-compliant tip selector and co-purchase upsell panel, both completing before Stripe session creation
 - [ ] **Phase 12: Customer Order History** - Phone-based order history with E.164 normalisation migration and one-tap reorder
 - [ ] **Phase 13: PWA + Add to Home Screen** - vite-plugin-pwa manifest, service worker with offline menu cache, and deferred install prompt
@@ -342,16 +342,16 @@ Plans:
 **Plans**: 4 plansPlans:
 **Wave 1**
 
-- [ ] 10-01-PLAN.md � Backend: fix timezone bug, clockPin schema, break events, setClockPin mutation (CLOCK-01, CLOCK-02, CLOCK-03, CLOCK-04)
+- [x] 10-01-PLAN.md � Backend: fix timezone bug, clockPin schema, break events, setClockPin mutation (CLOCK-01, CLOCK-02, CLOCK-03, CLOCK-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 10-02-PLAN.md � Clock tablet UI at /clock/:slug + PIN setup in StaffDashboard ProfileTab (CLOCK-01, CLOCK-02, CLOCK-03, CLOCK-04)
+- [x] 10-02-PLAN.md � Clock tablet UI at /clock/:slug + PIN setup in StaffDashboard ProfileTab (CLOCK-01, CLOCK-02, CLOCK-03, CLOCK-04)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 10-03-PLAN.md � OwnerDashboard SchedulingTab + TimesheetTab with CSV export (SCHED-01, SCHED-02, SCHED-05, SCHED-07, CLOCK-05, CLOCK-06)
-- [ ] 10-04-PLAN.md � StaffDashboard MyScheduleTab: availability, swap requests, time-off (SCHED-02, SCHED-03, SCHED-04, SCHED-06)
+- [x] 10-03-PLAN.md � OwnerDashboard SchedulingTab + TimesheetTab with CSV export (SCHED-01, SCHED-02, SCHED-05, SCHED-07, CLOCK-05, CLOCK-06)
+- [x] 10-04-PLAN.md � StaffDashboard MyScheduleTab: availability, swap requests, time-off (SCHED-02, SCHED-03, SCHED-04, SCHED-06)
 
 **UI hint**: yes
 
@@ -456,7 +456,7 @@ Plans:
 | 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
 | 8. Stripe Payments & Checkout | v2.1 | 1/4 | In Progress | - |
 | 9. SSE Hardening + Full KDS + Dine-In | v2.2 | 3/3 | Complete    | 2026-05-30 |
-| 10. Staff Scheduling + Clock-In/Out | v2.2 | 0/? | Not started | - |
+| 10. Staff Scheduling + Clock-In/Out | v2.2 | 4/4 | Complete    | 2026-05-30 |
 | 11. Tipping + Upsell Engine | v2.2 | 0/? | Not started | - |
 | 12. Customer Order History | v2.2 | 0/? | Not started | - |
 | 13. PWA + Add to Home Screen | v2.2 | 0/? | Not started | - |

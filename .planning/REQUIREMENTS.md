@@ -129,13 +129,13 @@
 
 ### Staff Scheduling
 
-- [ ] **SCHED-01**: Venue owner can create, edit, and delete shifts for staff members
-- [ ] **SCHED-02**: Staff member can view their upcoming shifts from the staff dashboard
-- [ ] **SCHED-03**: Staff member can set their availability preferences (days/hours they can work)
-- [ ] **SCHED-04**: Staff member can submit a shift swap request targeting another staff member
-- [ ] **SCHED-05**: Venue owner can approve or deny pending swap requests from the dashboard
-- [ ] **SCHED-06**: Staff member can submit a time-off request with a date range and reason
-- [ ] **SCHED-07**: Venue owner can approve or deny time-off requests from the dashboard
+- [x] **SCHED-01**: Venue owner can create, edit, and delete shifts for staff members
+- [x] **SCHED-02**: Staff member can view their upcoming shifts from the staff dashboard
+- [x] **SCHED-03**: Staff member can set their availability preferences (days/hours they can work)
+- [x] **SCHED-04**: Staff member can submit a shift swap request targeting another staff member
+- [x] **SCHED-05**: Venue owner can approve or deny pending swap requests from the dashboard
+- [x] **SCHED-06**: Staff member can submit a time-off request with a date range and reason
+- [x] **SCHED-07**: Venue owner can approve or deny time-off requests from the dashboard
 
 ---
 
@@ -220,24 +220,24 @@
 
 ### Staff Scheduling
 
-- [ ] **SCHED-01**: Venue owner can create, edit, and delete shifts for staff members
-- [ ] **SCHED-02**: Staff member can view their upcoming shifts from the staff dashboard
-- [ ] **SCHED-03**: Staff member can set their availability preferences (days/hours they can work)
-- [ ] **SCHED-04**: Staff member can submit a shift swap request targeting another staff member
-- [ ] **SCHED-05**: Venue owner can approve or deny pending swap requests from the dashboard
-- [ ] **SCHED-06**: Staff member can submit a time-off request with a date range and reason
-- [ ] **SCHED-07**: Venue owner can approve or deny time-off requests from the dashboard
+- [x] **SCHED-01**: Venue owner can create, edit, and delete shifts for staff members
+- [x] **SCHED-02**: Staff member can view their upcoming shifts from the staff dashboard
+- [x] **SCHED-03**: Staff member can set their availability preferences (days/hours they can work)
+- [x] **SCHED-04**: Staff member can submit a shift swap request targeting another staff member
+- [x] **SCHED-05**: Venue owner can approve or deny pending swap requests from the dashboard
+- [x] **SCHED-06**: Staff member can submit a time-off request with a date range and reason
+- [x] **SCHED-07**: Venue owner can approve or deny time-off requests from the dashboard
 
 ---
 
 ### Staff Clock-In / Clock-Out
 
-- [ ] **CLOCK-01**: Staff member can clock in using a 4-digit PIN on a shared tablet at `/clock/:slug`
-- [ ] **CLOCK-02**: Clock-in/out timestamps are stored in UTC and displayed in the venue's local timezone (AEST/AEDT)
-- [ ] **CLOCK-03**: System prevents double clock-in — a staff member already clocked in cannot clock in again without clocking out first
-- [ ] **CLOCK-04**: Staff member can record a break (start and end) during their shift from the clock page
-- [ ] **CLOCK-05**: Venue owner can view a timesheet summary (hours per staff member per week) in OwnerDashboard
-- [ ] **CLOCK-06**: Venue owner can export the timesheet to CSV for payroll processing
+- [x] **CLOCK-01**: Staff member can clock in using a 4-digit PIN on a shared tablet at `/clock/:slug`
+- [x] **CLOCK-02**: Clock-in/out timestamps are stored in UTC and displayed in the venue's local timezone (AEST/AEDT)
+- [x] **CLOCK-03**: System prevents double clock-in — a staff member already clocked in cannot clock in again without clocking out first
+- [x] **CLOCK-04**: Staff member can record a break (start and end) during their shift from the clock page
+- [x] **CLOCK-05**: Venue owner can view a timesheet summary (hours per staff member per week) in OwnerDashboard
+- [x] **CLOCK-06**: Venue owner can export the timesheet to CSV for payroll processing
 
 ---
 
@@ -387,19 +387,19 @@
 | DINE-01 | Phase 9 | Complete |
 | DINE-02 | Phase 9 | Complete |
 | DINE-03 | Phase 9 | Complete |
-| SCHED-01 | Phase 10 | Pending |
-| SCHED-02 | Phase 10 | Pending |
-| SCHED-03 | Phase 10 | Pending |
-| SCHED-04 | Phase 10 | Pending |
-| SCHED-05 | Phase 10 | Pending |
-| SCHED-06 | Phase 10 | Pending |
-| SCHED-07 | Phase 10 | Pending |
-| CLOCK-01 | Phase 10 | Pending |
-| CLOCK-02 | Phase 10 | Pending |
-| CLOCK-03 | Phase 10 | Pending |
-| CLOCK-04 | Phase 10 | Pending |
-| CLOCK-05 | Phase 10 | Pending |
-| CLOCK-06 | Phase 10 | Pending |
+| SCHED-01 | Phase 10 | Complete |
+| SCHED-02 | Phase 10 | Complete |
+| SCHED-03 | Phase 10 | Complete |
+| SCHED-04 | Phase 10 | Complete |
+| SCHED-05 | Phase 10 | Complete |
+| SCHED-06 | Phase 10 | Complete |
+| SCHED-07 | Phase 10 | Complete |
+| CLOCK-01 | Phase 10 | Complete |
+| CLOCK-02 | Phase 10 | Complete |
+| CLOCK-03 | Phase 10 | Complete |
+| CLOCK-04 | Phase 10 | Complete |
+| CLOCK-05 | Phase 10 | Complete |
+| CLOCK-06 | Phase 10 | Complete |
 | TIP-01 | Phase 11 | Pending |
 | TIP-02 | Phase 11 | Pending |
 | TIP-03 | Phase 11 | Pending |
