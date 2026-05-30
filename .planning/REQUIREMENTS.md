@@ -267,10 +267,10 @@
 
 ### PWA / Add to Home Screen
 
-- [ ] **PWA-01**: VenuePublic pages are served as a Progressive Web App with a valid `manifest.json` and service worker
-- [ ] **PWA-02**: Customers are prompted to "Add to Home Screen" after completing their first order (not on first page load)
-- [ ] **PWA-03**: Menu items are cached by the service worker so customers can browse the menu without a network connection
-- [ ] **PWA-04**: All `/api/` and `/trpc/` routes are excluded from the service worker cache (network-only)
+- [x] **PWA-01**: VenuePublic pages are served as a Progressive Web App with a valid `manifest.json` and service worker
+- [x] **PWA-02**: Customers are prompted to "Add to Home Screen" after completing their first order (not on first page load)
+- [x] **PWA-03**: Menu items are cached by the service worker so customers can browse the menu without a network connection
+- [x] **PWA-04**: All `/api/` and `/trpc/` routes are excluded from the service worker cache (network-only)
 
 ---
 
@@ -409,10 +409,10 @@
 | HIST-01 | Phase 12 | Complete |
 | HIST-02 | Phase 12 | Complete |
 | HIST-03 | Phase 12 | Complete |
-| PWA-01 | Phase 13 | Pending |
-| PWA-02 | Phase 13 | Pending |
-| PWA-03 | Phase 13 | Pending |
-| PWA-04 | Phase 13 | Pending |
+| PWA-01 | Phase 13 | Complete |
+| PWA-02 | Phase 13 | Complete |
+| PWA-03 | Phase 13 | Complete |
+| PWA-04 | Phase 13 | Complete |
 | AUTO-01 | Phase 14 | Pending |
 | AUTO-02 | Phase 14 | Pending |
 | AUTO-03 | Phase 14 | Pending |
