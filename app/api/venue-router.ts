@@ -273,6 +273,103 @@ export const venueRouter = createRouter({
     return db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId));
   }),
 
+  // ─── KDS N+1 fix: fetch orders with embedded items in a single LEFT JOIN query ───
+  listOrdersWithItems: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    statuses: z.array(z.string()).optional(),
+    limit: z.number().int().min(1).max(200).default(100),
+    locationId: z.number().int().positive().optional(),
+    token: z.string(),
+  })).query(async ({ input }) => {
+    // Verify staff JWT
+    let jwtPayload: { venueId: unknown };
+    try {
+      const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+      jwtPayload = payload as { venueId: unknown };
+    } catch {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
+    }
+    if ((jwtPayload.venueId as number) !== input.venueId) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Token venueId does not match requested venueId" });
+    }
+
+    const db = getDb();
+    const conditions = [eq(orders.venueId, input.venueId)];
+    if (input.statuses && input.statuses.length > 0) {
+      conditions.push(inArray(orders.status, input.statuses as any[]));
+    }
+    if (input.locationId) {
+      conditions.push(eq(orders.locationId, input.locationId));
+    }
+
+    // Single query: LEFT JOIN orderItems to eliminate N+1
+    const rows = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        pickupTime: orders.pickupTime,
+        orderNote: orders.orderNote,
+        status: orders.status,
+        totalAmount: orders.totalAmount,
+        tableNumber: orders.tableNumber,
+        createdAt: orders.createdAt,
+        itemId: orderItems.id,
+        itemName: orderItems.itemName,
+        quantity: orderItems.quantity,
+        itemNote: orderItems.note,
+      })
+      .from(orders)
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .where(and(...conditions))
+      .orderBy(desc(orders.createdAt))
+      .limit(input.limit * 20); // over-fetch to account for multiple items per order
+
+    // Group rows by order ID in JS
+    type OrderWithItems = {
+      id: number;
+      orderNumber: string;
+      customerName: string;
+      customerPhone: string;
+      pickupTime: string;
+      orderNote: string | null;
+      status: string;
+      totalAmount: string;
+      tableNumber: string | null;
+      createdAt: Date;
+      items: { itemName: string; quantity: number; note: string | null }[];
+    };
+
+    const orderMap = new Map<number, OrderWithItems>();
+    for (const row of rows) {
+      if (!orderMap.has(row.id)) {
+        orderMap.set(row.id, {
+          id: row.id,
+          orderNumber: row.orderNumber,
+          customerName: row.customerName,
+          customerPhone: row.customerPhone,
+          pickupTime: row.pickupTime,
+          orderNote: row.orderNote,
+          status: row.status,
+          totalAmount: row.totalAmount,
+          tableNumber: row.tableNumber,
+          createdAt: row.createdAt,
+          items: [],
+        });
+      }
+      if (row.itemId !== null) {
+        orderMap.get(row.id)!.items.push({
+          itemName: row.itemName ?? "",
+          quantity: row.quantity ?? 0,
+          note: row.itemNote ?? null,
+        });
+      }
+    }
+
+    return Array.from(orderMap.values()).slice(0, input.limit);
+  }),
+
   getOrderByNumber: publicQuery.input(z.object({
     orderNumber: z.string().min(1),
   })).query(async ({ input }) => {
