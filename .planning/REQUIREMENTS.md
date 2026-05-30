@@ -259,9 +259,9 @@
 
 ### Customer Order History
 
-- [ ] **HIST-01**: Customer can view their last 10 orders at a venue by entering their phone number on VenuePublic
-- [ ] **HIST-02**: Customer can one-tap reorder from their history, which repopulates the cart with the previous order's items
-- [ ] **HIST-03**: Phone numbers are normalised to a consistent format (e.g. +61XXXXXXXXX) at write time so history lookup works regardless of how the number was entered
+- [x] **HIST-01**: Customer can view their last 10 orders at a venue by entering their phone number on VenuePublic
+- [x] **HIST-02**: Customer can one-tap reorder from their history, which repopulates the cart with the previous order's items
+- [x] **HIST-03**: Phone numbers are normalised to a consistent format (e.g. +61XXXXXXXXX) at write time so history lookup works regardless of how the number was entered
 
 ---
 
@@ -406,9 +406,9 @@
 | UPSELL-01 | Phase 11 | Complete |
 | UPSELL-02 | Phase 11 | Complete |
 | UPSELL-03 | Phase 11 | Complete |
-| HIST-01 | Phase 12 | Pending |
-| HIST-02 | Phase 12 | Pending |
-| HIST-03 | Phase 12 | Pending |
+| HIST-01 | Phase 12 | Complete |
+| HIST-02 | Phase 12 | Complete |
+| HIST-03 | Phase 12 | Complete |
 | PWA-01 | Phase 13 | Pending |
 | PWA-02 | Phase 13 | Pending |
 | PWA-03 | Phase 13 | Pending |
