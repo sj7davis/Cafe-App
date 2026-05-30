@@ -141,17 +141,17 @@
 
 ### Real-Time Orders (SSE)
 
-- [ ] **RT-01**: Staff dashboard receives new orders via SSE instead of 20-second polling
-- [ ] **RT-02**: Kitchen display updates in real time via SSE when order status changes
-- [ ] **RT-03**: OwnerDashboard activity feed updates live via SSE
+- [x] **RT-01**: Staff dashboard receives new orders via SSE instead of 20-second polling
+- [x] **RT-02**: Kitchen display updates in real time via SSE when order status changes
+- [x] **RT-03**: OwnerDashboard activity feed updates live via SSE
 
 ---
 
 ### Table Ordering / Dine-In
 
-- [ ] **DINE-01**: Scanning a table QR code pre-fills the table number in the ordering flow
-- [ ] **DINE-02**: Dine-in orders are tagged with a table number and visible as such in kitchen display
-- [ ] **DINE-03**: Venue owner can generate per-table QR codes from the Integrations tab
+- [x] **DINE-01**: Scanning a table QR code pre-fills the table number in the ordering flow
+- [x] **DINE-02**: Dine-in orders are tagged with a table number and visible as such in kitchen display
+- [x] **DINE-03**: Venue owner can generate per-table QR codes from the Integrations tab
 
 ---
 
@@ -193,28 +193,28 @@
 
 ### Kitchen Display System (KDS)
 
-- [ ] **KDS-01**: Venue owner can access a full-screen KDS at `/kitchen/:slug` without an owner login (PIN or URL token)
-- [ ] **KDS-02**: KDS displays open orders in swimlane columns (New → Confirmed → Ready), updating in real time via SSE
-- [ ] **KDS-03**: Each KDS order card shows items, table number (dine-in), order age in minutes, and colour-codes red when older than 10 minutes
-- [ ] **KDS-04**: Staff can tap a KDS card to advance the order to the next status in one tap
-- [ ] **KDS-05**: KDS filters out completed orders automatically; completed orders disappear within 30 seconds of completion
+- [x] **KDS-01**: Venue owner can access a full-screen KDS at `/kitchen/:slug` without an owner login (PIN or URL token)
+- [x] **KDS-02**: KDS displays open orders in swimlane columns (New → Confirmed → Ready), updating in real time via SSE
+- [x] **KDS-03**: Each KDS order card shows items, table number (dine-in), order age in minutes, and colour-codes red when older than 10 minutes
+- [x] **KDS-04**: Staff can tap a KDS card to advance the order to the next status in one tap
+- [x] **KDS-05**: KDS filters out completed orders automatically; completed orders disappear within 30 seconds of completion
 
 ---
 
 ### Real-Time Orders via SSE
 
-- [ ] **RT-01**: Staff dashboard receives new orders via SSE instead of 20-second polling
-- [ ] **RT-02**: KDS updates in real time via SSE when order status changes
-- [ ] **RT-03**: OwnerDashboard activity feed updates live via SSE
-- [ ] **RT-04**: SSE endpoint is authenticated — only the venue's own orders are streamed to authenticated clients
+- [x] **RT-01**: Staff dashboard receives new orders via SSE instead of 20-second polling
+- [x] **RT-02**: KDS updates in real time via SSE when order status changes
+- [x] **RT-03**: OwnerDashboard activity feed updates live via SSE
+- [x] **RT-04**: SSE endpoint is authenticated — only the venue's own orders are streamed to authenticated clients
 
 ---
 
 ### Table Ordering / Dine-In
 
-- [ ] **DINE-01**: Scanning a table QR code pre-fills the table number in the ordering flow
-- [ ] **DINE-02**: Dine-in orders are tagged with a table number and visible as such in the KDS
-- [ ] **DINE-03**: Venue owner can generate per-table QR codes from the Integrations tab
+- [x] **DINE-01**: Scanning a table QR code pre-fills the table number in the ordering flow
+- [x] **DINE-02**: Dine-in orders are tagged with a table number and visible as such in the KDS
+- [x] **DINE-03**: Venue owner can generate per-table QR codes from the Integrations tab
 
 ---
 
@@ -375,18 +375,18 @@
 | BOOK-01 | Phase 10 (v2.1) | Pending |
 | BOOK-02 | Phase 10 (v2.1) | Pending |
 | BOOK-03 | Phase 10 (v2.1) | Pending |
-| KDS-01 | Phase 9 | Pending |
-| KDS-02 | Phase 9 | Pending |
-| KDS-03 | Phase 9 | Pending |
-| KDS-04 | Phase 9 | Pending |
-| KDS-05 | Phase 9 | Pending |
-| RT-01 | Phase 9 | Pending |
-| RT-02 | Phase 9 | Pending |
-| RT-03 | Phase 9 | Pending |
-| RT-04 | Phase 9 | Pending |
-| DINE-01 | Phase 9 | Pending |
-| DINE-02 | Phase 9 | Pending |
-| DINE-03 | Phase 9 | Pending |
+| KDS-01 | Phase 9 | Complete |
+| KDS-02 | Phase 9 | Complete |
+| KDS-03 | Phase 9 | Complete |
+| KDS-04 | Phase 9 | Complete |
+| KDS-05 | Phase 9 | Complete |
+| RT-01 | Phase 9 | Complete |
+| RT-02 | Phase 9 | Complete |
+| RT-03 | Phase 9 | Complete |
+| RT-04 | Phase 9 | Complete |
+| DINE-01 | Phase 9 | Complete |
+| DINE-02 | Phase 9 | Complete |
+| DINE-03 | Phase 9 | Complete |
 | SCHED-01 | Phase 10 | Pending |
 | SCHED-02 | Phase 10 | Pending |
 | SCHED-03 | Phase 10 | Pending |

@@ -234,7 +234,7 @@ Plans:
 ### v2.1 Phase Summary
 
 - [ ] **Phase 8: Stripe Payments & Checkout** - Real payment processing for orders, gift cards, and passes via Stripe Connect; discount codes and loyalty redemption at checkout
-- [ ] **Phase 9: Real-Time Orders & Staff Scheduling** - Replace 20s polling with SSE push; staff shift management with swap and time-off request workflows *(absorbed into v2.2)*
+- [x] **Phase 9: Real-Time Orders & Staff Scheduling** - Replace 20s polling with SSE push; staff shift management with swap and time-off request workflows *(absorbed into v2.2)* (completed 2026-05-30)
 - [ ] **Phase 10: Dine-In & Bookings** - Table QR ordering flow with kitchen tagging; owner reservation management dashboard *(absorbed into v2.2)*
 - [ ] **Phase 11: Automated Marketing & Square POS** - Event-driven email/SMS triggers for re-engagement, birthdays, and pass expiry; Square catalog menu sync *(absorbed into v2.2)*
 
@@ -283,7 +283,7 @@ Plans:
 
 ### v2.2 Phase Summary
 
-- [ ] **Phase 9: SSE Hardening + Full KDS + Dine-In** - Fix SSE auth gap, wire real-time push to all dashboards, route KDS at /kitchen/:slug, and add table QR ordering flow
+- [x] **Phase 9: SSE Hardening + Full KDS + Dine-In** - Fix SSE auth gap, wire real-time push to all dashboards, route KDS at /kitchen/:slug, and add table QR ordering flow (completed 2026-05-30)
 - [ ] **Phase 10: Staff Scheduling + Clock-In/Out** - Full shift management workflow plus Deputy-style PIN clock-in with Fair Work-compliant timezone handling and timesheet export
 - [ ] **Phase 11: Tipping + Upsell Engine** - ACCC-compliant tip selector and co-purchase upsell panel, both completing before Stripe session creation
 - [ ] **Phase 12: Customer Order History** - Phone-based order history with E.164 normalisation migration and one-tap reorder
@@ -311,15 +311,15 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 09-01-PLAN.md — Backend: authenticate SSE endpoint + add listOrdersWithItems query (RT-04, KDS-02, KDS-03, KDS-05, DINE-02)
+- [x] 09-01-PLAN.md — Backend: authenticate SSE endpoint + add listOrdersWithItems query (RT-04, KDS-02, KDS-03, KDS-05, DINE-02)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 09-02-PLAN.md — Frontend: useVenueSSE hook, KDS swimlane + table badge + auto-clear, StaffDashboard SSE wiring (RT-01, RT-02, KDS-01, KDS-02, KDS-03, KDS-04, KDS-05, DINE-01, DINE-02)
+- [x] 09-02-PLAN.md — Frontend: useVenueSSE hook, KDS swimlane + table badge + auto-clear, StaffDashboard SSE wiring (RT-01, RT-02, KDS-01, KDS-02, KDS-03, KDS-04, KDS-05, DINE-01, DINE-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 09-03-PLAN.md — OwnerDashboard: activity feed SSE wiring + per-table QR confirmed (RT-03, DINE-03)
+- [x] 09-03-PLAN.md — OwnerDashboard: activity feed SSE wiring + per-table QR confirmed (RT-03, DINE-03)
 
 **UI hint**: yes
 
@@ -441,7 +441,7 @@ Plans:
 | 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
 | 8. Stripe Payments & Checkout | v2.1 | 1/4 | In Progress | - |
-| 9. SSE Hardening + Full KDS + Dine-In | v2.2 | 3/3 | Planned | - |
+| 9. SSE Hardening + Full KDS + Dine-In | v2.2 | 3/3 | Complete    | 2026-05-30 |
 | 10. Staff Scheduling + Clock-In/Out | v2.2 | 0/? | Not started | - |
 | 11. Tipping + Upsell Engine | v2.2 | 0/? | Not started | - |
 | 12. Customer Order History | v2.2 | 0/? | Not started | - |
