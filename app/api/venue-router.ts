@@ -1489,6 +1489,74 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
   }),
 
   // ─── Customer Order History ───
+
+  // getOrderHistory: E.164-normalised lookup with items embedded
+  getOrderHistory: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    phone: z.string().min(8),
+    limit: z.number().int().min(1).max(20).default(10),
+  })).query(async ({ input }) => {
+    function normalisePhone(phone: string): string {
+      const digits = phone.replace(/\D/g, '');
+      if (digits.startsWith('61') && digits.length === 11) return '+' + digits;
+      if (digits.startsWith('0') && digits.length === 10) return '+61' + digits.slice(1);
+      if (digits.length === 9 && !digits.startsWith('0')) return '+61' + digits;
+      return phone;
+    }
+
+    const db = getDb();
+    const normalised = normalisePhone(input.phone);
+    const phones = [...new Set([input.phone, normalised])].filter(Boolean);
+
+    const orderRows = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        createdAt: orders.createdAt,
+        totalAmount: orders.totalAmount,
+        status: orders.status,
+      })
+      .from(orders)
+      .where(and(
+        eq(orders.venueId, input.venueId),
+        inArray(orders.customerPhone, phones),
+        eq(orders.status, 'completed'),
+      ))
+      .orderBy(desc(orders.createdAt))
+      .limit(input.limit);
+
+    if (orderRows.length === 0) return [];
+
+    // Fetch items for all orders in a single query
+    const orderIds = orderRows.map(o => o.id);
+    const allItems = await db
+      .select({
+        orderId: orderItems.orderId,
+        itemName: orderItems.itemName,
+        quantity: orderItems.quantity,
+        menuItemId: orderItems.menuItemId,
+      })
+      .from(orderItems)
+      .where(inArray(orderItems.orderId, orderIds));
+
+    // Group items by orderId
+    const itemsByOrder = new Map<number, { itemName: string; quantity: number; menuItemId: number }[]>();
+    for (const item of allItems) {
+      const list = itemsByOrder.get(item.orderId) ?? [];
+      list.push({ itemName: item.itemName, quantity: item.quantity, menuItemId: item.menuItemId });
+      itemsByOrder.set(item.orderId, list);
+    }
+
+    return orderRows.map(o => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      createdAt: o.createdAt,
+      totalAmount: o.totalAmount,
+      status: o.status,
+      items: itemsByOrder.get(o.id) ?? [],
+    }));
+  }),
+
   getOrdersByPhone: publicQuery.input(z.object({
     venueId: z.number().int().positive(),
     phone: z.string().min(1),
