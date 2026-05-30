@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Revenue & Operations
-status: executing
-last_updated: "2026-05-28T23:50:22.422Z"
-last_activity: 2026-05-28 -- Phase 08 execution started
+milestone: v2.2
+milestone_name: Full Operations Suite
+status: planning
+last_updated: "2026-05-30T00:00:00.000Z"
+last_activity: 2026-05-30
 progress:
-  total_phases: 4
+  total_phases: 6
   completed_phases: 0
-  total_plans: 4
+  total_plans: 0
   completed_plans: 0
   percent: 0
 ---
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-23)
 
 **Core value:** Every cafe gets a branded online ordering site, real-time Square POS sync, staff management, and loyalty programs — all from one deployable app.
-**Current focus:** Phase 08 — Stripe Payments & Checkout
+**Current focus:** Phase 08 — Stripe Payments & Checkout (v2.1, in progress); Phase 09 planned next
 
 ## Current Position
 
-Phase: 08 (Stripe Payments & Checkout) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 08
-Last activity: 2026-05-28 -- Phase 08 execution started
+Phase: Phase 8 in progress (v2.1); v2.2 phases 9-14 roadmapped and awaiting planning
+Plan: 08-02-PLAN.md (next)
+Status: Roadmap defined — ready for /gsd-plan-phase 9 after Phase 8 completes
+Last activity: 2026-05-30 — v2.2 roadmap created (Phases 9-14)
 
 ## Performance Metrics
 
@@ -124,14 +124,22 @@ Recent decisions affecting current work:
 - [Phase 06-marketing-notifications]: resendApiKey uses || empty string not required() — server never crashes without the key; sendEmail catches errors without rethrowing — order mutations unaffected by email failures
 - [Phase 06-marketing-notifications]: IntegrationsTab accepts venue as { slug, name } | null prop; QRCode.toDataURL called in useEffect with [venue?.slug] dependency; programmatic anchor click for data URL download
 - [Phase 06-marketing-notifications]: checkoutEmail || undefined coercion in createOrder.mutate — empty string not sent to server z.string().email() validator
+- [v2.2 roadmap]: SSE endpoint unauthenticated — must be fixed in Phase 9 before wiring new consumers (security blocker confirmed by research)
+- [v2.2 roadmap]: KDS N+1 query confirmed — fix in Phase 9 alongside KDS route addition
+- [v2.2 roadmap]: Clock-in timezone uses server UTC not venue timezone — Fair Work Act blocker; fix in Phase 10
+- [v2.2 roadmap]: Phone normalisation required before order history — E.164 migration scoped to Phase 12
+- [v2.2 roadmap]: Only new npm package for entire v2.2 milestone is vite-plugin-pwa ^0.21.0 (verify Vite 6.3 compat before install)
+- [v2.2 roadmap]: No new DB tables needed; only migration is ALTER TABLE staff_accounts ADD COLUMN clock_pin VARCHAR(8)
 
 ### Pending Todos
 
-None yet.
+- Verify vite-plugin-pwa ^0.21.0 compatibility with Vite 6.3.5 before Phase 13 install
+- Test E.164 phone normalisation function against production customerPhone values before running Phase 12 backfill migration
+- Confirm clock-in PIN storage approach (plain 4-digit vs bcrypt) before Phase 10 ships
 
 ### Blockers/Concerns
 
-None yet.
+None — Phase 8 (Stripe) in progress; v2.2 phases unblocked and ready to plan once Phase 8 completes.
 
 ## Session Continuity
 

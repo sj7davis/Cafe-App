@@ -30,20 +30,26 @@ All 6 phases shipped. v2.0 (Dual Identity UI/UX Overhaul) also complete 2026-05-
 
 ---
 
-## Current Milestone: v2.1 — Revenue & Operations
+## Previous Milestone: v2.1 — Revenue & Operations (Phase 8 complete; Phases 9-11 absorbed into v2.2)
 
-**Goal:** Close the revenue loop with real payments and complete the operations suite — scheduling, live orders, loyalty redemption, dine-in, and automated engagement.
+---
+
+## Current Milestone: v2.2 — Full Operations Suite
+
+**Goal:** Deliver the complete real-time operations layer — KDS, SSE live orders, dine-in QR, tipping, smart upsells, Deputy-style staff clock-in/out, PWA, and customer order history — plus absorb v2.1 Phases 9-11 (scheduling, bookings, automated marketing, Square).
 
 **Target features:**
-- Stripe payments — pre-paid online orders, gift card purchases, subscription pass payments
-- Discount codes at checkout — code entry field in VenuePublic checkout flow
-- Staff scheduling UI — shifts calendar, availability, swap requests, time-off requests
-- Loyalty redemption at checkout — redeem points for rewards/discounts at order time
-- Real-time orders via SSE — replace 20s polling with live push (broadcastToVenue exists)
-- Bookings dashboard — owner view and manage reservations in OwnerDashboard
-- Automated marketing triggers — event-driven email/SMS (re-engagement, birthday, pass expiry)
-- Square POS sync — menu + order sync with existing Square OAuth infrastructure
-- Table ordering / dine-in — QR at table → order placed → sent to kitchen display
+- Full KDS — swimlane kitchen display at /kitchen/:slug, real-time via SSE, tap-to-advance
+- Real-time orders via SSE — replace 20s polling; SSE auth gap fixed
+- Table ordering / dine-in QR — table pre-fill, KDS table tagging, per-table QR generator
+- Staff scheduling — shifts, availability, swap requests, time-off (v2.1 carry-over)
+- Staff clock-in/clock-out — PIN tablet clock-in, break tracking, timesheet export (Deputy-style)
+- Tipping prompts — unselected presets before checkout (ACCC-compliant), hidden for dine-in
+- Upsell engine — co-purchase suggestions before Stripe session, max 3, no cart duplicates
+- Customer order history — phone-based last-10-orders, one-tap reorder, phone normalisation
+- PWA + add to home screen — manifest, service worker, deferred install prompt
+- Automated marketing triggers — re-engagement, birthday, pass-expiry (v2.1 carry-over)
+- Square POS sync — OAuth + menu import (v2.1 carry-over)
 
 ---
 

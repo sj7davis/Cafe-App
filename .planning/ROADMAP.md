@@ -5,7 +5,8 @@
 - ✅ **v1.0 Infrastructure** - Phases 1-3 (shipped 2026-05-23)
 - ✅ **v1.1 Full Feature Build** - Phases 1-6 (complete 2026-05-25)
 - ✅ **v2.0 Dual Identity UI/UX Overhaul** - Phase 7 (complete 2026-05-28)
-- 🚧 **v2.1 Revenue & Operations** - Phases 8-11 (in progress)
+- 🚧 **v2.1 Revenue & Operations** - Phase 8 (in progress; Phases 9-11 absorbed into v2.2)
+- 📋 **v2.2 Full Operations Suite** - Phases 9-14 (planned)
 
 ---
 
@@ -233,9 +234,9 @@ Plans:
 ### v2.1 Phase Summary
 
 - [ ] **Phase 8: Stripe Payments & Checkout** - Real payment processing for orders, gift cards, and passes via Stripe Connect; discount codes and loyalty redemption at checkout
-- [ ] **Phase 9: Real-Time Orders & Staff Scheduling** - Replace 20s polling with SSE push; staff shift management with swap and time-off request workflows
-- [ ] **Phase 10: Dine-In & Bookings** - Table QR ordering flow with kitchen tagging; owner reservation management dashboard
-- [ ] **Phase 11: Automated Marketing & Square POS** - Event-driven email/SMS triggers for re-engagement, birthdays, and pass expiry; Square catalog menu sync
+- [ ] **Phase 9: Real-Time Orders & Staff Scheduling** - Replace 20s polling with SSE push; staff shift management with swap and time-off request workflows *(absorbed into v2.2)*
+- [ ] **Phase 10: Dine-In & Bookings** - Table QR ordering flow with kitchen tagging; owner reservation management dashboard *(absorbed into v2.2)*
+- [ ] **Phase 11: Automated Marketing & Square POS** - Event-driven email/SMS triggers for re-engagement, birthdays, and pass expiry; Square catalog menu sync *(absorbed into v2.2)*
 
 ### v2.1 Phase Details
 
@@ -272,56 +273,122 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 9: Real-Time Orders & Staff Scheduling
+---
 
-**Goal**: Order updates reach staff and kitchen displays instantly via SSE instead of polling, and venue owners can manage staff shifts with a full request-and-approval workflow
-**Depends on**: Phase 8 (confirmed orders now come from Stripe webhooks; SSE must handle this event source)
-**Requirements**: RT-01, RT-02, RT-03, SCHED-01, SCHED-02, SCHED-03, SCHED-04, SCHED-05, SCHED-06, SCHED-07
+## v2.2 Full Operations Suite
+
+**Milestone Goal:** Deliver the complete real-time operations layer — authenticated SSE, full KDS, dine-in QR table ordering, Deputy-style staff clock-in/out with Fair Work compliance, staff scheduling, ACCC-compliant tipping, smart upsells, customer order history, PWA, and automated marketing with Square POS sync.
+
+**Note on phase numbering:** v2.1 Phases 9-11 were never executed and are replaced by v2.2 Phases 9-14 below. The v2.1 phase definitions above are superseded.
+
+### v2.2 Phase Summary
+
+- [ ] **Phase 9: SSE Hardening + Full KDS + Dine-In** - Fix SSE auth gap, wire real-time push to all dashboards, route KDS at /kitchen/:slug, and add table QR ordering flow
+- [ ] **Phase 10: Staff Scheduling + Clock-In/Out** - Full shift management workflow plus Deputy-style PIN clock-in with Fair Work-compliant timezone handling and timesheet export
+- [ ] **Phase 11: Tipping + Upsell Engine** - ACCC-compliant tip selector and co-purchase upsell panel, both completing before Stripe session creation
+- [ ] **Phase 12: Customer Order History** - Phone-based order history with E.164 normalisation migration and one-tap reorder
+- [ ] **Phase 13: PWA + Add to Home Screen** - vite-plugin-pwa manifest, service worker with offline menu cache, and deferred install prompt
+- [ ] **Phase 14: Automated Marketing + Square POS** - Scheduled re-engagement/birthday/pass-expiry triggers and Square OAuth catalog sync
+
+### v2.2 Phase Details
+
+### Phase 9: SSE Hardening + Full KDS + Dine-In
+
+**Goal**: Authenticated real-time order push reaches all operator dashboards and the kitchen display; dine-in customers can scan a table QR and place a tagged order without typing their table number
+**Depends on**: Phase 8 (Stripe webhooks are the primary order-confirmed event source that SSE must broadcast)
+**Requirements**: RT-01, RT-02, RT-03, RT-04, KDS-01, KDS-02, KDS-03, KDS-04, KDS-05, DINE-01, DINE-02, DINE-03
 **Success Criteria** (what must be TRUE):
 
-  1. A new order placed on VenuePublic appears on the StaffDashboard within 2 seconds without any manual refresh or 20-second polling cycle
-  2. When an owner or staff member updates an order status, the KitchenDisplay reflects the new status in real time without a page reload
-  3. The OwnerDashboard activity feed (new orders, reviews, alerts) updates live as events occur
-  4. Venue owner can create, edit, and delete shifts for staff members from a scheduling tab, with each shift showing staff name, date, and start/end time
-  5. Staff member can view their upcoming shifts in a list or calendar view from the StaffDashboard
-  6. Staff member can submit their weekly availability preferences (days and hours) and the owner can see this when building the schedule
-  7. Staff member can submit a shift swap request naming an alternative staff member; the owner sees the pending request and can approve or deny it
-  8. Staff member can submit a time-off request with a date range and reason; the owner can approve or deny it from the dashboard
+  1. A new order placed on VenuePublic appears on the StaffDashboard within 2 seconds via SSE — the 20-second polling timer is no longer used
+  2. The SSE endpoint rejects unauthenticated connections with 401 before writing event-stream headers; a valid staff JWT is required to receive a venue's order stream
+  3. Staff can access the full kitchen display at `/kitchen/:slug` without an owner login; the KDS shows open orders in three swimlane columns (New / Confirmed / Ready) that update in real time
+  4. Each KDS order card shows all line items, a table number badge for dine-in orders, the order age in minutes, and turns red when the order is older than 10 minutes
+  5. Staff can tap a KDS card once to advance the order to the next status; completed orders disappear from the display within 30 seconds of completion
+  6. Scanning a table QR code opens the venue ordering page with the table number already filled in; dine-in orders appear in the KDS with the table number prominently labelled
+  7. Venue owner can generate and download individual per-table QR codes from the Integrations tab
 
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 10: Dine-In & Bookings
+### Phase 10: Staff Scheduling + Clock-In/Out
 
-**Goal**: Customers at a table can scan a QR code and place a dine-in order tagged to their table, and venue owners have a dedicated reservations view to manage the day's bookings
-**Depends on**: Phase 8 (payments required for dine-in orders), Phase 5 (location model underpins table assignment)
-**Requirements**: DINE-01, DINE-02, DINE-03, BOOK-01, BOOK-02, BOOK-03
+**Goal**: Venue owners can build and manage staff rosters with a full request-and-approval workflow, and staff can clock in and out from a shared tablet using a PIN with Fair Work Act-compliant timezone handling
+**Depends on**: Phase 9 (SSE infrastructure stable; clock events may broadcast to OwnerDashboard)
+**Requirements**: SCHED-01, SCHED-02, SCHED-03, SCHED-04, SCHED-05, SCHED-06, SCHED-07, CLOCK-01, CLOCK-02, CLOCK-03, CLOCK-04, CLOCK-05, CLOCK-06
 **Success Criteria** (what must be TRUE):
 
-  1. Scanning a table QR code opens the venue ordering page with the table number pre-filled; the customer does not need to manually enter the table
-  2. A dine-in order submitted with a table number appears in the KitchenDisplay with a visible table identifier alongside the order items
-  3. Venue owner can generate and download individual QR codes for each table from the Integrations tab in OwnerDashboard
-  4. Venue owner can view all upcoming reservations in a Bookings tab, sorted by date and time
-  5. Owner can update a reservation status (confirm, mark as seated, or cancel) from the Bookings tab
-  6. Today's reservations are surfaced in the OwnerDashboard overview panel so the owner sees them without navigating to the Bookings tab
+  1. Venue owner can create, edit, and delete shifts for staff members from a scheduling tab; each shift shows staff name, date, and start/end time
+  2. Staff member can view their upcoming shifts from the StaffDashboard and submit their weekly availability preferences for the owner to see when building the schedule
+  3. Staff member can submit a shift swap request naming another staff member; the owner can approve or deny it from the dashboard
+  4. Staff member can submit a time-off request with a date range and reason; the owner can approve or deny it from the dashboard
+  5. Staff member can clock in at `/clock/:slug` by entering their 4-digit PIN; the system prevents a second clock-in if they are already clocked in without having clocked out
+  6. Clock-in and clock-out times are stored in UTC and displayed in the venue's configured local timezone (AEST/AEDT), so penalty rate flags reflect the correct wall-clock hour under Fair Work Act rules
+  7. Staff member can record a break start and end during their shift from the clock page
+  8. Venue owner can view a per-staff weekly hours summary in OwnerDashboard and export the timesheet to CSV for payroll
 
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 11: Automated Marketing & Square POS
+### Phase 11: Tipping + Upsell Engine
 
-**Goal**: The platform sends targeted automated messages to customers at the right moment without manual owner action, and venue owners can pull their Square catalog directly into B1 as a one-way menu sync
-**Depends on**: Phase 8 (Stripe payments establish transaction history needed for re-engagement logic; pass credits needed for expiry nudge), Phase 6 (email infrastructure via Resend)
+**Goal**: Customers are offered an ACCC-compliant tip selector and co-purchase upsell suggestions as part of the checkout flow, both presented and resolved before the Stripe session is created so all accepted items are included in a single payment
+**Depends on**: Phase 8 (Stripe checkout session must not yet be created when these steps appear; tipping state already wired to stripe-checkout-router.ts)
+**Requirements**: TIP-01, TIP-02, TIP-03, UPSELL-01, UPSELL-02, UPSELL-03
+**Success Criteria** (what must be TRUE):
+
+  1. A tip selector with options for 10%, 15%, 20%, custom amount, and no tip appears in the cart before the Place Order button; no option is pre-selected when the cart first appears
+  2. The tip selector is hidden for dine-in orders where a table number is set, as table service makes tipping implicit
+  3. Up to 3 "customers also ordered" suggestions appear inline in the cart when the cart has items; suggestions are based on co-purchase frequency from the last 90 days of orders
+  4. Upsell suggestions never include items already in the cart or items marked unavailable; venues with fewer than 3 co-purchase data points fall back to featured items
+  5. Accepting an upsell item adds it to the cart immediately; the Stripe checkout session is created only after the customer has seen and acted on both the tip selector and upsell panel
+  6. A customer who selects "no tip" explicitly proceeds to checkout without any friction or guilt prompt
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 12: Customer Order History
+
+**Goal**: Customers can retrieve their last 10 orders at a venue using their phone number and reorder in one tap, with phone number normalisation ensuring lookup works regardless of how the number was originally entered
+**Depends on**: Phase 11 (checkout flow stabilised; reorder must reproduce the cart state from Phase 11 including tip/upsell logic)
+**Requirements**: HIST-01, HIST-02, HIST-03
+**Success Criteria** (what must be TRUE):
+
+  1. A customer who enters their phone number on VenuePublic sees their last 10 orders at that venue — orders placed with 0412345678, +61412345678, or 61412345678 all appear in the same history regardless of how the number was entered
+  2. Customer can tap a previous order to repopulate the cart with that order's items; items that have since been deleted from the menu are skipped gracefully with a visible notice rather than causing an error
+  3. Phone numbers entered in any common Australian format are normalised to E.164 (+61XXXXXXXXX) at write time; existing records in the database are migrated to the same format
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 13: PWA + Add to Home Screen
+
+**Goal**: VenuePublic is a fully-compliant Progressive Web App so customers can install it to their home screen, browse the menu offline, and get a native-app-like experience — with the install prompt deferred until after the first order so it feels earned rather than intrusive
+**Depends on**: Phases 9-12 (service worker covers the full API surface built across those phases; network-only rules can be finalised once all API routes are known)
+**Requirements**: PWA-01, PWA-02, PWA-03, PWA-04
+**Success Criteria** (what must be TRUE):
+
+  1. VenuePublic passes browser PWA install criteria — a valid `manifest.json` with name, icons (192px and 512px), and `start_url` is served; a registered service worker is active on the page
+  2. After a customer completes their first order, an "Add to Home Screen" install prompt appears; the prompt is not shown on first page load before any order
+  3. A customer who has previously visited the menu can browse all menu items and categories without a network connection; the items load from the service worker cache
+  4. All `/api/` and `/trpc/` routes are handled with a network-only strategy and are never served from the service worker cache, so order state is always live
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 14: Automated Marketing + Square POS
+
+**Goal**: The platform fires targeted automated messages to customers at the right moment without manual owner action, and venue owners can import their Square menu catalog directly into B1 with a single sync trigger
+**Depends on**: Phase 8 (Stripe transaction history drives re-engagement logic; pass credits drive expiry nudge), Phase 6 (Resend email infrastructure)
 **Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, SQ-01, SQ-02, SQ-03
 **Success Criteria** (what must be TRUE):
 
-  1. A customer who has not placed an order in 30 days receives an automated re-engagement email or SMS
-  2. A customer with a birthday on file receives a birthday greeting email or SMS on their birthday
-  3. A customer whose pass has exactly 1 credit remaining receives a pass-expiry nudge prompting them to top up
-  4. Venue owner can enable or disable each automated trigger independently per venue from the Marketing tab in OwnerDashboard; disabled triggers do not fire
-  5. Venue owner can connect their Square account via OAuth from the Integrations tab; the connection status is visible in the dashboard
-  6. After connecting Square, the owner can trigger a menu sync that imports items from the Square catalog and creates or updates matching menu items in B1
-  7. The Square OAuth access token is stored encrypted and auto-refreshed before expiry without requiring the owner to re-authenticate
+  1. A customer who has not placed an order in 30 days receives an automated re-engagement email or SMS; the trigger fires once per customer per 30-day window and not again until the window resets
+  2. A customer with a birthday on file receives a birthday greeting email or SMS on their birthday; the message is not sent if the birthday field is blank
+  3. A customer whose pass has exactly 1 credit remaining receives a pass-expiry nudge at the time the credit is used; the nudge is not repeated if they have already received one for the current pass
+  4. Venue owner can enable or disable each automated trigger independently per venue from the Marketing tab in OwnerDashboard; a disabled trigger produces no outbound messages
+  5. Venue owner can connect their Square account via OAuth from the Integrations tab; the connection status (connected / disconnected / token expiring) is visible in the dashboard
+  6. After connecting Square, the owner can tap "Sync Menu" to import items from the Square catalog; matching items are updated and new items are created in B1 without duplicating existing records
+  7. The Square OAuth access token is stored encrypted and refreshed automatically before expiry; the owner is never asked to re-authenticate while the token is valid
 
 **Plans**: TBD
 **UI hint**: yes
@@ -330,7 +397,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
@@ -341,7 +408,10 @@ Plans:
 | 5. Venue Expansion | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 6. Marketing & Notifications | v1.1 | 3/3 | Complete | 2026-05-25 |
 | 7. Dual Identity UI Refresh | v2.0 | 4/4 | Complete | 2026-05-28 |
-| 8. Stripe Payments & Checkout | v2.1 | 1/4 | In Progress|  |
-| 9. Real-Time Orders & Staff Scheduling | v2.1 | 0/? | Not started | - |
-| 10. Dine-In & Bookings | v2.1 | 0/? | Not started | - |
-| 11. Automated Marketing & Square POS | v2.1 | 0/? | Not started | - |
+| 8. Stripe Payments & Checkout | v2.1 | 1/4 | In Progress | - |
+| 9. SSE Hardening + Full KDS + Dine-In | v2.2 | 0/? | Not started | - |
+| 10. Staff Scheduling + Clock-In/Out | v2.2 | 0/? | Not started | - |
+| 11. Tipping + Upsell Engine | v2.2 | 0/? | Not started | - |
+| 12. Customer Order History | v2.2 | 0/? | Not started | - |
+| 13. PWA + Add to Home Screen | v2.2 | 0/? | Not started | - |
+| 14. Automated Marketing + Square POS | v2.2 | 0/? | Not started | - |
