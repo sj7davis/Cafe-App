@@ -1850,43 +1850,60 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
   // ─── Upsell Suggestions ───
   getUpsellSuggestions: publicQuery.input(z.object({
     venueId: z.number().int().positive(),
-    slugs: z.array(z.string()),
+    cartItemIds: z.array(z.number().int().positive()),
   })).query(async ({ input }) => {
-    if (input.slugs.length === 0) return [];
+    if (input.cartItemIds.length === 0) return [];
     const db = getDb();
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
-    // Find menu item ids for the given slugs
-    const cartItems = await db.select({ id: menuItems.id, slug: menuItems.slug })
-      .from(menuItems)
-      .where(and(eq(menuItems.venueId, input.venueId), inArray(menuItems.slug, input.slugs)));
-    const cartItemIds = cartItems.map(i => i.id);
-    if (cartItemIds.length === 0) return [];
-
-    // Find recent orders containing any of those items
+    // Find recent orders containing any of the cart items
     const matchingOrderItems = await db.select({ orderId: orderItems.orderId })
       .from(orderItems)
       .innerJoin(orders, and(eq(orderItems.orderId, orders.id), eq(orders.venueId, input.venueId), gte(orders.createdAt, ninetyDaysAgo)))
-      .where(inArray(orderItems.menuItemId, cartItemIds));
+      .where(inArray(orderItems.menuItemId, input.cartItemIds));
     const orderIds = [...new Set(matchingOrderItems.map(r => r.orderId))].slice(0, 200);
     if (orderIds.length === 0) return [];
 
     // Find co-purchased items in those orders, excluding cart items
+    // Require minimum co-occurrence count of >= 3 to surface as a suggestion
     const coPurchased = await db.select({
       menuItemId: orderItems.menuItemId,
       cnt: count(orderItems.menuItemId),
     })
       .from(orderItems)
-      .where(and(inArray(orderItems.orderId, orderIds), not(inArray(orderItems.menuItemId, cartItemIds))))
+      .where(and(inArray(orderItems.orderId, orderIds), not(inArray(orderItems.menuItemId, input.cartItemIds))))
       .groupBy(orderItems.menuItemId)
+      .having(gte(count(orderItems.menuItemId), 3))
       .orderBy(desc(count(orderItems.menuItemId)))
-      .limit(3);
+      .limit(10);
 
     if (coPurchased.length === 0) return [];
 
     const topIds = coPurchased.map(r => r.menuItemId);
-    const topItems = await db.select().from(menuItems).where(inArray(menuItems.id, topIds));
-    return topItems;
+
+    // Fetch items — exclude unavailable ones (inventory row with isAvailable=false)
+    const candidates = await db.select({
+      id: menuItems.id,
+      name: menuItems.name,
+      price: menuItems.price,
+      category: menuItems.category,
+      description: menuItems.description,
+      image: menuItems.image,
+      slug: menuItems.slug,
+      venueId: menuItems.venueId,
+      dietary: menuItems.dietary,
+    }).from(menuItems).where(inArray(menuItems.id, topIds));
+
+    const invRows = await db.select({ menuItemId: inventory.menuItemId, isAvailable: inventory.isAvailable })
+      .from(inventory)
+      .where(and(eq(inventory.venueId, input.venueId), inArray(inventory.menuItemId, topIds)));
+    const unavailableSet = new Set(invRows.filter(r => r.isAvailable === false).map(r => r.menuItemId));
+
+    // Return max 3 available suggestions in co-occurrence rank order
+    return candidates
+      .filter(i => !unavailableSet.has(i.id))
+      .sort((a, b) => topIds.indexOf(a.id) - topIds.indexOf(b.id))
+      .slice(0, 3);
   }),
 
   // ─── Inventory Quantity ───
