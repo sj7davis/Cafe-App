@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import {
   Coffee, MapPin, Phone, Clock, Globe, Loader2,
   ShoppingBag, Plus, Minus, X, ChevronRight, Star,
-  Package, CheckCircle, QrCode, Download, Gift, AlertTriangle, Bell, Users, Search,
+  Package, CheckCircle, QrCode, Download, Gift, AlertTriangle, Bell, Users, Search, History, ChevronDown,
 } from 'lucide-react';
 
 // ─── Hours parsing helpers ───────────────────────────────────────────────────
@@ -412,6 +412,16 @@ export default function VenuePublic() {
     { enabled: false }
   );
 
+  // ── Order history panel ──────────────────────────────────────────────────────
+  const [showOrderHistory, setShowOrderHistory] = useState(false);
+
+  const orderHistoryPanelQuery = trpc.venue.getOrderHistory.useQuery(
+    { venueId: venue?.id ?? 0, phone: checkoutPhone, limit: 10 },
+    { enabled: !!venue?.id && checkoutPhone.length >= 8 }
+  );
+
+  const historyOrders = orderHistoryPanelQuery.data ?? [];
+
   const upsertPreferences = trpc.venue.upsertCustomerPreferences.useMutation();
   const submitCatering = trpc.venue.submitCateringRequest.useMutation({
     onSuccess: () => {
@@ -695,6 +705,33 @@ export default function VenuePublic() {
 
   const handleAddItem = (item: MenuItem) => {
     setModifierModalItem(item);
+  };
+
+  // ── Reorder handler: add all items from a past order into the current cart ───
+  type HistoryOrder = {
+    id: number;
+    orderNumber: string;
+    createdAt: Date;
+    totalAmount: string;
+    items: { itemName: string; quantity: number; menuItemId: number }[];
+  };
+
+  const handleReorder = (order: HistoryOrder) => {
+    let added = 0;
+    for (const item of order.items) {
+      const menuItem = allMenuItems.find(m => m.id === item.menuItemId || m.name === item.itemName);
+      if (menuItem) {
+        for (let i = 0; i < item.quantity; i++) {
+          addToCart(menuItem);
+        }
+        added += item.quantity;
+      }
+    }
+    if (added > 0) {
+      showToast(`${added} item${added > 1 ? 's' : ''} added to cart`);
+    } else {
+      showToast('Some items are no longer available');
+    }
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -1416,6 +1453,67 @@ export default function VenuePublic() {
                     onBlur={handlePhoneBlur}
                     style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.12)', fontSize: 14, background: '#fff', color: '#181818' }}
                   />
+
+                  {/* ── Order history panel ─────────────────────────────────── */}
+                  {checkoutPhone.length >= 8 && historyOrders.length > 0 && (
+                    <div style={{ borderRadius: 12, border: '1px solid rgba(94,139,139,0.2)', background: '#F8F6F2', overflow: 'hidden' }}>
+                      <button
+                        onClick={() => setShowOrderHistory(v => !v)}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 13, fontWeight: 600, color: '#181818',
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <History size={14} style={{ color: accentColor }} />
+                          Your recent orders ({historyOrders.length})
+                        </span>
+                        <ChevronDown size={14} style={{ color: '#5E5E5E', transform: showOrderHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                      </button>
+                      {showOrderHistory && (
+                        <div style={{ borderTop: '1px solid rgba(24,24,24,0.08)', padding: '8px 0' }}>
+                          {historyOrders.map(order => {
+                            const displayItems = order.items.slice(0, 3);
+                            const extra = order.items.length - displayItems.length;
+                            const dateStr = new Date(order.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+                            return (
+                              <div key={order.id} style={{ padding: '10px 12px', borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                                  <div>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#181818' }}>{dateStr}</span>
+                                    <span style={{ fontSize: 11, color: '#5E5E5E', marginLeft: 8 }}>#{order.orderNumber}</span>
+                                  </div>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: '#181818' }}>${Number(order.totalAmount).toFixed(2)}</span>
+                                </div>
+                                <div style={{ fontSize: 12, color: '#5E5E5E', marginBottom: 8 }}>
+                                  {displayItems.map((item, i) => (
+                                    <span key={i}>
+                                      {item.quantity > 1 && <span style={{ fontWeight: 600 }}>{item.quantity}x </span>}
+                                      {item.itemName}
+                                      {i < displayItems.length - 1 && ', '}
+                                    </span>
+                                  ))}
+                                  {extra > 0 && <span style={{ color: accentColor }}> and {extra} more</span>}
+                                </div>
+                                <button
+                                  onClick={() => handleReorder(order)}
+                                  style={{
+                                    padding: '6px 14px', borderRadius: 8, border: `1px solid ${accentColor}`,
+                                    background: 'transparent', color: accentColor,
+                                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                  }}
+                                >
+                                  Reorder
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && (
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#181818', cursor: 'pointer', padding: '4px 0' }}>
                       <input
