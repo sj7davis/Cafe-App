@@ -243,17 +243,17 @@
 
 ### Tipping
 
-- [ ] **TIP-01**: A tip selector (10% / 15% / 20% / custom / no tip) appears in the cart before the Place Order button
-- [ ] **TIP-02**: All tip options including "No tip" start unselected by default (ACCC drip-pricing compliance)
-- [ ] **TIP-03**: Tip selector is hidden for dine-in orders where table service is implicit
+- [x] **TIP-01**: A tip selector (10% / 15% / 20% / custom / no tip) appears in the cart before the Place Order button
+- [x] **TIP-02**: All tip options including "No tip" start unselected by default (ACCC drip-pricing compliance)
+- [x] **TIP-03**: Tip selector is hidden for dine-in orders where table service is implicit
 
 ---
 
 ### Upsell Engine
 
-- [ ] **UPSELL-01**: VenuePublic shows up to 3 "customers also ordered" suggestions when cart has items, based on co-purchase frequency
-- [ ] **UPSELL-02**: Upsell suggestions never include items already in the cart or marked unavailable
-- [ ] **UPSELL-03**: Upsell panel is shown before the Stripe checkout session is created so accepted items are included in the payment
+- [x] **UPSELL-01**: VenuePublic shows up to 3 "customers also ordered" suggestions when cart has items, based on co-purchase frequency
+- [x] **UPSELL-02**: Upsell suggestions never include items already in the cart or marked unavailable
+- [x] **UPSELL-03**: Upsell panel is shown before the Stripe checkout session is created so accepted items are included in the payment
 
 ---
 
@@ -400,12 +400,12 @@
 | CLOCK-04 | Phase 10 | Complete |
 | CLOCK-05 | Phase 10 | Complete |
 | CLOCK-06 | Phase 10 | Complete |
-| TIP-01 | Phase 11 | Pending |
-| TIP-02 | Phase 11 | Pending |
-| TIP-03 | Phase 11 | Pending |
-| UPSELL-01 | Phase 11 | Pending |
-| UPSELL-02 | Phase 11 | Pending |
-| UPSELL-03 | Phase 11 | Pending |
+| TIP-01 | Phase 11 | Complete |
+| TIP-02 | Phase 11 | Complete |
+| TIP-03 | Phase 11 | Complete |
+| UPSELL-01 | Phase 11 | Complete |
+| UPSELL-02 | Phase 11 | Complete |
+| UPSELL-03 | Phase 11 | Complete |
 | HIST-01 | Phase 12 | Pending |
 | HIST-02 | Phase 12 | Pending |
 | HIST-03 | Phase 12 | Pending |

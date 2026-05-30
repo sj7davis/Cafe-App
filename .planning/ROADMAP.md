@@ -236,7 +236,7 @@ Plans:
 - [ ] **Phase 8: Stripe Payments & Checkout** - Real payment processing for orders, gift cards, and passes via Stripe Connect; discount codes and loyalty redemption at checkout
 - [x] **Phase 9: Real-Time Orders & Staff Scheduling** - Replace 20s polling with SSE push; staff shift management with swap and time-off request workflows *(absorbed into v2.2)* (completed 2026-05-30)
 - [x] **Phase 10: Dine-In & Bookings** - Table QR ordering flow with kitchen tagging; owner reservation management dashboard *(absorbed into v2.2)* (completed 2026-05-30)
-- [ ] **Phase 11: Automated Marketing & Square POS** - Event-driven email/SMS triggers for re-engagement, birthdays, and pass expiry; Square catalog menu sync *(absorbed into v2.2)*
+- [x] **Phase 11: Automated Marketing & Square POS** - Event-driven email/SMS triggers for re-engagement, birthdays, and pass expiry; Square catalog menu sync *(absorbed into v2.2)* (completed 2026-05-30)
 
 ### v2.1 Phase Details
 
@@ -457,7 +457,7 @@ Plans:
 | 8. Stripe Payments & Checkout | v2.1 | 1/4 | In Progress | - |
 | 9. SSE Hardening + Full KDS + Dine-In | v2.2 | 3/3 | Complete    | 2026-05-30 |
 | 10. Staff Scheduling + Clock-In/Out | v2.2 | 4/4 | Complete    | 2026-05-30 |
-| 11. Tipping + Upsell Engine | v2.2 | 0/? | Not started | - |
+| 11. Tipping + Upsell Engine | v2.2 | 2/0 | Complete    | 2026-05-30 |
 | 12. Customer Order History | v2.2 | 0/? | Not started | - |
 | 13. PWA + Add to Home Screen | v2.2 | 0/? | Not started | - |
 | 14. Automated Marketing + Square POS | v2.2 | 0/? | Not started | - |
