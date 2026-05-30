@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { trpc } from '@/providers/trpc'
+import { useVenueSSE } from '@/hooks/useVenueSSE'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface OrderWithItems {
@@ -11,29 +12,22 @@ interface OrderWithItems {
   orderNote: string | null
   status: string
   totalAmount: string
+  tableNumber: string | null
   createdAt: string
   items: { itemName: string; quantity: number; note: string | null }[]
 }
 
 // ─── Utilities ──────────────────────────────────────────────────────────────
 function timeSince(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-  if (diff < 60) return `${diff}s`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`
-  return `${Math.floor(diff / 3600)}h`
-}
-
-function statusColor(status: string): string {
-  if (status === 'pending') return '#f59e0b'
-  if (status === 'confirmed') return '#3b82f6'
-  if (status === 'ready') return '#10b981'
-  return '#6b7280'
+  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000)
+  if (mins < 1) return '< 1m'
+  return `${mins}m`
 }
 
 function urgency(createdAt: string): 'normal' | 'warn' | 'urgent' {
   const mins = (Date.now() - new Date(createdAt).getTime()) / 60000
-  if (mins > 15) return 'urgent'
-  if (mins > 8) return 'warn'
+  if (mins > 10) return 'urgent'
+  if (mins > 7) return 'warn'
   return 'normal'
 }
 
@@ -48,33 +42,23 @@ export default function KitchenDisplay() {
   const [loginError, setLoginError] = useState('')
   const prevOrderIds = useRef<Set<number>>(new Set())
   const audioCtx = useRef<AudioContext | null>(null)
+  const completedTimers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
 
   const utils = trpc.useUtils()
   const playChimeRef = useRef<() => void>(() => {})
 
   // SSE connection for real-time order updates
-  useEffect(() => {
-    if (!venueId) return
-    const es = new EventSource(`/api/sse/orders/${venueId}`)
-
-    const refresh = () => {
-      utils.venue.listOrders.invalidate()
-    }
-
-    es.addEventListener('order_update', refresh)
-    es.addEventListener('order_new', () => {
-      refresh()
-      playChimeRef.current()
-    })
-
-    // Fallback poll every 30s in case SSE drops
-    const fallback = setInterval(refresh, 30000)
-
-    return () => {
-      es.close()
-      clearInterval(fallback)
-    }
-  }, [venueId])
+  useVenueSSE({
+    venueId: venueId,
+    token: token,
+    events: ['order_update', 'order_new'],
+    onEvent: (eventName) => {
+      utils.venue.listOrdersWithItems.invalidate()
+      if (eventName === 'order_new') {
+        playChimeRef.current()
+      }
+    },
+  })
 
   // Tick every second for "time since" counter
   const [, setSecond] = useState(0)
@@ -84,9 +68,9 @@ export default function KitchenDisplay() {
   }, [])
 
   const staffLoginMut = trpc.staffAuth.login.useMutation()
-  const ordersQuery = trpc.venue.listOrders.useQuery(
-    { venueId: venueId!, statuses: ['pending', 'confirmed', 'ready'], limit: 100 },
-    { enabled: !!token && !!venueId, staleTime: 0, refetchOnWindowFocus: true }
+  const ordersQuery = trpc.venue.listOrdersWithItems.useQuery(
+    { venueId: venueId!, statuses: ['pending', 'confirmed', 'ready'], limit: 100, token: token! },
+    { enabled: !!token && !!venueId, staleTime: 0 }
   )
   const updateStatus = trpc.venue.updateOrderStatus.useMutation()
 
@@ -146,6 +130,16 @@ export default function KitchenDisplay() {
       : order.status === 'ready' ? 'completed' : null
     if (!next || !token) return
     await updateStatus.mutateAsync({ token, orderId: order.id, status: next as any })
+    if (next === 'completed') {
+      // Schedule removal from display after 30 seconds
+      if (!completedTimers.current.has(order.id)) {
+        const t = setTimeout(() => {
+          utils.venue.listOrdersWithItems.invalidate()
+          completedTimers.current.delete(order.id)
+        }, 30000)
+        completedTimers.current.set(order.id, t)
+      }
+    }
     ordersQuery.refetch()
   }
 
@@ -168,7 +162,7 @@ export default function KitchenDisplay() {
           width: 320, color: '#fff'
         }}>
           <h1 style={{ margin: '0 0 1.5rem', fontSize: '1.25rem', textAlign: 'center' }}>
-            🍳 Kitchen Display
+            Kitchen Display
           </h1>
           <div style={{ marginBottom: '0.75rem' }}>
             <label style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Venue ID</label>
@@ -208,69 +202,76 @@ export default function KitchenDisplay() {
     )
   }
 
-  const allOrders = (ordersQuery.data ?? []) as any[]
-  // KDS only shows active orders
+  // Defensive: only show active statuses (completed should not come back from the query,
+  // but guard against stale cache)
+  const allOrders = ((ordersQuery.data ?? []) as any[]).filter(
+    o => ['pending', 'confirmed', 'ready'].includes(o.status)
+  )
   const pending = allOrders.filter(o => o.status === 'pending')
   const confirmed = allOrders.filter(o => o.status === 'confirmed')
   const ready = allOrders.filter(o => o.status === 'ready')
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0f172a', color: '#f8fafc',
-      fontFamily: 'system-ui, sans-serif', padding: '1rem',
+      minHeight: '100vh', background: '#0F0F0F', color: '#F5F5F5',
+      fontFamily: 'Inter, system-ui, sans-serif', padding: '1rem',
     }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: '1rem', borderBottom: '1px solid #1e293b', paddingBottom: '0.75rem'
+        marginBottom: '1rem', borderBottom: '1px solid #2a2a2a', paddingBottom: '0.75rem'
       }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>🍳 Kitchen Display</h1>
-        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.875rem', color: '#94a3b8' }}>
-          <span>🟡 {pending.length} new</span>
-          <span>🔵 {confirmed.length} making</span>
-          <span>🟢 {ready.length} ready</span>
+        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>Kitchen Display</h1>
+        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.875rem', color: '#71717A' }}>
+          <span style={{ color: '#F59E0B' }}>{pending.length} new</span>
+          <span style={{ color: '#3B82F6' }}>{confirmed.length} confirmed</span>
+          <span style={{ color: '#10B981' }}>{ready.length} ready</span>
         </div>
         <button
           onClick={() => { setToken(null); sessionStorage.removeItem('staffToken') }}
-          style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '0.25rem 0.75rem', cursor: 'pointer' }}
+          style={{ background: 'none', border: '1px solid #333', color: '#71717A', borderRadius: 6, padding: '0.25rem 0.75rem', cursor: 'pointer' }}
         >
           Sign out
         </button>
       </div>
 
-      {/* Columns */}
+      {/* Swimlane Columns */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem',
-        alignItems: 'start'
+        alignItems: 'start',
       }}>
-        {/* Pending */}
         <Column
-          title="NEW ORDERS"
-          color="#f59e0b"
+          title="NEW"
+          color="#F59E0B"
           orders={pending}
           actionLabel="Start"
           onAction={advance}
           onCancel={cancel}
         />
-        {/* Confirmed / making */}
         <Column
-          title="IN PROGRESS"
-          color="#3b82f6"
+          title="CONFIRMED"
+          color="#3B82F6"
           orders={confirmed}
           actionLabel="Ready"
           onAction={advance}
           onCancel={cancel}
         />
-        {/* Ready for pickup */}
         <Column
-          title="READY FOR PICKUP"
-          color="#10b981"
+          title="READY"
+          color="#10B981"
           orders={ready}
           actionLabel="Complete"
           onAction={advance}
           onCancel={cancel}
         />
       </div>
+
+      {/* Mobile/tablet: stack columns vertically */}
+      <style>{`
+        @media (max-width: 768px) {
+          .kds-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -300,36 +301,41 @@ function Column({ title, color, orders, actionLabel, onAction, onCancel }: {
         </span>
       </div>
       {orders.length === 0 && (
-        <div style={{ color: '#475569', textAlign: 'center', padding: '2rem 0', fontSize: '0.875rem' }}>
+        <div style={{ color: '#71717A', textAlign: 'center', padding: '2rem 0', fontSize: '0.875rem' }}>
           Nothing here yet
         </div>
       )}
-      {orders.map(o => <OrderCard key={o.id} order={o} actionLabel={actionLabel} onAction={onAction} onCancel={onCancel} />)}
+      {orders.map(o => (
+        <OrderCard
+          key={o.id}
+          order={o}
+          items={o.items ?? []}
+          tableNumber={o.tableNumber ?? null}
+          actionLabel={actionLabel}
+          onAction={onAction}
+          onCancel={onCancel}
+        />
+      ))}
     </div>
   )
 }
 
 // ─── Order Card ───────────────────────────────────────────────────────────────
-function OrderCard({ order, actionLabel, onAction, onCancel }: {
+function OrderCard({ order, items, tableNumber, actionLabel, onAction, onCancel }: {
   order: any
+  items: { itemName: string; quantity: number; note: string | null }[]
+  tableNumber: string | null
   actionLabel: string
   onAction: (o: any) => void
   onCancel: (id: number) => void
 }) {
   const u = urgency(order.createdAt)
-  const borderColor = u === 'urgent' ? '#ef4444' : u === 'warn' ? '#f59e0b' : '#1e293b'
-
-  const [items, setItems] = useState<any[]>([])
-  const itemsQuery = trpc.venue.getOrderItemsByOrderId.useQuery(
-    { orderId: order.id },
-    { refetchInterval: false }
-  )
-
-  const displayItems = itemsQuery.data ?? []
+  const borderColor = u === 'urgent' ? '#EF4444' : u === 'warn' ? '#F59E0B' : '#2a2a2a'
+  const ageColor = u === 'urgent' ? '#EF4444' : u === 'warn' ? '#F59E0B' : '#71717A'
 
   return (
     <div style={{
-      background: '#1e293b',
+      background: '#1C1C1E',
       border: `2px solid ${borderColor}`,
       borderRadius: 10,
       padding: '1rem',
@@ -337,50 +343,55 @@ function OrderCard({ order, actionLabel, onAction, onCancel }: {
       transition: 'border-color 0.3s',
     }}>
       {/* Header row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-        <span style={{ fontWeight: 700, fontSize: '1rem', color: '#f8fafc' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'center' }}>
+        <span style={{ fontWeight: 700, fontSize: '1rem', color: '#F5F5F5', fontFamily: 'monospace' }}>
           #{order.orderNumber.replace('B1-', '')}
         </span>
-        <span style={{
-          fontSize: '0.75rem', fontWeight: 600,
-          color: u === 'urgent' ? '#ef4444' : u === 'warn' ? '#f59e0b' : '#94a3b8'
-        }}>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: ageColor }}>
           {timeSince(order.createdAt)} ago
         </span>
       </div>
 
-      {/* Customer */}
-      <div style={{ fontSize: '0.875rem', color: '#cbd5e1', marginBottom: '0.25rem' }}>
-        {order.customerName}
+      {/* Customer + table badge */}
+      <div style={{ fontSize: '0.875rem', color: '#a0a0a0', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
+        <span>{order.customerName}</span>
+        {tableNumber && (
+          <div style={{
+            display: 'inline-block', background: '#7c3aed', color: '#fff',
+            borderRadius: 4, padding: '0 6px', fontSize: '0.7rem', fontWeight: 700,
+          }}>
+            Table {tableNumber}
+          </div>
+        )}
         {order.pickupTime && (
-          <span style={{ color: '#64748b', marginLeft: '0.5rem', fontSize: '0.75rem' }}>
+          <span style={{ color: '#71717A', fontSize: '0.75rem' }}>
             ⏰ {order.pickupTime}
           </span>
         )}
       </div>
 
       {/* Items */}
-      <div style={{ margin: '0.75rem 0', borderTop: '1px solid #334155', paddingTop: '0.5rem' }}>
-        {displayItems.length > 0 ? displayItems.map((item: any, i: number) => (
+      <div style={{ margin: '0.75rem 0', borderTop: '1px solid #2a2a2a', paddingTop: '0.5rem' }}>
+        {items.length > 0 ? items.map((item, i) => (
           <div key={i} style={{ marginBottom: '0.35rem' }}>
-            <span style={{ fontWeight: 600, color: '#f8fafc' }}>
+            <span style={{ fontWeight: 600, color: '#F5F5F5' }}>
               {item.quantity}× {item.itemName}
             </span>
             {item.note && (
-              <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginLeft: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: '#F59E0B', marginLeft: '1rem' }}>
                 ↳ {item.note}
               </div>
             )}
           </div>
         )) : (
-          <div style={{ color: '#475569', fontSize: '0.75rem' }}>Loading items…</div>
+          <div style={{ color: '#71717A', fontSize: '0.75rem' }}>No items</div>
         )}
       </div>
 
       {/* Order note */}
       {order.orderNote && (
         <div style={{
-          background: '#0f172a', borderRadius: 6, padding: '0.4rem 0.6rem',
+          background: '#0F0F0F', borderRadius: 6, padding: '0.4rem 0.6rem',
           fontSize: '0.75rem', color: '#fbbf24', marginBottom: '0.75rem'
         }}>
           📝 {order.orderNote}
@@ -402,7 +413,7 @@ function OrderCard({ order, actionLabel, onAction, onCancel }: {
         <button
           onClick={() => onCancel(order.id)}
           style={{
-            background: '#1e293b', color: '#94a3b8', border: '1px solid #334155',
+            background: '#1C1C1E', color: '#71717A', border: '1px solid #333',
             borderRadius: 6, padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.875rem',
           }}
         >
