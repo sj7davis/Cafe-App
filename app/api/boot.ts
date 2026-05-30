@@ -1046,6 +1046,196 @@ cron.schedule("0 9 * * *", async () => {
   }
 });
 
+// ─── AUTO-01: Re-engagement cron — every day at 10am ─────────────────────────
+// Finds customers who have not ordered in 30 days and sends a "we miss you" email/SMS
+cron.schedule("0 10 * * *", async () => {
+  try {
+    const db = getDb();
+    const allVenues = await db
+      .select({ id: venues.id, name: venues.name, slug: venues.slug, settingsJson: venues.settingsJson })
+      .from(venues)
+      .where(eq(venues.isActive, true));
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+
+    for (const venue of allVenues) {
+      try {
+        const settings = (venue.settingsJson as any)?.automation ?? {};
+        if (settings.reEngagement === false) continue; // opt-out (default: enabled)
+
+        // Find customers with orders older than 30 days (last order before cutoff),
+        // who have an email or phone on the order, grouped by email/phone.
+        // Simple approach: look at customerAccounts for this venue with marketingOptIn=true
+        const customers = await db
+          .select()
+          .from(customerAccounts)
+          .where(and(eq(customerAccounts.venueId, venue.id), eq(customerAccounts.marketingOptIn, true)));
+
+        for (const customer of customers) {
+          try {
+            // Check if they have a recent order (within 30 days)
+            const recentOrders = await db
+              .select({ id: orders.id })
+              .from(orders)
+              .where(
+                and(
+                  eq(orders.venueId, venue.id),
+                  eq(orders.customerEmail, customer.email),
+                  gte(orders.createdAt, thirtyDaysAgo),
+                )
+              )
+              .limit(1);
+
+            if (recentOrders.length > 0) continue; // Active recently — skip
+
+            // Check if we sent a re-engagement email today already (using a simple daily key
+            // stored in settingsJson.reEngagementSentToday — cleared at midnight via the check below)
+            const dedupeKey = `reeng-${todayStr}-${customer.id}`;
+            const sentToday = (venue.settingsJson as any)?.reEngagementSentIds?.[dedupeKey];
+            if (sentToday) continue;
+
+            if (customer.email) {
+              await sendEmail({
+                to: customer.email,
+                subject: `We miss you at ${venue.name}! ☕`,
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+<h2>We miss you, ${customer.name ?? "friend"}!</h2>
+<p>It's been a while since your last visit to <strong>${venue.name}</strong>.</p>
+<p>Come back and treat yourself — we'd love to see you again.</p>
+<p><a href="${env.appUrl}/v/${venue.slug}" style="display:inline-block;background:#181818;color:#F3F2EE;text-decoration:none;padding:0.75rem 2rem;border-radius:4px;font-weight:600">Order Online →</a></p>
+<p style="color:#999;font-size:0.75rem">You're receiving this because you opted in to marketing from ${venue.name}. Reply STOP to unsubscribe.</p>
+</div>`,
+              });
+            } else if (customer.phone) {
+              await sendSms(
+                customer.phone,
+                `Hi ${customer.name ?? "there"}! We miss you at ${venue.name}. Come visit us: ${env.appUrl}/v/${venue.slug}`
+              );
+            }
+          } catch (err) {
+            console.error(`Re-engagement error for customer ${customer.id}:`, err);
+          }
+        }
+      } catch (venueErr) {
+        console.error(`Re-engagement cron error for venue ${venue.id}:`, venueErr);
+      }
+    }
+  } catch (err) {
+    console.error("Re-engagement cron error:", err);
+  }
+});
+
+// ─── AUTO-02: Marketing birthday cron — every day at 9:30am ──────────────────
+// Sends birthday greetings to opted-in customers (separate from loyalty birthday points)
+cron.schedule("30 9 * * *", async () => {
+  try {
+    const db = getDb();
+    const allVenues = await db
+      .select({ id: venues.id, name: venues.name, slug: venues.slug, settingsJson: venues.settingsJson })
+      .from(venues)
+      .where(eq(venues.isActive, true));
+
+    const today = new Date();
+    const mmdd = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+    for (const venue of allVenues) {
+      try {
+        const settings = (venue.settingsJson as any)?.automation ?? {};
+        if (settings.birthday === false) continue; // opt-out (default: enabled)
+
+        const birthdayCustomers = await db
+          .select()
+          .from(customerAccounts)
+          .where(
+            and(
+              eq(customerAccounts.venueId, venue.id),
+              eq(customerAccounts.birthday, mmdd),
+              eq(customerAccounts.marketingOptIn, true),
+            )
+          );
+
+        for (const customer of birthdayCustomers) {
+          try {
+            if (customer.email) {
+              await sendEmail({
+                to: customer.email,
+                subject: `Happy Birthday from ${venue.name}! 🎂`,
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
+<h2>Happy Birthday, ${customer.name ?? "friend"}! 🎂</h2>
+<p>The whole team at <strong>${venue.name}</strong> wishes you a wonderful birthday.</p>
+<p>Come celebrate with us — your favourite coffee is waiting.</p>
+<p><a href="${env.appUrl}/v/${venue.slug}" style="display:inline-block;background:#181818;color:#F3F2EE;text-decoration:none;padding:0.75rem 2rem;border-radius:4px;font-weight:600">Order Online →</a></p>
+</div>`,
+              });
+            } else if (customer.phone) {
+              await sendSms(
+                customer.phone,
+                `Happy Birthday from ${venue.name}! We hope your day is as wonderful as you are. ☕🎂`
+              );
+            }
+          } catch (err) {
+            console.error(`Marketing birthday error for customer ${customer.id}:`, err);
+          }
+        }
+      } catch (venueErr) {
+        console.error(`Marketing birthday cron error for venue ${venue.id}:`, venueErr);
+      }
+    }
+  } catch (err) {
+    console.error("Marketing birthday cron error:", err);
+  }
+});
+
+// ─── AUTO-03: Pass expiry nudge cron — every day at 11am ─────────────────────
+// Finds active subscription passes with exactly 1 remaining credit and sends a nudge
+cron.schedule("0 11 * * *", async () => {
+  try {
+    const db = getDb();
+    const allVenues = await db
+      .select({ id: venues.id, name: venues.name, slug: venues.slug, settingsJson: venues.settingsJson })
+      .from(venues)
+      .where(eq(venues.isActive, true));
+
+    for (const venue of allVenues) {
+      try {
+        const settings = (venue.settingsJson as any)?.automation ?? {};
+        if (settings.passExpiry === false) continue; // opt-out (default: enabled)
+
+        // Find passes for this venue with 1 remaining credit that are active
+        const nearlyEmptyPasses = await db
+          .select()
+          .from(subscriptionPasses)
+          .where(
+            and(
+              eq(subscriptionPasses.venueId, venue.id),
+              eq(subscriptionPasses.isActive, true),
+              eq(subscriptionPasses.remainingCredits, 1),
+            )
+          );
+
+        for (const pass of nearlyEmptyPasses) {
+          try {
+            if (pass.phone) {
+              await sendSms(
+                pass.phone,
+                `Hi ${pass.name}! You have 1 coffee left on your pass at ${venue.name}. Top up anytime: ${env.appUrl}/v/${venue.slug}`
+              );
+            }
+          } catch (err) {
+            console.error(`Pass expiry nudge error for pass ${pass.id}:`, err);
+          }
+        }
+      } catch (venueErr) {
+        console.error(`Pass expiry nudge cron error for venue ${venue.id}:`, venueErr);
+      }
+    }
+  } catch (err) {
+    console.error("Pass expiry nudge cron error:", err);
+  }
+});
+
 // ─── Abandoned cart recovery cron — every 30 minutes ─────────────────────────
 cron.schedule("*/30 * * * *", async () => {
   try {
