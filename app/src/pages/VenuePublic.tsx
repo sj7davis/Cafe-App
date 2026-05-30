@@ -245,7 +245,7 @@ export default function VenuePublic() {
   const [checkoutGiftCode, setCheckoutGiftCode] = useState('');
   const [appliedGiftDiscount, setAppliedGiftDiscount] = useState(0);
   const [checkoutUsePass, setCheckoutUsePass] = useState(false);
-  const [tipOption, setTipOption] = useState<0 | 10 | 15 | 20 | 'custom'>(0);
+  const [tipOption, setTipOption] = useState<null | 10 | 15 | 20 | 'custom'>(null);
   const [tipCustom, setTipCustom] = useState('');
   const [discountCodeInput, setDiscountCodeInput] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; description: string } | null>(null);
@@ -391,14 +391,11 @@ export default function VenuePublic() {
     { enabled: !!venue?.id && showRewardsCatalogue }
   );
 
-  const cartSlugs = cart.map(c => {
-    const mi = (menuItems || []).find(m => m.id === c.menuItemId);
-    return mi ? (mi as { id: number; slug?: string }).slug || String(mi.id) : String(c.menuItemId);
-  });
+  const cartItemIdList = cart.map(c => c.menuItemId).filter(id => id > 0);
 
   const upsellQuery = trpc.venue.getUpsellSuggestions.useQuery(
-    { venueId: venue?.id || 0, slugs: cartSlugs },
-    { enabled: false }
+    { venueId: venue?.id || 0, cartItemIds: cartItemIdList },
+    { enabled: !!venue?.id && cartItemIdList.length > 0 && showCart }
   );
 
   const avgRating = reviewsList && reviewsList.length > 0
@@ -666,18 +663,7 @@ export default function VenuePublic() {
       }];
     });
 
-    // Trigger upsell after adding
-    setTimeout(async () => {
-      if (!shownUpsell.current && cart.length >= 0) {
-        const result = await upsellQuery.refetch();
-        if (result.data && result.data.length > 0) {
-          shownUpsell.current = true;
-          setShowUpsell(true);
-          if (upsellDismissTimer.current) clearTimeout(upsellDismissTimer.current);
-          upsellDismissTimer.current = setTimeout(() => setShowUpsell(false), 4000);
-        }
-      }
-    }, 300);
+    // Upsell is shown persistently inside the cart drawer — no floating sheet needed
   };
 
   const addBundleToCart = (bundle: { id: number; name: string; bundlePrice: number }) => {
@@ -729,7 +715,7 @@ export default function VenuePublic() {
   const cartSubtotal = cart.reduce((s, c) => s + c.price * c.quantity, 0);
   const tipAmount = tipOption === 'custom'
     ? Math.max(0, Number(tipCustom) || 0)
-    : tipOption === 0 ? 0
+    : tipOption === null ? 0
     : (cartSubtotal * (tipOption as number)) / 100;
 
   // Discount: use promo code if present, otherwise happy hour (better of the two)
@@ -926,39 +912,7 @@ export default function VenuePublic() {
         </div>
       )}
 
-      {/* Upsell bottom sheet */}
-      {showUpsell && upsellQuery.data && upsellQuery.data.length > 0 && (
-        <div style={{
-          position: 'fixed', bottom: 88, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 200, background: '#fff', borderRadius: 12, padding: '12px 16px',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.18)', maxWidth: 380, width: 'calc(100% - 32px)',
-          border: '1px solid rgba(24,24,24,0.08)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#181818' }}>Customers also ordered:</span>
-            <button onClick={() => setShowUpsell(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5E5E5E' }}>
-              <X size={14} />
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(upsellQuery.data as { id: number; name: string; price: string }[]).slice(0, 3).map(sug => (
-              <div key={sug.id} style={{ flex: 1, border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#181818', marginBottom: 2 }}>{sug.name}</div>
-                <div style={{ fontSize: 11, color: '#5E8B8B', marginBottom: 6 }}>${Number(sug.price).toFixed(2)}</div>
-                <button
-                  onClick={() => {
-                    const mi = allMenuItems.find(m => m.id === sug.id);
-                    if (mi) { addToCart(mi); setShowUpsell(false); }
-                  }}
-                  style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: 'none', background: '#181818', color: '#F3F2EE', cursor: 'pointer' }}
-                >
-                  Add
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Upsell suggestions are shown inside the cart drawer — see cart drawer section below */}
 
       {/* Modifier modal */}
       {modifierModalItem && (
@@ -1704,28 +1658,95 @@ export default function VenuePublic() {
                     </div>
                   )}
 
-                  {/* Tip selection */}
+                  {/* ── Upsell panel — shown inside cart drawer before checkout ── */}
+                  {upsellQuery.data && upsellQuery.data.length > 0 && (
+                    <div style={{
+                      borderRadius: 10, border: '1px solid rgba(94,139,139,0.25)',
+                      background: 'rgba(94,139,139,0.04)', padding: '12px 14px',
+                    }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: '#5E8B8B', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Customers also ordered
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {(upsellQuery.data as { id: number; name: string; price: string }[]).map(sug => (
+                          <div key={sug.id} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: '#fff', borderRadius: 8, padding: '8px 10px',
+                            border: '1px solid rgba(24,24,24,0.07)',
+                          }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: '#181818' }}>{sug.name}</div>
+                              <div style={{ fontSize: 12, color: '#5E8B8B' }}>${Number(sug.price).toFixed(2)}</div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const mi = allMenuItems.find(m => m.id === sug.id);
+                                if (mi) addToCart(mi);
+                              }}
+                              style={{
+                                padding: '6px 14px', borderRadius: 8, border: 'none',
+                                background: '#181818', color: '#F3F2EE',
+                                fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+                              }}
+                            >
+                              Add
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tip selection — hidden for dine-in (ACCC: options start unselected) */}
+                  {orderType !== 'dine-in' && (
                   <div style={{ marginBottom: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: '#1c1917' }}>Add a tip?</p>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {([0, 10, 15, 20] as const).map(pct => (
-                        <button
-                          key={pct}
-                          onClick={() => setTipOption(pct)}
-                          style={{
-                            padding: '8px 16px',
-                            borderRadius: 8,
-                            border: `2px solid ${tipOption === pct ? '#1c1917' : '#e7e5e4'}`,
-                            background: tipOption === pct ? '#1c1917' : '#fff',
-                            color: tipOption === pct ? '#fff' : '#1c1917',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {pct === 0 ? 'No tip' : `${pct}%${pct > 0 ? ` ($${((cartSubtotal * pct) / 100).toFixed(2)})` : ''}`}
-                        </button>
-                      ))}
+                      <button
+                        onClick={() => setTipOption(10)}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          border: `2px solid ${tipOption === 10 ? '#1c1917' : '#e7e5e4'}`,
+                          background: tipOption === 10 ? '#1c1917' : '#fff',
+                          color: tipOption === 10 ? '#fff' : '#1c1917',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        10% (${((cartSubtotal * 10) / 100).toFixed(2)})
+                      </button>
+                      <button
+                        onClick={() => setTipOption(15)}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          border: `2px solid ${tipOption === 15 ? '#1c1917' : '#e7e5e4'}`,
+                          background: tipOption === 15 ? '#1c1917' : '#fff',
+                          color: tipOption === 15 ? '#fff' : '#1c1917',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        15% (${((cartSubtotal * 15) / 100).toFixed(2)})
+                      </button>
+                      <button
+                        onClick={() => setTipOption(20)}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          border: `2px solid ${tipOption === 20 ? '#1c1917' : '#e7e5e4'}`,
+                          background: tipOption === 20 ? '#1c1917' : '#fff',
+                          color: tipOption === 20 ? '#fff' : '#1c1917',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        20% (${((cartSubtotal * 20) / 100).toFixed(2)})
+                      </button>
                       <button
                         onClick={() => setTipOption('custom')}
                         style={{
@@ -1740,6 +1761,21 @@ export default function VenuePublic() {
                         }}
                       >
                         Custom
+                      </button>
+                      <button
+                        onClick={() => setTipOption(null)}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          border: `2px solid ${tipOption === null ? '#1c1917' : '#e7e5e4'}`,
+                          background: tipOption === null ? '#1c1917' : '#fff',
+                          color: tipOption === null ? '#fff' : '#1c1917',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        No Tip
                       </button>
                     </div>
                     {tipOption === 'custom' && (
@@ -1762,6 +1798,7 @@ export default function VenuePublic() {
                       </p>
                     )}
                   </div>
+                  )}
 
                   {/* Gift card */}
                   {appliedGiftDiscount === 0 && (
