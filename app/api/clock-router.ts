@@ -9,12 +9,19 @@ import { env } from "./lib/env";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
-// AU penalty rate thresholds (simplified)
+// AU penalty rate thresholds — all day/hour calculations in Australia/Sydney wall-clock time
 function getPenaltyFlag(clockedAt: Date): string | null {
-  const day = clockedAt.getDay(); // 0=Sun, 6=Sat
-  const hour = clockedAt.getHours();
-  if (day === 0) return "Sunday penalty (200%)";
-  if (day === 6) return "Saturday penalty (125%)";
+  const parts = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Sydney',
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(clockedAt);
+  const dayAbbr = parts.find(p => p.type === 'weekday')?.value; // 'Sun', 'Sat', etc.
+  const hourStr = parts.find(p => p.type === 'hour')?.value;
+  const hour = parseInt(hourStr ?? '0', 10);
+  if (dayAbbr === 'Sun') return "Sunday penalty (200%)";
+  if (dayAbbr === 'Sat') return "Saturday penalty (125%)";
   if (hour >= 21 || hour < 6) return "Late night / early morning (125%)";
   return null;
 }
@@ -26,6 +33,15 @@ export const clockRouter = createRouter({
     const venueId = payload.payload.venueId as number;
     if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
     const db = getDb();
+    // Double-clock-in guard: reject if the last event for this staff+venue is already "in"
+    const last = await db.select({ eventType: staffClockEvents.eventType })
+      .from(staffClockEvents)
+      .where(and(eq(staffClockEvents.staffId, staffId), eq(staffClockEvents.venueId, venueId)))
+      .orderBy(desc(staffClockEvents.clockedAt))
+      .limit(1);
+    if (last[0]?.eventType === 'in') {
+      throw new TRPCError({ code: 'CONFLICT', message: 'Already clocked in. Clock out first.' });
+    }
     const now = new Date();
     await db.insert(staffClockEvents).values({ venueId, staffId, eventType: "in", clockedAt: now, note: input.note });
     return { ok: true, clockedAt: now.toISOString(), penaltyFlag: getPenaltyFlag(now) };
