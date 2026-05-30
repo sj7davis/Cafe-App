@@ -362,6 +362,26 @@ app.get("/api/sse/orders/:venueId", async (c) => {
   const venueId = Number(c.req.param("venueId"));
   if (!venueId) return c.text("Bad venueId", 400);
 
+  // Auth: extract token from Authorization header (Bearer) or ?token= query param.
+  // Native browser EventSource cannot set custom headers, so ?token= is the fallback.
+  const authHeader = c.req.header("Authorization") || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : c.req.query("token") || "";
+
+  if (!token) return c.text("Unauthorized", 401);
+
+  let jwtVenueId: number;
+  try {
+    const { payload } = await jwtVerify(token, UPLOAD_JWT_SECRET, { clockTolerance: 60 });
+    jwtVenueId = payload.venueId as number;
+  } catch {
+    return c.text("Unauthorized", 401);
+  }
+
+  // Ownership check: token's venueId must match the requested :venueId
+  if (jwtVenueId !== venueId) return c.text("Forbidden", 403);
+
   const res = c.env.outgoing;
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
