@@ -6866,6 +6866,7 @@ function SchedulingTab({ token, venueId: _venueId }: { token: string; venueId: n
                 }}
                 disabled={!addForm.staffId || !addForm.shiftDate || addShift.isPending}
                 style={{ ...DS.btnPrimary, opacity: (!addForm.staffId || !addForm.shiftDate) ? 0.5 : 1 }}
+              >
                 {addShift.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Add
               </button>
               <button onClick={() => setShowAddForm(false)} style={{ ...DS.btnSecondary }}>Cancel</button>
