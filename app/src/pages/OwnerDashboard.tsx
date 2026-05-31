@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { SetupChecklist } from '@/components/SetupChecklist';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { useVenueSSE } from '@/hooks/useVenueSSE';
@@ -169,46 +170,45 @@ export default function OwnerDashboard() {
     },
   });
 
-  // ── Sidebar nav groups ─────────────────────────────────────────────────────
+  // ── Sidebar nav groups — streamlined to ~10 primary items ─────────────────
+  // Rarely-used features are accessible but deprioritised (grouped at bottom).
   const NAV_GROUPS: SidebarNavGroup[] = [
-    { group: 'Overview', items: [
-      { id: 'overview', label: 'Dashboard', icon: BarChart3 },
-      { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-      { id: 'pl', label: 'P&L Report', icon: DollarSign },
+    { group: 'Main', items: [
+      { id: 'overview',     label: 'Dashboard',      icon: BarChart3 },
+      { id: 'analytics',    label: 'Analytics',      icon: TrendingUp },
+      { id: 'menu',         label: 'Menu',           icon: Coffee },
+      { id: 'reviews',      label: 'Reviews',        icon: Star },
+      { id: 'website',      label: 'Website',        icon: Globe },
     ]},
-    { group: 'Venue', items: [
-      { id: 'menu', label: 'Menu', icon: Coffee },
-      { id: 'locations', label: 'Locations', icon: MapPin },
-      { id: 'bundles', label: 'Bundles', icon: Gift },
-      { id: 'catering', label: 'Catering', icon: Briefcase },
-      { id: 'delivery', label: 'Delivery', icon: Globe },
+    { group: 'Staff', items: [
+      { id: 'scheduling',   label: 'Scheduling',     icon: CalendarDays },
+      { id: 'timesheets',   label: 'Timesheets',     icon: Clock },
     ]},
-    { group: 'Customers', items: [
-      { id: 'loyalty', label: 'Loyalty Program', icon: Star },
-      { id: 'reviews', label: 'Reviews', icon: Star },
-      { id: 'giftcards', label: 'Gift Cards', icon: Gift },
-      { id: 'passes', label: 'Passes', icon: Ticket },
+    { group: 'Revenue', items: [
+      { id: 'loyalty',      label: 'Loyalty',        icon: Star },
+      { id: 'giftcards',    label: 'Gift Cards',     icon: Gift },
+      { id: 'passes',       label: 'Passes',         icon: Ticket },
+      { id: 'promo',        label: 'Promotions',     icon: Tag },
     ]},
     { group: 'Marketing', items: [
-      { id: 'campaigns', label: 'Campaigns', icon: Send },
-      { id: 'smsmarketing', label: 'SMS Marketing', icon: MessageSquare },
-      { id: 'promo', label: 'Promotions', icon: Tag },
+      { id: 'campaigns',    label: 'Campaigns',      icon: Send },
+      { id: 'smsmarketing', label: 'SMS',            icon: MessageSquare },
     ]},
-    { group: 'Staff & Operations', items: [
-      { id: 'scheduling', label: 'Scheduling', icon: CalendarDays },
-      { id: 'timesheets', label: 'Timesheets', icon: Clock },
-      { id: 'audit', label: 'Audit Log', icon: Shield },
-      { id: 'allvenues', label: 'All Venues', icon: Building2 },
-      { id: 'franchisee', label: 'Franchisee', icon: Percent },
+    { group: 'Venue', items: [
+      { id: 'locations',    label: 'Locations',      icon: MapPin },
+      { id: 'catering',     label: 'Catering',       icon: Briefcase },
+      { id: 'integrations', label: 'Integrations',   icon: Link2 },
+      { id: 'settings',     label: 'Settings',       icon: Settings },
     ]},
-    { group: 'Finance', items: [
-      { id: 'billing', label: 'Billing & Plans', icon: CreditCard },
-    ]},
-    { group: 'Settings', items: [
-      { id: 'website', label: 'Website Builder', icon: Globe },
-      { id: 'settings', label: 'Venue Settings', icon: Settings },
-      { id: 'integrations', label: 'Integrations', icon: Link2 },
-      { id: 'qrcodes', label: 'QR Codes', icon: QrCode },
+    { group: 'More', items: [
+      { id: 'pl',           label: 'P&L Report',     icon: DollarSign },
+      { id: 'bundles',      label: 'Bundles',        icon: Gift },
+      { id: 'delivery',     label: 'Delivery',       icon: Globe },
+      { id: 'qrcodes',      label: 'QR Codes',       icon: QrCode },
+      { id: 'billing',      label: 'Billing',        icon: CreditCard },
+      { id: 'audit',        label: 'Audit Log',      icon: Shield },
+      { id: 'allvenues',    label: 'All Venues',     icon: Building2 },
+      { id: 'franchisee',   label: 'Franchisee',     icon: Percent },
     ]},
   ];
 
@@ -371,6 +371,62 @@ function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner: any; s
   const sendEmail = trpc.venue.sendDailySummaryEmail.useMutation();
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sent' | 'error'>('idle');
 
+  // ── Setup checklist ──────────────────────────────────────────────────────
+  const { data: menuData } = trpc.venue.listMenu.useQuery({ venueId: venue?.id || 0 }, { enabled: !!venue?.id });
+  const setupDismissKey = `b1-setup-dismissed-${venue?.id}`;
+  const [setupDismissed, setSetupDismissed] = useState(() => !!localStorage.getItem(setupDismissKey));
+
+  const hasMenuItems = (menuData?.length ?? 0) > 0;
+  const hasHours = !!(venue?.hoursWeekday || venue?.hoursSaturday);
+  const hasDescription = !!(venue?.description && venue.description.length > 10);
+  const hasWebsite = Array.isArray((venue as any)?.websiteBlocks) && (venue as any).websiteBlocks.length > 0;
+  const hasAccentColor = !!(venue?.accentColor && venue.accentColor !== '#09090B');
+
+  const setupSteps = [
+    {
+      id: 'menu',
+      title: 'Add your first menu items',
+      description: 'Customers can\'t order until your menu is set up. Add at least 3 items to get started.',
+      done: hasMenuItems,
+      action: { label: 'Add items →', onClick: () => setActiveTab('menu') },
+    },
+    {
+      id: 'hours',
+      title: 'Set your opening hours',
+      description: 'Let customers know when you\'re open. This appears on your public venue page.',
+      done: hasHours,
+      action: { label: 'Set hours →', onClick: () => setActiveTab('settings') },
+    },
+    {
+      id: 'description',
+      title: 'Write a short description',
+      description: 'A sentence or two about your cafe helps customers decide to order from you.',
+      done: hasDescription,
+      action: { label: 'Write description →', onClick: () => setActiveTab('settings') },
+    },
+    {
+      id: 'website',
+      title: 'Customise your website',
+      description: 'Pick a template and set your brand colours so your page looks professional.',
+      done: hasWebsite || hasAccentColor,
+      action: { label: 'Open builder →', onClick: () => setActiveTab('website') },
+    },
+    {
+      id: 'share',
+      title: 'Share your ordering link',
+      description: 'Send your venue link to customers so they can start placing orders.',
+      done: (summary?.orderCount ?? 0) > 0,
+      action: {
+        label: 'Copy link →',
+        onClick: () => {
+          const url = `${window.location.origin}/v/${venue?.slug}`;
+          navigator.clipboard?.writeText(url).catch(() => {});
+          setActiveTab('qrcodes');
+        },
+      },
+    },
+  ];
+
   const handleSendEmail = () => {
     setEmailStatus('idle');
     sendEmail.mutate({ token }, {
@@ -391,7 +447,7 @@ function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner: any; s
   return (
     <div>
       {/* Page header */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
           Dashboard
         </h1>
@@ -399,6 +455,17 @@ function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner: any; s
           Welcome back{owner?.name ? `, ${owner.name}` : ''}. Here's what's happening today.
         </p>
       </div>
+
+      {/* Setup checklist — shown to new venues until dismissed */}
+      {!setupDismissed && (
+        <SetupChecklist
+          steps={setupSteps}
+          onDismiss={() => {
+            setSetupDismissed(true);
+            localStorage.setItem(setupDismissKey, '1');
+          }}
+        />
+      )}
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 24 }}>
