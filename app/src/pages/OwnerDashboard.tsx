@@ -1164,6 +1164,181 @@ function ImageUpload({
   );
 }
 
+// ─── Template Preview Card ────────────────────────────────────────────────────
+// Renders a rich visual representation of each template's design identity.
+// Uses inline SVG-like HTML elements at a fixed scale to simulate the real page.
+function TemplatePreviewCard({ template: t }: { template: { id: string; preview: { bg: string; accent: string; headline: string }; palette: { primary: string; accent: string; bg: string } } }) {
+  const { bg, accent, headline } = t.preview;
+  const isDark = t.id === 'noir';
+
+  // Each template gets a unique layout thumbnail
+  const thumbnails: Record<string, React.ReactNode> = {
+    fresh: (
+      <div style={{ background: bg, height: 160, padding: 0, overflow: 'hidden', position: 'relative' }}>
+        {/* Hero */}
+        <div style={{ height: 72, background: `linear-gradient(to bottom, rgba(0,0,0,0.08), rgba(0,0,0,0.52))`, backgroundImage: `url(https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=60)`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end', padding: '10px 14px' }}>
+          <div>
+            <div style={{ width: 80, height: 8, borderRadius: 2, background: 'rgba(255,255,255,0.9)', marginBottom: 4 }} />
+            <div style={{ width: 50, height: 5, borderRadius: 2, background: 'rgba(255,255,255,0.6)', marginBottom: 8 }} />
+            <div style={{ display: 'inline-block', background: accent, borderRadius: 3, padding: '3px 8px' }}>
+              <div style={{ width: 30, height: 4, borderRadius: 1, background: '#fff' }} />
+            </div>
+          </div>
+        </div>
+        {/* Menu section */}
+        <div style={{ background: '#fff', padding: '8px 14px', borderBottom: `1px solid ${headline}12` }}>
+          <div style={{ width: 60, height: 5, borderRadius: 2, background: headline, opacity: 0.7, marginBottom: 6 }} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[1,2,3].map(i => <div key={i} style={{ flex: 1, height: 20, borderRadius: 4, background: `${headline}10`, border: `1px solid ${headline}15` }} />)}
+          </div>
+        </div>
+        {/* About + CTA */}
+        <div style={{ background: '#FAFAF8', padding: '7px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ width: 45, height: 4, borderRadius: 2, background: headline, opacity: 0.8, marginBottom: 4 }} />
+            <div style={{ width: 80, height: 3, borderRadius: 2, background: headline, opacity: 0.3 }} />
+          </div>
+          <div style={{ background: headline, borderRadius: 3, padding: '4px 8px' }}>
+            <div style={{ width: 28, height: 3, borderRadius: 1, background: '#fff' }} />
+          </div>
+        </div>
+      </div>
+    ),
+
+    warmth: (
+      <div style={{ background: bg, height: 160, overflow: 'hidden' }}>
+        {/* Hero — warm overlay */}
+        <div style={{ height: 72, background: `linear-gradient(to bottom, rgba(68,28,12,0.3), rgba(68,28,12,0.65))`, backgroundImage: `url(https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=400&q=60)`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end', padding: '10px 14px' }}>
+          <div>
+            <div style={{ width: 75, height: 8, borderRadius: 2, background: 'rgba(255,255,255,0.92)', marginBottom: 4 }} />
+            <div style={{ width: 55, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.65)', marginBottom: 8 }} />
+            <div style={{ display: 'inline-block', background: accent, borderRadius: 3, padding: '3px 8px' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 1, background: '#fff' }} />
+            </div>
+          </div>
+        </div>
+        {/* About — warm cream */}
+        <div style={{ background: '#FDF6EE', padding: '8px 14px', borderBottom: `1px solid #FDE68A` }}>
+          <div style={{ width: 55, height: 5, borderRadius: 2, background: headline, opacity: 0.8, marginBottom: 5 }} />
+          <div style={{ width: 110, height: 3, borderRadius: 2, background: headline, opacity: 0.4, marginBottom: 3 }} />
+          <div style={{ width: 90, height: 3, borderRadius: 2, background: headline, opacity: 0.3 }} />
+        </div>
+        {/* Hours */}
+        <div style={{ background: '#FEF3C7', padding: '7px 14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ width: 55, height: 3, borderRadius: 2, background: headline, opacity: 0.6 }} />
+            <div style={{ width: 35, height: 3, borderRadius: 2, background: accent, opacity: 0.7 }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ width: 40, height: 3, borderRadius: 2, background: headline, opacity: 0.4 }} />
+            <div style={{ width: 30, height: 3, borderRadius: 2, background: headline, opacity: 0.3 }} />
+          </div>
+        </div>
+      </div>
+    ),
+
+    noir: (
+      <div style={{ background: bg, height: 160, overflow: 'hidden' }}>
+        {/* Hero — deep dark */}
+        <div style={{ height: 72, background: `linear-gradient(to bottom, rgba(0,0,0,0.02), rgba(0,0,0,0.88))`, backgroundImage: `url(https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=400&q=60)`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end', padding: '10px 14px' }}>
+          <div>
+            <div style={{ width: 80, height: 8, borderRadius: 2, background: 'rgba(255,255,255,0.95)', marginBottom: 4 }} />
+            <div style={{ width: 55, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.6)', marginBottom: 8 }} />
+            <div style={{ display: 'inline-block', background: accent, borderRadius: 2, padding: '3px 8px' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 1, background: '#0D0D0F' }} />
+            </div>
+          </div>
+        </div>
+        {/* Gold banner */}
+        <div style={{ background: accent, padding: '6px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ width: 80, height: 4, borderRadius: 2, background: '#0D0D0F', opacity: 0.7 }} />
+          <div style={{ background: '#0D0D0F', borderRadius: 3, padding: '3px 7px' }}>
+            <div style={{ width: 24, height: 3, borderRadius: 1, background: accent }} />
+          </div>
+        </div>
+        {/* Dark about */}
+        <div style={{ background: '#181818', padding: '8px 14px', borderBottom: `1px solid #27272A` }}>
+          <div style={{ width: 55, height: 5, borderRadius: 2, background: '#FAFAFA', opacity: 0.85, marginBottom: 5 }} />
+          <div style={{ width: 100, height: 3, borderRadius: 2, background: '#A1A1AA', opacity: 0.6, marginBottom: 3 }} />
+          <div style={{ width: 80, height: 3, borderRadius: 2, background: '#A1A1AA', opacity: 0.4 }} />
+        </div>
+      </div>
+    ),
+
+    garden: (
+      <div style={{ background: bg, height: 160, overflow: 'hidden' }}>
+        {/* Hero */}
+        <div style={{ height: 72, background: `linear-gradient(to bottom, rgba(26,51,39,0.15), rgba(26,51,39,0.62))`, backgroundImage: `url(https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400&q=60)`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end', padding: '10px 14px' }}>
+          <div>
+            <div style={{ width: 85, height: 8, borderRadius: 2, background: 'rgba(255,255,255,0.95)', marginBottom: 4 }} />
+            <div style={{ width: 60, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.7)', marginBottom: 8 }} />
+            <div style={{ display: 'inline-block', background: headline, borderRadius: 16, padding: '3px 9px' }}>
+              <div style={{ width: 32, height: 4, borderRadius: 2, background: '#D4F0DC' }} />
+            </div>
+          </div>
+        </div>
+        {/* About — sage */}
+        <div style={{ background: '#F0F7F1', padding: '8px 14px', borderBottom: `1px solid #C5E0CA` }}>
+          <div style={{ width: 60, height: 5, borderRadius: 2, background: headline, opacity: 0.85, marginBottom: 5 }} />
+          <div style={{ width: 105, height: 3, borderRadius: 2, background: headline, opacity: 0.4, marginBottom: 3 }} />
+          <div style={{ width: 85, height: 3, borderRadius: 2, background: headline, opacity: 0.3 }} />
+        </div>
+        {/* Dark green CTA */}
+        <div style={{ background: headline, padding: '8px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ width: 65, height: 4, borderRadius: 2, background: '#D4F0DC', opacity: 0.8 }} />
+          <div style={{ background: accent, borderRadius: 16, padding: '3px 9px' }}>
+            <div style={{ width: 28, height: 4, borderRadius: 2, background: '#fff' }} />
+          </div>
+        </div>
+      </div>
+    ),
+
+    bold: (
+      <div style={{ background: bg, height: 160, overflow: 'hidden' }}>
+        {/* Hero — purple/coral gradient */}
+        <div style={{ height: 72, background: `linear-gradient(135deg, rgba(45,27,105,0.88), rgba(255,77,77,0.65))`, backgroundImage: `url(https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&q=60)`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end', padding: '10px 14px' }}>
+          <div>
+            <div style={{ width: 88, height: 9, borderRadius: 2, background: 'rgba(255,255,255,0.97)', marginBottom: 4 }} />
+            <div style={{ width: 55, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.65)', marginBottom: 8 }} />
+            <div style={{ display: 'inline-block', background: accent, borderRadius: 20, padding: '3px 10px' }}>
+              <div style={{ width: 32, height: 4, borderRadius: 2, background: '#fff' }} />
+            </div>
+          </div>
+        </div>
+        {/* Coral CTA strip */}
+        <div style={{ background: accent, padding: '6px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ width: 70, height: 4, borderRadius: 2, background: '#fff', opacity: 0.9 }} />
+          <div style={{ background: '#fff', borderRadius: 20, padding: '3px 8px' }}>
+            <div style={{ width: 26, height: 3, borderRadius: 2, background: accent }} />
+          </div>
+        </div>
+        {/* White content */}
+        <div style={{ background: '#fff', padding: '8px 14px', borderBottom: `1px solid #E0DCFF` }}>
+          <div style={{ width: 60, height: 5, borderRadius: 2, background: headline, opacity: 0.85, marginBottom: 5 }} />
+          <div style={{ width: 100, height: 3, borderRadius: 2, background: '#6B6B8E', opacity: 0.5, marginBottom: 3 }} />
+          <div style={{ width: 80, height: 3, borderRadius: 2, background: '#6B6B8E', opacity: 0.35 }} />
+        </div>
+      </div>
+    ),
+  };
+
+  return (
+    <div style={{ position: 'relative', overflow: 'hidden' }}>
+      {thumbnails[t.id] ?? (
+        <div style={{ height: 160, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 24, opacity: 0.3 }}>☕</span>
+        </div>
+      )}
+      {/* Colour palette strip at bottom of preview */}
+      <div style={{ position: 'absolute', bottom: 0, right: 0, display: 'flex', borderRadius: '6px 0 0 0', overflow: 'hidden' }}>
+        {[t.preview.bg, t.preview.headline, t.preview.accent].map((c, i) => (
+          <div key={i} style={{ width: 14, height: 14, background: c, border: '1px solid rgba(255,255,255,0.2)' }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function WebsiteTab({ venue }: { venue: any }) {
   const token = localStorage.getItem('b1-owner-token') || '';
 
@@ -1512,58 +1687,51 @@ function WebsiteTab({ venue }: { venue: any }) {
 
           {/* Templates */}
           <div style={{ background: 'var(--op-card-bg)', borderRadius: 10, border: '1px solid var(--op-card-border)', padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTemplates ? 14 : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTemplates ? 16 : 0 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--op-text)' }}>Templates</div>
-                <div style={{ fontSize: 11, color: 'var(--op-text-muted)' }}>Start from a pre-built layout</div>
+                <div style={{ fontSize: 11, color: 'var(--op-text-muted)' }}>Choose a style for your venue page</div>
               </div>
               <button onClick={() => setShowTemplates(v => !v)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--op-card-border)', background: 'var(--op-bg)', fontSize: 11, fontWeight: 500, cursor: 'pointer', color: 'var(--op-text)' }}>
-                {showTemplates ? 'Hide' : '✦ Browse'}
+                {showTemplates ? 'Hide' : '✦ Browse Templates'}
               </button>
             </div>
             {showTemplates && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
-                {TEMPLATES.map(t => (
-                  <div key={t.id} style={{ borderRadius: 12, overflow: 'hidden', border: `2px solid ${activeTemplateId === t.id ? '#5E8B8B' : 'transparent'}`, cursor: 'pointer', background: 'var(--op-bg)' }}>
-                    {/* Preview swatch */}
-                    <div style={{ height: 80, background: t.preview.bg, padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {/* Hero bar */}
-                      <div style={{ height: 28, borderRadius: 4, background: `linear-gradient(135deg, ${t.preview.headline}44, ${t.preview.accent}55)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ width: '60%', height: 4, borderRadius: 2, background: '#fff8' }} />
-                      </div>
-                      {/* Section bars */}
-                      {[1, 2].map(i => (
-                        <div key={i} style={{ height: 16, borderRadius: 3, background: t.preview.headline + '18', display: 'flex', alignItems: 'center', gap: 4, paddingLeft: 6 }}>
-                          <div style={{ width: '30%', height: 3, borderRadius: 2, background: t.preview.headline + '66' }} />
-                          <div style={{ width: '20%', height: 3, borderRadius: 2, background: t.preview.accent + '99' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {TEMPLATES.map(t => {
+                  const isActive = activeTemplateId === t.id;
+                  return (
+                    <div key={t.id} style={{ borderRadius: 12, overflow: 'hidden', border: `2px solid ${isActive ? '#5E8B8B' : 'var(--op-card-border)'}`, background: 'var(--op-bg)', transition: 'border-color 0.15s' }}>
+                      {/* ── Rich visual preview ── */}
+                      <TemplatePreviewCard template={t} />
+                      {/* ── Info + action ── */}
+                      <div style={{ padding: '10px 14px 12px', background: 'var(--op-card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--op-text)' }}>{t.name}</span>
+                            {isActive && <span style={{ fontSize: 9, fontWeight: 700, background: '#5E8B8B', color: '#fff', borderRadius: 4, padding: '2px 6px', letterSpacing: '0.04em' }}>ACTIVE</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--op-text-muted)' }}>{t.tagline}</div>
                         </div>
-                      ))}
-                    </div>
-                    {/* Info */}
-                    <div style={{ padding: '10px 12px', background: 'var(--op-card-bg)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--op-text)' }}>{t.name}</span>
-                        {activeTemplateId === t.id && <span style={{ fontSize: 9, fontWeight: 700, background: '#5E8B8B', color: '#fff', borderRadius: 4, padding: '2px 6px' }}>ACTIVE</span>}
+                        <button
+                          onClick={() => {
+                            setBlocks(t.blocks());
+                            setThemePrimary(t.palette.primary);
+                            setThemeAccent(t.palette.accent);
+                            setThemeBg(t.palette.bg);
+                            setActiveTemplateId(t.id);
+                            setShowTemplates(false);
+                            setEditingId(null);
+                            setSaveMsg('Template applied — click Publish to go live');
+                          }}
+                          style={{ flexShrink: 0, padding: '7px 16px', background: isActive ? '#5E8B8B' : 'var(--op-text)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' as const }}
+                        >
+                          {isActive ? '✓ Active' : 'Use Template'}
+                        </button>
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--op-text-muted)', marginBottom: 10 }}>{t.tagline}</div>
-                      <button
-                        onClick={() => {
-                          setBlocks(t.blocks());
-                          setThemePrimary(t.palette.primary);
-                          setThemeAccent(t.palette.accent);
-                          setThemeBg(t.palette.bg);
-                          setActiveTemplateId(t.id);
-                          setShowTemplates(false);
-                          setEditingId(null);
-                          setSaveMsg('Template applied — click Publish to go live');
-                        }}
-                        style={{ width: '100%', padding: '7px 0', background: 'var(--op-text)', color: 'var(--op-card-bg)', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                      >
-                        Apply Template
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
