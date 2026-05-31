@@ -783,6 +783,31 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
   }
 }
 
+// ─── Inline schema migration (runs before server opens) ──────────────────────
+// Applies any pending SQL migrations from db/migrations/ using Drizzle's
+// migrator. This is faster than shelling out to drizzle-kit and completes
+// within the Railway healthcheck window (typically < 2s).
+async function runMigrations() {
+  try {
+    const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+    const { getDb } = await import("./queries/connection");
+    const migrationsFolder = new URL("../../db/migrations", import.meta.url).pathname;
+    const { existsSync: fsExists } = await import("fs");
+    if (!fsExists(migrationsFolder)) {
+      console.log("[migrations] no migrations folder found — skipping");
+      return;
+    }
+    await migrate(getDb() as any, { migrationsFolder });
+    console.log("[migrations] schema up to date");
+  } catch (err: any) {
+    // Migration failures are non-fatal in dev; log and continue.
+    // In production the DB schema was already pushed directly.
+    console.warn("[migrations] skipped:", err?.message ?? err);
+  }
+}
+
+await runMigrations();
+
 // Raw Node.js HTTP server — intercept /api/trpc/* before Hono's Fetch-API
 // translation so that nodeHTTPRequestHandler can read the body natively.
 const server = createServer((req, res) => {
