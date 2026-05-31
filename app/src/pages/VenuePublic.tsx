@@ -812,6 +812,35 @@ export default function VenuePublic() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, checkoutPhone, venue?.id]);
 
+  // ── Theme — derive BEFORE any early return (Rules of Hooks) ──────────────
+  // When venue is null (loading/error) these fall back to safe defaults.
+  const vTheme = (venue as any)?.settingsJson?.theme || {};
+  const templateId: string = vTheme.templateId || vTheme.template || 'fresh';
+  const tPrimary: string = vTheme.primaryColor || (venue as any)?.primaryColor || '#09090B';
+  const tAccent: string = vTheme.accentColor || (venue as any)?.accentColor || '#5E8B8B';
+  const tBg: string = vTheme.bgColor || '#F8F6F2';
+  const tFont: string = vTheme.font || 'Inter';
+  const primaryColor = tPrimary;
+  const accentColor = tAccent;
+
+  // Inject Google Font (must be before any conditional return)
+  useEffect(() => {
+    if (!tFont || tFont === 'Inter') return;
+    const fontMap: Record<string, string> = {
+      'Playfair Display': 'Playfair+Display:ital,wght@0,400;0,700;1,400',
+      'DM Mono': 'DM+Mono:wght@400;500',
+      'Space Grotesk': 'Space+Grotesk:wght@400;600;700',
+    };
+    const param = fontMap[tFont];
+    const id = `gfont-vp-${tFont.replace(/\s/g, '-')}`;
+    if (param && !document.getElementById(id)) {
+      const link = document.createElement('link');
+      link.id = id; link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${param}&display=swap`;
+      document.head.appendChild(link);
+    }
+  }, [tFont]);
+
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#F3F2EE' }}>
@@ -831,36 +860,6 @@ export default function VenuePublic() {
       </div>
     );
   }
-
-  const vTheme = (venue as any)?.settingsJson?.theme || {};
-  const templateId: string = vTheme.templateId || vTheme.template || 'fresh';
-  const tPrimary: string = vTheme.primaryColor || (venue as any).primaryColor || '#09090B';
-  const tAccent: string = vTheme.accentColor || (venue as any).accentColor || '#5E8B8B';
-  const tBg: string = vTheme.bgColor || '#F8F6F2';
-  const tFont: string = vTheme.font || 'Inter';
-
-  const primaryColor = tPrimary;
-  const accentColor = tAccent;
-  const themeFont = tFont;
-
-  // Inject Google Font if theme font is set
-  useEffect(() => {
-    if (!tFont || tFont === 'Inter') return;
-    const fontMap: Record<string, string> = {
-      'Playfair Display': 'Playfair+Display:ital,wght@0,400;0,700;1,400',
-      'DM Mono': 'DM+Mono:wght@400;500',
-      'Space Grotesk': 'Space+Grotesk:wght@400;600;700',
-    };
-    const param = fontMap[tFont];
-    const id = `gfont-vp-${tFont.replace(/\s/g, '-')}`;
-    if (param && !document.getElementById(id)) {
-      const link = document.createElement('link');
-      link.id = id;
-      link.rel = 'stylesheet';
-      link.href = `https://fonts.googleapis.com/css2?family=${param}&display=swap`;
-      document.head.appendChild(link);
-    }
-  }, [tFont]);
 
   const waitMinutes = (venue.settingsJson as { waitTimeMinutes?: number } | null)?.waitTimeMinutes ?? 0;
   const openStatus = getOpenStatus(venue);
