@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { setGlobalErrorToast } from '@/providers/trpc';
 
 type ToastType = 'error' | 'success' | 'info' | 'warning';
 
@@ -40,6 +41,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const errorToast = useCallback((message: string) => toast(message, 'error'), [toast]);
   const successToast = useCallback((message: string) => toast(message, 'success'), [toast]);
+
+  // Register error toast with the global tRPC MutationCache so it can
+  // surface errors from any mutation that doesn't define its own onError.
+  useEffect(() => {
+    setGlobalErrorToast(errorToast);
+  }, [errorToast]);
 
   return (
     <ToastContext.Provider value={{ toast, errorToast, successToast }}>
