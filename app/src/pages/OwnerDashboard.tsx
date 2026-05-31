@@ -2032,19 +2032,28 @@ function TabletPinSection({ venue, token, inputCls, inputStyle }: { venue: any; 
     onSuccess: () => { setMsg('Saved!'); setTimeout(() => setMsg(''), 2000); },
   });
   const tabletUrl = `${window.location.origin}/tablet/${venue.slug}`;
+
+  // Extract handler to avoid regex-in-JSX parsing issues on Linux builds
+  function handlePinChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digitsOnly = e.target.value.split('').filter(ch => ch >= '0' && ch <= '9').join('');
+    setTabletPin(digitsOnly.slice(0, 6));
+  }
+
   return (
     <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
       <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.5rem' }}>Tablet / iPad POS</h2>
       <p style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
-        Open <span style={{ fontFamily: 'Geist Mono', fontSize: 12, background: 'rgba(24,24,24,0.06)', padding: '2px 6px', borderRadius: 3 }}>{tabletUrl}</span> on any iPad or tablet. Staff enter this PIN to access the counter view — live orders, quick order entry, and nothing else.
+        Open <span style={{ fontFamily: 'Geist Mono', fontSize: 12, background: 'rgba(24,24,24,0.06)', padding: '2px 6px', borderRadius: 3 }}>{tabletUrl}</span> on any iPad or tablet. Staff enter this PIN to access the counter view.
       </p>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' as const }}>
         <div>
-          <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>PIN (4–6 digits)</label>
+          <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)' }}>PIN (4-6 digits)</label>
           <input
-            type="text" inputMode="numeric" maxLength={6}
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
             value={tabletPin}
-            onChange={e => setTabletPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={handlePinChange}
             placeholder="e.g. 1234"
             className={inputCls}
             style={{ ...inputStyle, width: 140 }}
@@ -2062,10 +2071,9 @@ function TabletPinSection({ venue, token, inputCls, inputStyle }: { venue: any; 
       </div>
       {tabletPin.length >= 4 && (
         <a href={tabletUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 14, fontSize: '0.8125rem', color: '#5E8B8B', textDecoration: 'underline' }}>
-          Open tablet view ↗
+          Open tablet view
         </a>
       )}
-      </div>
     </div>
   );
 }
