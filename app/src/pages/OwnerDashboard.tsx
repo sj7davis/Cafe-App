@@ -641,7 +641,16 @@ function AnalyticsTab() {
     : [];
 
   return (
-    <div className="space-y-6">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Analytics
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Revenue trends, top items, and hourly insights.
+        </p>
+      </div>
+      <div className="space-y-6">
       {/* Days selector + Export */}
       <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
         <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PERIOD:</span>
@@ -836,6 +845,7 @@ function AnalyticsTab() {
       </div>
 
       <AnalyticsExtras analyticsRange={selectedDays} />
+      </div>
     </div>
   );
 }
@@ -881,7 +891,16 @@ function PLTab({ venue }: { venue: any }) {
   const totalRevenue = overview ? Number(overview.totalRevenue) : 0;
 
   return (
-    <div className="space-y-6">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          P&amp;L Report
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Profit and loss summary across your venues.
+        </p>
+      </div>
+      <div className="space-y-6">
       {/* Days selector */}
       <div className="flex items-center gap-2">
         <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PERIOD:</span>
@@ -1023,6 +1042,7 @@ function PLTab({ venue }: { venue: any }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -1401,13 +1421,19 @@ function WebsiteTab({ venue }: { venue: any }) {
   }, [themeFont]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Header bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.03em' }}>Website Builder</h1>
-          <p style={{ fontSize: 12, color: 'var(--op-text-secondary)', margin: '3px 0 0' }}>Drag blocks to reorder · Click Edit to customise · Publish to go live</p>
-        </div>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Website Builder
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Design your public page. Drag blocks, pick a template, publish.
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Viewport toggle */}
           <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--op-card-border)', overflow: 'hidden' }}>
@@ -1872,6 +1898,7 @@ function TabletPinSection({ venue, token, inputCls, inputStyle }: { venue: any; 
           Open tablet view ↗
         </a>
       )}
+      </div>
     </div>
   );
 }
@@ -1911,9 +1938,18 @@ function SettingsTab({ venue }: { venue: any }) {
   const [xeroMsg, setXeroMsg] = useState('');
 
   return (
-    <div className="space-y-6">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Venue Settings
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Update your venue details, hours, and configuration.
+        </p>
+      </div>
+      <div className="space-y-6">
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Venue Settings</h2>
+        <h2 style={DS.sectionTitle}>Venue Settings</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {[
             { label: 'Cafe Name', key: 'name', type: 'text' },
@@ -2059,6 +2095,7 @@ function SettingsTab({ venue }: { venue: any }) {
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -2099,6 +2136,14 @@ function BillingTab() {
 
   return (
     <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Billing &amp; Plans
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Manage your subscription and payment method.
+        </p>
+      </div>
       <div className="border p-6 mb-6" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -2353,7 +2398,16 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
   const origin = window.location.origin;
 
   return (
-    <div className="space-y-8">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Integrations
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Connect Stripe, Square, and configure automation.
+        </p>
+      </div>
+      <div className="space-y-8">
 
       {/* Toast */}
       {toast && (
@@ -2885,6 +2939,7 @@ function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | nu
         </div>
       </div>
 
+      </div>
     </div>
   );
 }
@@ -2951,15 +3006,28 @@ function ReviewsTab({ venueId }: { venueId: number }) {
     { enabled: !!venueId }
   );
 
-  if (isLoading) return <p style={{ color: 'var(--op-text-secondary)' }}>Loading reviews…</p>;
+  const pageHeader = (
+    <div style={{ marginBottom: 24 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+        Reviews
+      </h1>
+      <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+        Customer ratings and feedback.
+      </p>
+    </div>
+  );
+
+  if (isLoading) return <div>{pageHeader}<p style={DS.emptyState}>Loading reviews…</p></div>;
   if (!reviewsList || reviewsList.length === 0) {
-    return <p style={{ color: 'var(--op-text-secondary)' }}>No reviews yet.</p>;
+    return <div>{pageHeader}<p style={DS.emptyState}>No reviews yet.</p></div>;
   }
 
   const avg = reviewsList.reduce((s, r) => s + r.rating, 0) / reviewsList.length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div>
+      {pageHeader}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Star size={20} fill="#F5B400" color="#F5B400" />
         <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--op-text)' }}>{avg.toFixed(1)}</span>
@@ -3002,6 +3070,7 @@ function ReviewsTab({ venueId }: { venueId: number }) {
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }
@@ -3458,10 +3527,19 @@ function MenuTab({ venue }: { venue: any }) {
   };
 
   return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-      {/* Header */}
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Menu
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Create and manage your menu items.
+        </p>
+      </div>
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      {/* Toolbar */}
       <div className="flex items-center justify-between mb-6">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Menu Management</h2>
+        <h2 style={DS.sectionTitle}>Menu Management</h2>
         {!isFormMode && (
           <button
             onClick={startCreate}
@@ -3730,6 +3808,7 @@ function MenuTab({ venue }: { venue: any }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -3792,11 +3871,20 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Gift Cards
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Active gift cards and balances.
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* Create Card Form */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>
+        <h2 style={DS.sectionTitle}>
           Create Gift Card
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -3889,6 +3977,7 @@ function GiftCardsTab({ venueId }: { venueId: number }) {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -3969,11 +4058,20 @@ function PassesTab({ venueId }: { venueId: number }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Coffee Passes
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Subscription pass configuration and active passes.
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* Pass Configuration */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 4 }}>
+        <h2 style={DS.sectionTitle}>
           Pass Configuration
         </h2>
         <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 16 }}>
@@ -4050,6 +4148,7 @@ function PassesTab({ venueId }: { venueId: number }) {
         </button>
       </div>
 
+      </div>
     </div>
   );
 }
@@ -4096,9 +4195,14 @@ function LocationsTab({ venue }: { venue: any }) {
   if (mode === 'create' || (typeof mode === 'object' && mode.type === 'edit')) {
     const isEdit = typeof mode === 'object';
     return (
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>Locations</h1>
+          <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>Manage your physical locations and hours.</p>
+        </div>
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
         <div className="flex items-center justify-between mb-6">
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>
+          <h2 style={DS.sectionTitle}>
             {isEdit ? 'Edit Location' : 'Add Location'}
           </h2>
           <button onClick={() => setMode('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>
@@ -4150,14 +4254,23 @@ function LocationsTab({ venue }: { venue: any }) {
             CANCEL
           </button>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Locations
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Manage your physical locations and hours.
+        </p>
+      </div>
       <div className="flex justify-between items-center mb-6">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Locations</h2>
+        <h2 style={DS.sectionTitle}>Locations</h2>
         <button onClick={() => { setMode('create'); setForm({ name: '', address: '', phone: '', hoursWeekday: '', hoursSaturday: '', hoursSunday: '', isDefault: false }); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: 'pointer' }}>
           <Plus size={14} /> ADD LOCATION
         </button>
@@ -4249,8 +4362,16 @@ function CateringTab({ venueId }: { venueId: number }) {
 
   return (
     <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Catering Requests
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Enquiries and quotes for catering events.
+        </p>
+      </div>
       <div className="flex justify-between items-center mb-6">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Catering Requests</h2>
+        <h2 style={DS.sectionTitle}>Catering Requests</h2>
         <div className="flex gap-2">
           {['all', 'new', 'quoted', 'confirmed', 'completed'].map((s) => (
             <button
@@ -4375,9 +4496,18 @@ function BundlesTab({ venueId }: { venueId: number }) {
   const labelStyle: CSSProperties = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', display: 'block', marginBottom: 4 };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Bundles
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Combo deals and bundle pricing.
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="flex justify-between items-center">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Bundles</h2>
+        <h2 style={DS.sectionTitle}>Bundles</h2>
         <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
           <Plus size={14} /> New Bundle
         </button>
@@ -4457,6 +4587,7 @@ function BundlesTab({ venueId }: { venueId: number }) {
           </div>
         ))}
       </div>
+      </div>
     </div>
   );
 }
@@ -4482,9 +4613,18 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
   const segmentLabel: Record<string, string> = { all: 'All Customers', active_30d: 'Active last 30 days', high_value: 'High value (≥100 pts)' };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Campaigns
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Email marketing campaigns.
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="flex justify-between items-center">
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Campaigns</h2>
+        <h2 style={DS.sectionTitle}>Campaigns</h2>
         <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
           <Plus size={14} /> New Campaign
         </button>
@@ -4580,6 +4720,7 @@ function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
           </div>
         ))}
       </div>
+      </div>
     </div>
   );
 }
@@ -4615,10 +4756,19 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Loyalty Program
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Points configuration and customer balances.
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Loyalty Accounts */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>Loyalty Accounts</h2>
+        <h2 style={DS.sectionTitle}>Loyalty Accounts</h2>
         {/* Tier thresholds info box */}
         <div style={{ display: 'flex', gap: 16, marginBottom: 14, padding: '10px 14px', background: 'var(--op-bg)', border: '1px solid var(--op-card-border)', borderRadius: 7, fontSize: 12, color: 'var(--op-text)', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, fontSize: 11, color: 'var(--op-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Tier Thresholds:</span>
@@ -4777,6 +4927,7 @@ function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
           ))}
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -4835,10 +4986,19 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
   const codes = codesQuery.data ?? [];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Promotions
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Discount codes and promotional offers.
+        </p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Create form */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>
+        <h2 style={DS.sectionTitle}>
           New Discount Code
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -4946,6 +5106,7 @@ function PromoTab({ venueId: _venueId }: { venueId: number }) {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );
@@ -5210,7 +5371,16 @@ function DeliveryTab() {
   const labelStyle = { fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.375rem' };
 
   return (
-    <div className="space-y-6">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Delivery
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Delivery zone and fee configuration.
+        </p>
+      </div>
+      <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
@@ -5375,6 +5545,7 @@ function DeliveryTab() {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -5428,10 +5599,19 @@ function AuditTab() {
   const entityTypes = ['all', 'orders', 'menu', 'staff', 'settings'];
 
   return (
-    <div className="space-y-6">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Audit Log
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Activity history across your account.
+        </p>
+      </div>
+      <div className="space-y-6">
       {/* Export buttons */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Exports</h2>
+        <h2 style={DS.sectionTitle}>Exports</h2>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Orders From</label>
@@ -5533,6 +5713,7 @@ function AuditTab() {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -5562,28 +5743,26 @@ function AllVenuesTab() {
   const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
   return (
-    <div className="space-y-6">
-      {/* Header + period selector */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Building2 size={20} style={{ color: 'var(--op-text-secondary)' }} />
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>
-            All Venues
-            {venues.length > 0 && (
-              <span className="font-data ml-2" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.08em' }}>({venues.length})</span>
-            )}
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PERIOD:</span>
-          {([7, 30, 90] as const).map((d) => (
-            <button key={d} onClick={() => setPeriod(d)}
-              className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: period === d ? '#181818' : 'transparent', color: period === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
-              {d}D
-            </button>
-          ))}
-        </div>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          All Venues
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Multi-venue overview and management.
+        </p>
+      </div>
+      <div className="space-y-6">
+      {/* Period selector */}
+      <div className="flex items-center gap-2">
+        <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: 'var(--op-text-secondary)' }}>PERIOD:</span>
+        {([7, 30, 90] as const).map((d) => (
+          <button key={d} onClick={() => setPeriod(d)}
+            className="px-3 py-1 font-data"
+            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: period === d ? '#181818' : 'transparent', color: period === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+            {d}D
+          </button>
+        ))}
       </div>
 
       {/* Consolidated revenue card */}
@@ -5683,6 +5862,7 @@ function AllVenuesTab() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -5735,12 +5915,16 @@ function SmsMarketingTab() {
   const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <MessageSquare size={20} style={{ color: 'var(--op-text-secondary)' }} />
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>SMS Marketing</h2>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          SMS Marketing
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Send targeted SMS campaigns to your customers.
+        </p>
       </div>
+      <div className="space-y-6">
 
       {/* Segment selector */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
@@ -5914,6 +6098,7 @@ function SmsMarketingTab() {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -5970,12 +6155,16 @@ function FranchiseeTab() {
   const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Percent size={20} style={{ color: 'var(--op-text-secondary)' }} />
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Franchisee</h2>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          Franchisee
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Franchisee account management.
+        </p>
       </div>
+      <div className="space-y-6">
 
       {/* Config error */}
       {configError && (
@@ -6147,6 +6336,7 @@ function FranchiseeTab() {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -6244,7 +6434,16 @@ function QRCodesTab({ venue }: { venue: any }) {
   const qrBtnSecondary = { borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', fontSize: '0.75rem' };
 
   return (
-    <div className="space-y-6">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>
+          QR Codes
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>
+          Generate and download QR codes for your venue.
+        </p>
+      </div>
+      <div className="space-y-6">
       {/* Table QR Codes */}
       <div className="border p-6" style={qrSectionStyle}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>
@@ -6372,6 +6571,7 @@ function QRCodesTab({ venue }: { venue: any }) {
           <div className="flex items-center justify-center h-24"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -6418,8 +6618,8 @@ function SchedulingTab({ token, venueId: _venueId }: { token: string; venueId: n
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em' }}>Scheduling</h1>
-        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0' }}>Build rosters, approve staff requests, and manage shift swaps.</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>Scheduling</h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>Build rosters and approve staff requests.</p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button onClick={() => setWeekStart(addWeekDays(weekStart, -7))} style={{ ...DS.btnSecondary }}>← Prev</button>
@@ -6531,8 +6731,8 @@ function TimesheetTab({ token }: { token: string }) {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em' }}>Timesheets</h1>
-        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0' }}>Staff hours summary with AEST penalty rate flags. Export to CSV for Xero.</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>Timesheets</h1>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>Staff hours with AEST penalty flags. CSV export for Xero.</p>
       </div>
       <div style={DS.card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap' as const, gap: 10 }}>
