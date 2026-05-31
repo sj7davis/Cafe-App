@@ -1605,7 +1605,6 @@ function WebsiteTab({ venue }: { venue: any }) {
           Design your public page. Drag blocks, pick a template, publish.
         </p>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }} />

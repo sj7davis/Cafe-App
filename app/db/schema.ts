@@ -617,7 +617,6 @@ export const staffClockEvents = pgTable("staff_clock_events", {
   staffId: bigint("staff_id", { mode: "number" }).notNull().references(() => staffAccounts.id),
 
   eventType: varchar("event_type", { length: 16 }).notNull().$type<"in" | "out" | "break_start" | "break_end">(),
-  eventType: varchar("event_type", { length: 16 }).notNull().$type<"in" | "out" | "break_start" | "break_end">(),
   clockedAt: timestamp("clocked_at").defaultNow().notNull(),
   note: text("note"),
 });
