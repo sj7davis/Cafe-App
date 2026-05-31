@@ -15,7 +15,10 @@ export const env = {
   platformAdminSecret: process.env.PLATFORM_ADMIN_SECRET || "b1-platform-admin-secret-dev-only",
   port: parseInt(process.env.PORT || "3001"),
   resendApiKey: process.env.RESEND_API_KEY || "",
-  appUrl: process.env.APP_URL || "https://b1platform.com",
+  // Prefer explicit APP_URL, then Railway's auto-set public domain, then dev default.
+  appUrl: process.env.APP_URL
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "")
+    || "http://localhost:3000",
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
   stripePlatformFeePercent: process.env.STRIPE_PLATFORM_FEE_PERCENT || "3",

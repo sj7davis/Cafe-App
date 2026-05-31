@@ -28,7 +28,9 @@ export const squareRouter = createRouter({
 
     const scopes = "ITEMS_READ ORDERS_READ INVENTORY_READ PAYMENTS_READ ORDERS_WRITE";
     const state = Buffer.from(JSON.stringify({ venueId })).toString("base64");
-    const redirectUri = `${process.env.API_URL || "https://api.b1platform.com.au"}/api/square/callback`;
+    // Must match EXACTLY what's registered in Square Developer Portal
+    // and what boot.ts uses in the token exchange.
+    const redirectUri = `${env.appUrl}/api/square/callback`;
 
     const url = `${SQUARE_API_BASE}/oauth2/authorize?client_id=${SQUARE_APP_ID}&scope=${encodeURIComponent(scopes)}&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
