@@ -6770,7 +6770,8 @@ const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 function SchedulingTab({ token, venueId: _venueId }: { token: string; venueId: number }) {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ staffId: '' as number | '', shiftDate: '', startTime: '09:00', endTime: '17:00', role: '', notes: '' });
+  // shiftDate pre-filled to the first day of the selected week so it's never undefined
+  const [addForm, setAddForm] = useState({ staffId: '' as number | '', shiftDate: getMonday(new Date()), startTime: '09:00', endTime: '17:00', role: '', notes: '' });
   const [requestsView, setRequestsView] = useState<'timeoff' | 'swaps'>('timeoff');
 
   const staff = trpc.scheduling.listStaff.useQuery({ token }, { enabled: !!token });
@@ -6778,7 +6779,7 @@ function SchedulingTab({ token, venueId: _venueId }: { token: string; venueId: n
   const timeOffReqs = trpc.shiftManagement.listTimeOffRequests.useQuery({ token, status: 'pending' as const }, { enabled: !!token });
   const swapReqs = trpc.shiftManagement.listShiftSwapRequests.useQuery({ token, status: 'pending' as const }, { enabled: !!token });
 
-  const addShift = trpc.scheduling.addShift.useMutation({ onSuccess: () => { shifts.refetch(); setShowAddForm(false); setAddForm({ staffId: '', shiftDate: '', startTime: '09:00', endTime: '17:00', role: '', notes: '' }); } });
+  const addShift = trpc.scheduling.addShift.useMutation({ onSuccess: () => { shifts.refetch(); setShowAddForm(false); setAddForm({ staffId: '', shiftDate: weekStart, startTime: '09:00', endTime: '17:00', role: '', notes: '' }); } });
   const deleteShift = trpc.scheduling.deleteShift.useMutation({ onSuccess: () => shifts.refetch() });
   const reviewTimeOff = trpc.shiftManagement.reviewTimeOff.useMutation({ onSuccess: () => timeOffReqs.refetch() });
   const respondSwap = trpc.shiftManagement.respondShiftSwap.useMutation({ onSuccess: () => swapReqs.refetch() });
@@ -6816,13 +6817,24 @@ function SchedulingTab({ token, venueId: _venueId }: { token: string; venueId: n
                   {weekDays.map(day => {
                     const dayShifts = shiftsData.filter((sh: any) => sh.staffId === s.id && sh.shiftDate?.slice(0, 10) === day);
                     return (
-                      <td key={day} style={{ ...DS.tableCell, verticalAlign: 'top' as const }}>
+                      <td key={day} style={{ ...DS.tableCell, verticalAlign: 'top' as const, cursor: 'pointer' }}
+                        onClick={() => {
+                          // Click empty cell → open add form pre-filled with this staff + day
+                          setAddForm(f => ({ ...f, staffId: s.id, shiftDate: day }));
+                          setShowAddForm(true);
+                        }}
+                      >
                         {dayShifts.map((sh: any) => (
-                          <div key={sh.id} style={{ background: 'rgba(94,139,139,0.12)', borderRadius: 6, padding: '3px 6px', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+                          <div key={sh.id} style={{ background: 'rgba(94,139,139,0.12)', borderRadius: 6, padding: '3px 6px', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+                            onClick={e => e.stopPropagation()}
+                          >
                             <span>{sh.startTime?.slice(0, 5)}–{sh.endTime?.slice(0, 5)}</span>
-                            <button onClick={() => deleteShift.mutate({ token, shiftId: sh.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--op-text-muted)', padding: 0, lineHeight: 1 }}>×</button>
+                            <button onClick={e => { e.stopPropagation(); deleteShift.mutate({ token, shiftId: sh.id }); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--op-text-muted)', padding: 0, lineHeight: 1 }}>×</button>
                           </div>
                         ))}
+                        {dayShifts.length === 0 && (
+                          <span style={{ color: 'var(--op-text-muted)', fontSize: 10, opacity: 0.4 }}>+ add</span>
+                        )}
                       </td>
                     );
                   })}
@@ -6846,7 +6858,14 @@ function SchedulingTab({ token, venueId: _venueId }: { token: string; venueId: n
               <div><label style={DS.label}>End</label><input type="time" value={addForm.endTime} onChange={e => setAddForm(f => ({ ...f, endTime: e.target.value }))} style={{ ...DS.input }} /></div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button onClick={() => addShift.mutate({ token, staffId: addForm.staffId as number, shiftDate: addForm.shiftDate, startTime: addForm.startTime, endTime: addForm.endTime, role: addForm.role || undefined, notes: addForm.notes || undefined })} disabled={!addForm.staffId || !addForm.shiftDate || addShift.isPending} style={{ ...DS.btnPrimary, opacity: (!addForm.staffId || !addForm.shiftDate) ? 0.5 : 1 }}>
+              <button
+                onClick={() => {
+                  const date = addForm.shiftDate || weekStart;
+                  if (!addForm.staffId || !date) return;
+                  addShift.mutate({ token, staffId: addForm.staffId as number, shiftDate: date, startTime: addForm.startTime, endTime: addForm.endTime, role: addForm.role || undefined, notes: addForm.notes || undefined });
+                }}
+                disabled={!addForm.staffId || !addForm.shiftDate || addShift.isPending}
+                style={{ ...DS.btnPrimary, opacity: (!addForm.staffId || !addForm.shiftDate) ? 0.5 : 1 }}
                 {addShift.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Add
               </button>
               <button onClick={() => setShowAddForm(false)} style={{ ...DS.btnSecondary }}>Cancel</button>

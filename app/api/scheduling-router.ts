@@ -54,9 +54,9 @@ export const schedulingRouter = createRouter({
   addShift: publicQuery.input(z.object({
     token: z.string(),
     staffId: z.number().int().positive(),
-    shiftDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    startTime: z.string().regex(/^\d{2}:\d{2}$/),
-    endTime: z.string().regex(/^\d{2}:\d{2}$/),
+    shiftDate: z.string().min(1, 'Shift date is required').regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+    startTime: z.string().min(1, 'Start time is required').regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM'),
+    endTime: z.string().min(1, 'End time is required').regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM'),
     role: z.string().optional(),
     notes: z.string().optional(),
   })).mutation(async ({ input }) => {
