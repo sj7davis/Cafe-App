@@ -45,7 +45,29 @@ export function ReviewsTab({ venueId }: { venueId: number }) {
 
   if (isLoading) return <div>{pageHeader}<p style={DS.emptyState}>Loading reviews…</p></div>;
   if (!reviewsList || reviewsList.length === 0) {
-    return <div>{pageHeader}<p style={DS.emptyState}>No reviews yet.</p></div>;
+    return (
+      <div>
+        {pageHeader}
+        <div style={{ textAlign: 'center', padding: '56px 24px', maxWidth: 420, margin: '0 auto' }}>
+          <div style={{ fontSize: 52, marginBottom: 20 }}>⭐</div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--op-text)', margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+            No reviews yet
+          </h3>
+          <p style={{ fontSize: 14, color: 'var(--op-text-secondary)', margin: '0 0 12px', lineHeight: 1.6 }}>
+            Reviews come in automatically after customers complete their orders. Share your venue link to get your first orders rolling in.
+          </p>
+          <button
+            onClick={() => {
+              const url = window.location.origin + '/v/' + (window as any).__venueSlug;
+              navigator.clipboard?.writeText(url).catch(() => {});
+            }}
+            style={{ ...DS.btnPrimary, padding: '10px 24px', fontSize: 13, marginTop: 8 }}
+          >
+            Copy venue link
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const avg = reviewsList.reduce((s, r) => s + r.rating, 0) / reviewsList.length;

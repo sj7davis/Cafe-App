@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses } from "@db/schema";
 import { eq, and, desc, asc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -516,7 +516,9 @@ export const venueRouter = createRouter({
         .select({
           customerEmail: orders.customerEmail,
           customerName: orders.customerName,
+          customerPhone: orders.customerPhone,
           orderNumber: orders.orderNumber,
+          venueId: orders.venueId,
           id: orders.id,
         })
         .from(orders)
@@ -531,6 +533,12 @@ export const venueRouter = createRouter({
           orderNumber: co.orderNumber,
           reviewUrl: `${env.appUrl}/review/${co.id}`,
         });
+      }
+      // Send NPS survey via SMS (non-blocking) — link includes orderId + venueId
+      if (co?.customerPhone) {
+        const { sendSms } = await import("./lib/sms");
+        const npsUrl = `${env.appUrl}/nps/${co.id}?v=${co.venueId}&order=${co.orderNumber}`;
+        sendSms(co.customerPhone, `How was your order? Rate your experience in 10 seconds: ${npsUrl}`).catch(() => {});
       }
     }
 
@@ -939,6 +947,87 @@ export const venueRouter = createRouter({
       });
     }
     return { success: true };
+  }),
+
+  // Set stock quantity + alert threshold for a menu item
+  setStockLevel: publicQuery.input(z.object({
+    token: z.string(),
+    menuItemId: z.number().int().positive(),
+    quantity: z.number().int().min(0).nullable(),
+    quantityAlert: z.number().int().min(0).nullable(),
+  })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+
+    const existing = await db.select({ id: inventory.id })
+      .from(inventory)
+      .where(and(eq(inventory.menuItemId, input.menuItemId), eq(inventory.venueId, venueId)))
+      .limit(1);
+
+    const isAvailable = input.quantity === null || input.quantity > 0;
+    const now = new Date();
+
+    if (existing[0]) {
+      await db.update(inventory).set({
+        quantity: input.quantity,
+        quantityAlert: input.quantityAlert,
+        isAvailable,
+        soldOutAt: isAvailable ? null : now,
+        restockedAt: isAvailable ? now : null,
+        updatedAt: now,
+      }).where(eq(inventory.id, existing[0].id));
+    } else {
+      await db.insert(inventory).values({
+        venueId,
+        menuItemId: input.menuItemId,
+        quantity: input.quantity,
+        quantityAlert: input.quantityAlert,
+        isAvailable,
+        soldOutAt: isAvailable ? null : now,
+        restockedAt: isAvailable ? now : null,
+        updatedAt: now,
+      });
+    }
+    return { success: true };
+  }),
+
+  // Full inventory overview — menu items joined with their inventory row
+  getInventoryOverview: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+
+    const items = await db
+      .select({
+        id: menuItems.id,
+        name: menuItems.name,
+        category: menuItems.category,
+        price: menuItems.price,
+        imageUrl: menuItems.imageUrl,
+        // inventory fields (null if no inventory row)
+        invId: inventory.id,
+        isAvailable: inventory.isAvailable,
+        quantity: inventory.quantity,
+        quantityAlert: inventory.quantityAlert,
+        soldOutAt: inventory.soldOutAt,
+        updatedAt: inventory.updatedAt,
+      })
+      .from(menuItems)
+      .leftJoin(inventory, and(eq(inventory.menuItemId, menuItems.id), eq(inventory.venueId, venueId)))
+      .where(eq(menuItems.venueId, venueId))
+      .orderBy(menuItems.category, menuItems.name);
+
+    return items.map(item => ({
+      ...item,
+      // Derive status
+      status: item.isAvailable === false ? 'sold_out'
+        : (item.quantity !== null && item.quantityAlert !== null && item.quantity <= item.quantityAlert) ? 'low_stock'
+        : item.quantity === 0 ? 'sold_out'
+        : 'in_stock',
+    }));
   }),
 
   // ─── Loyalty ───
@@ -2901,5 +2990,57 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     const unreadReviews = Number(unreadResult?.total ?? 0);
 
     return { recentOrders, unreadReviews };
+  }),
+
+  // ─── NPS (post-order satisfaction) ──────────────────────────────────────────
+  submitNps: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    orderId: z.number().int().positive(),
+    phone: z.string().optional(),
+    score: z.number().int().min(0).max(10),
+    comment: z.string().max(500).optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    // Idempotency: only one NPS per order
+    const existing = await db.select({ id: npsResponses.id })
+      .from(npsResponses)
+      .where(eq(npsResponses.orderId, input.orderId))
+      .limit(1);
+    if (existing[0]) return { alreadySubmitted: true };
+
+    await db.insert(npsResponses).values({
+      venueId: input.venueId,
+      orderId: input.orderId,
+      phone: input.phone ?? null,
+      score: input.score,
+      comment: input.comment ?? null,
+    });
+    return { alreadySubmitted: false };
+  }),
+
+  getNpsSummary: publicQuery.input(z.object({
+    token: z.string(),
+    days: z.number().int().min(1).max(365).default(30),
+  })).query(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.payload.venueId as number;
+    const db = getDb();
+    const since = new Date(Date.now() - input.days * 86400000);
+
+    const rows = await db.select({ score: npsResponses.score, comment: npsResponses.comment, createdAt: npsResponses.createdAt })
+      .from(npsResponses)
+      .where(and(eq(npsResponses.venueId, venueId), gte(npsResponses.createdAt, since)))
+      .orderBy(desc(npsResponses.createdAt))
+      .limit(200);
+
+    if (rows.length === 0) return { avg: null, promoters: 0, passives: 0, detractors: 0, nps: null, responses: [] };
+
+    const promoters  = rows.filter(r => r.score >= 9).length;
+    const detractors = rows.filter(r => r.score <= 6).length;
+    const passives   = rows.length - promoters - detractors;
+    const nps = Math.round(((promoters - detractors) / rows.length) * 100);
+    const avg = rows.reduce((s, r) => s + r.score, 0) / rows.length;
+
+    return { avg: Math.round(avg * 10) / 10, promoters, passives, detractors, nps, responses: rows };
   }),
 });

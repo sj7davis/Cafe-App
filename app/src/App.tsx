@@ -16,6 +16,7 @@ const StaffLogin      = lazy(() => import('./pages/StaffLogin'))
 const StaffDashboard  = lazy(() => import('./pages/StaffDashboard'))
 const OrderStatus     = lazy(() => import('./pages/OrderStatus'))
 const Review          = lazy(() => import('@/pages/Review'))
+const NpsPage         = lazy(() => import('./pages/NpsPage'))
 const KitchenDisplay  = lazy(() => import('./pages/KitchenDisplay'))
 const GiftCardLanding = lazy(() => import('./pages/GiftCardLanding'))
 const KioskMode       = lazy(() => import('./pages/KioskMode'))
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/staff"               element={<StaffDashboard />} />
         <Route path="/order/:orderNumber"  element={<OrderStatus />} />
         <Route path="/review/:orderId"     element={<Review />} />
+        <Route path="/nps/:orderId"        element={<NpsPage />} />
         <Route path="/kitchen"             element={<KitchenDisplay />} />
         <Route path="/gift/:code"          element={<GiftCardLanding />} />
         <Route path="/kiosk/:slug"         element={<KioskMode />} />

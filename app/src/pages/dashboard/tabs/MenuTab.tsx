@@ -247,16 +247,22 @@ export function MenuTab({ venue }: { venue: any }) {
 
       {/* Empty state */}
       {!isLoading && items?.length === 0 && !isFormMode && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Coffee size={40} style={{ color: 'var(--op-text-secondary)', marginBottom: 16 }} />
-          <h3 style={{ fontWeight: 500, fontSize: '1rem', color: 'var(--op-text)', marginBottom: 8 }}>No menu items yet</h3>
-          <p style={{ fontSize: '0.875rem', color: 'var(--op-text-secondary)', marginBottom: 24 }}>Add your first item to start building your menu.</p>
+        <div style={{ textAlign: 'center', padding: '56px 24px', maxWidth: 400, margin: '0 auto' }}>
+          <div style={{ fontSize: 52, marginBottom: 20 }}>☕</div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--op-text)', margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+            Your menu is empty
+          </h3>
+          <p style={{ fontSize: 14, color: 'var(--op-text-secondary)', margin: '0 0 12px', lineHeight: 1.6 }}>
+            Add your first item to start taking orders. Customers can't order until your menu has at least one item.
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--op-text-muted)', margin: '0 0 28px' }}>
+            Tip: Start with your top 5 most popular items, then add the rest later.
+          </p>
           <button
             onClick={startCreate}
-            className="px-6 py-3 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+            style={{ ...DS.btnPrimary, padding: '11px 28px', fontSize: 14 }}
           >
-            <Plus size={14} /> Add Item
+            <Plus size={15} /> Add first item
           </button>
         </div>
       )}

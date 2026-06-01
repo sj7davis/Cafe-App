@@ -14,7 +14,7 @@ import {
   AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download,
   Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign,
   PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical,
-  Bell, CalendarDays, Clock,
+  Bell, CalendarDays, Clock, Package,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { ThemeProvider } from '@/components/layout/ThemeContext';
@@ -29,6 +29,7 @@ import { BillingTab } from './tabs/BillingTab';
 import { IntegrationsTab } from './tabs/IntegrationsTab';
 import { ReviewsTab } from './tabs/ReviewsTab';
 import { MenuTab } from './tabs/MenuTab';
+import { InventoryTab } from './tabs/InventoryTab';
 import { GiftCardsTab } from './tabs/GiftCardsTab';
 import { PassesTab } from './tabs/PassesTab';
 import { LocationsTab } from './tabs/LocationsTab';
@@ -50,7 +51,7 @@ export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'inventory' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -83,6 +84,7 @@ export default function OwnerDashboard() {
       { id: 'overview',     label: 'Dashboard',      icon: BarChart3 },
       { id: 'analytics',    label: 'Analytics',      icon: TrendingUp },
       { id: 'menu',         label: 'Menu',           icon: Coffee },
+      { id: 'inventory',    label: 'Inventory',      icon: Package },
       { id: 'reviews',      label: 'Reviews',        icon: Star },
       { id: 'website',      label: 'Website',        icon: Globe },
     ]},
@@ -241,6 +243,7 @@ export default function OwnerDashboard() {
           {activeTab === 'analytics' && <AnalyticsTab />}
           {activeTab === 'pl' && venue && <PLTab venue={venue} />}
           {activeTab === 'menu' && <MenuTab venue={venue} />}
+          {activeTab === 'inventory' && <InventoryTab />}
           {activeTab === 'settings' && <SettingsTab venue={venue} />}
           {activeTab === 'billing' && <BillingTab />}
           {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}

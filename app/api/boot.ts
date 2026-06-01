@@ -9,7 +9,7 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions } from "@db/schema";
 import { eq, and, gte, isNull, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -644,7 +644,26 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
             }
 
             // Broadcast new confirmed order to KDS/staff SSE listeners
-            broadcastToVenue(venueId, "order_update", { orderId, status: "confirmed", orderNumber });
+            broadcastToVenue(venueId, "order_new", { orderId, status: "confirmed", orderNumber });
+
+            // Push notification to all staff/owner subscribers for this venue
+            try {
+              const { sendPush } = await import("./lib/push");
+              const subs = await db.select().from(pushSubscriptions)
+                .where(eq(pushSubscriptions.venueId, venueId));
+              const venueName = meta.venueName || `Venue #${venueId}`;
+              for (const sub of subs) {
+                sendPush(
+                  { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+                  {
+                    title: `New order — ${venueName}`,
+                    body: `${meta.customerName || "Customer"} · ${parsedItems.map((i: any) => `${i.quantity}× ${i.itemName}`).join(", ")}`,
+                    tag: "new-order",
+                    url: "/dashboard",
+                  }
+                ).catch(() => {});
+              }
+            } catch { /* push is non-blocking */ }
 
             // Discount code: increment usedCount (non-blocking)
             if (meta.discountCode) {

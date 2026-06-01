@@ -9,7 +9,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "*.png"],
+      includeAssets: ["favicon.ico", "*.png", "sw-push.js"],
+      // Inject the push handler into the generated service worker
+      injectManifest: undefined,
+      strategies: "generateSW",
       manifest: {
         name: "B1 Platform — Order",
         short_name: "B1 Order",
@@ -30,6 +33,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: null,
+        // Import our push handler into the generated service worker
+        importScripts: ['/sw-push.js'],
         // Only precache small static assets — not the large JS bundle.
         // JS changes on every deploy so network-first is better for it.
         globPatterns: ["**/*.{css,html,png,ico,svg,webmanifest}"],

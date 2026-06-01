@@ -1774,8 +1774,8 @@ function PushNotificationsTab({ venueId }: { venueId: number }) {
 
       <div style={{ background: '#f5f5f4', borderRadius: '12px', padding: '16px' }}>
         <p style={{ fontSize: '13px', color: '#78716c', margin: 0 }}>
-          Push notifications are sent automatically to all subscribed devices when an order is marked as <strong>Ready</strong>.
-          Each staff member must enable notifications on their own device.
+          Push notifications are sent when a <strong>new order arrives</strong> and when an order is marked <strong>Ready</strong>.
+          Enable on each device where you want alerts — even when the tab is in the background.
         </p>
       </div>
     </div>
