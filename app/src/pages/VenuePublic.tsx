@@ -420,6 +420,10 @@ export default function VenuePublic() {
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; description: string } | null>(null);
   const [discountError, setDiscountError] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
+  const [waitlistForm, setWaitlistForm] = useState({ name: '', phone: '', partySize: 2 });
+  const [waitlistResult, setWaitlistResult] = useState<{ position: number } | null>(null);
+  const [waitlistError, setWaitlistError] = useState('');
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [cateringForm, setCateringForm] = useState({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
   const [cateringSubmitted, setCateringSubmitted] = useState(false);
   const [dietaryFilter, setDietaryFilter] = useState<string | null>(null);
@@ -604,6 +608,15 @@ export default function VenuePublic() {
     },
   });
 
+  const joinWaitlistMutation = trpc.waitlist.join.useMutation({
+    onSuccess: (data) => {
+      setWaitlistResult({ position: data.position });
+      setWaitlistForm({ name: '', phone: '', partySize: 2 });
+      setWaitlistError('');
+    },
+    onError: (err) => setWaitlistError(err.message),
+  });
+
   const redeemGiftCardMutation = trpc.venue.redeemGiftCard.useMutation({
     onSuccess: (data) => { setAppliedGiftDiscount(data.discount); },
     onError: (err) => { alert(err.message); },
@@ -635,6 +648,13 @@ export default function VenuePublic() {
     { enabled: !!venue?.id && checkoutPhone.length >= 8 }
   );
   const loyaltyBalance = loyaltyQuery.data?.pointsBalance ?? null;
+  const loyaltyLifetimePts = loyaltyQuery.data?.totalLifetimePoints ?? 0;
+  const loyaltyTier: 'bronze' | 'silver' | 'gold' = loyaltyLifetimePts >= 2000 ? 'gold' : loyaltyLifetimePts >= 500 ? 'silver' : 'bronze';
+  const TIER_META: Record<'bronze' | 'silver' | 'gold', { emoji: string; color: string; label: string; multiplier: string }> = {
+    bronze: { emoji: '🥉', color: '#CD7F32', label: 'Bronze', multiplier: '1×' },
+    silver: { emoji: '🥈', color: '#C0C0C0', label: 'Silver', multiplier: '1.5×' },
+    gold:   { emoji: '🥇', color: '#D4AF37', label: 'Gold',   multiplier: '2×' },
+  };
 
   const redeemRewardMutation = trpc.loyaltyRewards.redeem.useMutation({
     onSuccess: (_, vars) => {
@@ -866,13 +886,21 @@ export default function VenuePublic() {
 
   const allMenuItems = menuItems || [];
   const filteredMenu = allMenuItems.filter(i => {
-    if (dietaryFilter && !i.dietary?.split(',').map(d => d.trim()).includes(dietaryFilter)) return false;
+    if (dietaryFilter) {
+      const inTags = Array.isArray((i as any).dietaryTags) && (i as any).dietaryTags.includes(dietaryFilter);
+      const inDietary = i.dietary?.split(',').map((d: string) => d.trim()).includes(dietaryFilter);
+      const inDietaryLoose = i.dietary?.toLowerCase().includes(dietaryFilter);
+      if (!inTags && !inDietary && !inDietaryLoose) return false;
+    }
     if (menuSearch.trim()) {
       const q = menuSearch.toLowerCase();
       if (!i.name.toLowerCase().includes(q) && !i.description?.toLowerCase().includes(q)) return false;
     }
     return true;
   });
+
+  // Show filter bar only if at least one item has dietary tags or dietary text
+  const hasAnyDietary = allMenuItems.some(i => (Array.isArray((i as any).dietaryTags) && (i as any).dietaryTags.length > 0) || !!i.dietary);
 
   const coffeeItems = filteredMenu.filter(i => i.category === 'coffee');
   const pastryItems = filteredMenu.filter(i => i.category === 'pastries');
@@ -1815,6 +1843,15 @@ export default function VenuePublic() {
                         <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
                           ⭐ {loyaltyBalance} pts — ${(loyaltyBalance / 10).toFixed(2)} available to redeem
                         </span>
+                        {/* Tier badge */}
+                        {(() => {
+                          const tm = TIER_META[loyaltyTier];
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 99, padding: '2px 10px', fontWeight: 600, background: 'rgba(255,255,255,0.9)', border: `1.5px solid ${tm.color}`, color: tm.color, fontSize: 11 }}>
+                              {tm.emoji} {tm.label} · {tm.multiplier} pts/$1
+                            </span>
+                          );
+                        })()}
                         {loyaltyBalance > 0 && (
                           <button
                             onClick={() => setShowRewardsCatalogue(true)}
@@ -2652,7 +2689,7 @@ export default function VenuePublic() {
         )}
 
         {/* Dietary Filter Pills */}
-        {allMenuItems.length > 0 && (
+        {allMenuItems.length > 0 && hasAnyDietary && (
           <div style={{
             display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4,
             marginBottom: 24, WebkitOverflowScrolling: 'touch',
@@ -2660,9 +2697,9 @@ export default function VenuePublic() {
             {[
               { label: 'All', value: null },
               { label: '🌱 Vegan', value: 'vegan' },
-              { label: '🌾 GF', value: 'gluten-free' },
-              { label: '🥛 Dairy-free', value: 'dairy-free' },
-              { label: '🥜 Nut-free', value: 'nut-free' },
+              { label: '🌾 Gluten Free', value: 'gluten-free' },
+              { label: '🥛 Dairy Free', value: 'dairy-free' },
+              { label: '🥜 Nut Free', value: 'nut-free' },
               { label: '🥦 Vegetarian', value: 'vegetarian' },
             ].map(pill => {
               const active = dietaryFilter === pill.value;
@@ -2674,9 +2711,10 @@ export default function VenuePublic() {
                     flexShrink: 0,
                     borderRadius: 99, padding: '6px 14px', fontSize: 12, fontWeight: 500,
                     border: active ? 'none' : '1px solid rgba(24,24,24,0.18)',
-                    background: active ? '#181818' : '#fff',
-                    color: active ? '#F3F2EE' : '#181818',
+                    background: active ? accentColor : '#F3F2EE',
+                    color: active ? '#fff' : '#181818',
                     cursor: 'pointer', whiteSpace: 'nowrap',
+                    transition: 'all 0.12s',
                   }}
                 >
                   {pill.label}
@@ -3281,6 +3319,91 @@ export default function VenuePublic() {
                   <Download size={14} />
                   Download
                 </a>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Join Waitlist Section */}
+      {!!venue?.id && (
+        <section className="content-container py-8 border-t" style={{ borderColor: `${primaryColor}15` }}>
+          <div style={{ maxWidth: 560, margin: '0 auto' }}>
+            <button
+              onClick={() => setWaitlistOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                background: 'none', border: `1.5px solid ${primaryColor}22`, borderRadius: 10,
+                padding: '12px 18px', cursor: 'pointer', color: primaryColor,
+              }}
+            >
+              <Users size={18} style={{ color: primaryColor }} />
+              <span style={{ fontWeight: 600, fontSize: 15 }}>Join the Waitlist</span>
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888' }}>{waitlistOpen ? '▲' : '▼'}</span>
+            </button>
+            {waitlistOpen && (
+              <div style={{ marginTop: 12, padding: '16px', background: '#fff', border: `1px solid ${primaryColor}18`, borderRadius: 10 }}>
+                {waitlistResult ? (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                    <CheckCircle size={36} style={{ color: '#16a34a', margin: '0 auto 10px' }} />
+                    <p style={{ fontWeight: 700, fontSize: 16, color: '#181818' }}>You're #{waitlistResult.position} in the queue</p>
+                    <p style={{ fontSize: 13, color: '#5E5E5E', marginTop: 4 }}>We'll let you know when your table is ready.</p>
+                    <button onClick={() => { setWaitlistResult(null); setWaitlistOpen(false); }} style={{ marginTop: 14, background: 'none', border: 'none', color: primaryColor, fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>Close</button>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 12 }}>Add yourself to the queue and we'll notify you when a table is ready.</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#5E5E5E', display: 'block', marginBottom: 4 }}>Your Name *</label>
+                        <input
+                          value={waitlistForm.name}
+                          onChange={e => setWaitlistForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Name"
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 7, border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, color: '#181818' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#5E5E5E', display: 'block', marginBottom: 4 }}>Phone (optional)</label>
+                        <input
+                          value={waitlistForm.phone}
+                          onChange={e => setWaitlistForm(f => ({ ...f, phone: e.target.value }))}
+                          placeholder="+61 ..."
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 7, border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, color: '#181818' }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#5E5E5E', display: 'block', marginBottom: 6 }}>Party Size</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[1, 2, 3, 4].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setWaitlistForm(f => ({ ...f, partySize: n }))}
+                            style={{
+                              width: 40, height: 40, borderRadius: 8, border: `1.5px solid ${waitlistForm.partySize === n ? primaryColor : 'rgba(24,24,24,0.15)'}`,
+                              background: waitlistForm.partySize === n ? primaryColor : '#fff',
+                              color: waitlistForm.partySize === n ? '#fff' : '#181818',
+                              fontWeight: 600, fontSize: 14, cursor: 'pointer',
+                            }}
+                          >{n === 4 ? '4+' : n}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {waitlistError && <p style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{waitlistError}</p>}
+                    <button
+                      onClick={() => {
+                        if (!venue?.id || !waitlistForm.name.trim()) { setWaitlistError('Please enter your name'); return; }
+                        const phone = waitlistForm.phone.trim() || 'N/A';
+                        joinWaitlistMutation.mutate({ venueId: venue.id, name: waitlistForm.name.trim(), phone, partySize: waitlistForm.partySize });
+                      }}
+                      disabled={joinWaitlistMutation.isPending}
+                      style={{ width: '100%', padding: '11px', borderRadius: 8, border: 'none', background: primaryColor, color: '#fff', fontSize: 14, fontWeight: 600, cursor: joinWaitlistMutation.isPending ? 'not-allowed' : 'pointer' }}
+                    >
+                      {joinWaitlistMutation.isPending ? 'Joining…' : 'Join Queue'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -68,12 +68,22 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
       {/* Loyalty Accounts */}
       <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
         <h2 style={DS.sectionTitle}>Loyalty Accounts</h2>
-        {/* Tier thresholds info box */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 14, padding: '10px 14px', background: 'var(--op-bg)', border: '1px solid var(--op-card-border)', borderRadius: 7, fontSize: 12, color: 'var(--op-text)', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 600, fontSize: 11, color: 'var(--op-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Tier Thresholds:</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF9C3', color: '#713F12', fontSize: 11, fontWeight: 600 }}>Bronze</span> 0 pts</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--op-bg)', color: 'var(--op-text)', fontSize: 11, fontWeight: 600 }}>Silver</span> 500 pts</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF3C7', color: '#92400E', fontSize: 11, fontWeight: 600 }}>Gold</span> 2,000 pts</span>
+        {/* Tier legend card with multipliers */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Bronze', bg: '#FEF9C3', color: '#713F12', border: '#CD7F32', threshold: '< 500 pts', multiplier: '1× pts/$1', emoji: '🥉' },
+            { label: 'Silver', bg: '#F3F4F6', color: '#374151', border: '#C0C0C0', threshold: '500–1,999 pts', multiplier: '1.5× pts/$1', emoji: '🥈' },
+            { label: 'Gold',   bg: '#FEF3C7', color: '#92400E', border: '#D4AF37', threshold: '2,000+ pts', multiplier: '2× pts/$1', emoji: '🥇' },
+          ].map(t => (
+            <div key={t.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: t.bg, border: `1.5px solid ${t.border}`, borderRadius: 8, minWidth: 160 }}>
+              <span style={{ fontSize: 16 }}>{t.emoji}</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 12, color: t.color }}>{t.label}</div>
+                <div style={{ fontSize: 11, color: t.color, opacity: 0.85 }}>{t.threshold}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: t.color }}>{t.multiplier}</div>
+              </div>
+            </div>
+          ))}
         </div>
         {/* Search */}
         <div style={{ marginBottom: 12 }}>
