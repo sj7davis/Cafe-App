@@ -46,12 +46,13 @@ import { FranchiseeTab } from './tabs/FranchiseeTab';
 import { QRCodesTab } from './tabs/QRCodesTab';
 import { SchedulingTab } from './tabs/SchedulingTab';
 import { TimesheetTab } from './tabs/TimesheetTab';
+import { CustomerCRMTab } from './tabs/CustomerCRMTab';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'inventory' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'inventory' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets' | 'customers'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -97,6 +98,9 @@ export default function OwnerDashboard() {
       { id: 'giftcards',    label: 'Gift Cards',     icon: Gift },
       { id: 'passes',       label: 'Passes',         icon: Ticket },
       { id: 'promo',        label: 'Promotions',     icon: Tag },
+    ]},
+    { group: 'Customers', items: [
+      { id: 'customers',    label: 'CRM',            icon: Users },
     ]},
     { group: 'Marketing', items: [
       { id: 'campaigns',    label: 'Campaigns',      icon: Send },
@@ -265,6 +269,7 @@ export default function OwnerDashboard() {
           {activeTab === 'website' && <WebsiteTab venue={venue} />}
           {activeTab === 'scheduling' && venue && <SchedulingTab token={token} venueId={venue.id} />}
           {activeTab === 'timesheets' && venue && <TimesheetTab token={token} />}
+          {activeTab === 'customers' && <CustomerCRMTab />}
         </div>
       </AppShell>
     </ThemeProvider>
