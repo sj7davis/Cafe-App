@@ -153,7 +153,7 @@ function TabletMain({ venueId, accentColor, primaryColor, tabletToken }: { venue
 
   // SSE for real-time order updates
   useEffect(() => {
-    const es = new EventSource(`/api/sse/orders/${venueId}`);
+    const es = new EventSource(`/api/sse/orders/${venueId}?token=${encodeURIComponent(tabletToken)}`);
     es.onmessage = () => { utils.venue.listOrders.invalidate(); };
     return () => es.close();
   }, [venueId, utils]);
@@ -186,10 +186,11 @@ function TabletMain({ venueId, accentColor, primaryColor, tabletToken }: { venue
     placeOrder.mutate({
       venueId,
       customerName: customerName.trim() || 'Walk-in',
-      customerPhone: '',
+      customerPhone: '0000000000',
+      pickupTime: 'ASAP',
       items: cart.map(l => ({ menuItemId: l.menuItemId, quantity: l.quantity })),
       orderNote: orderNote.trim() || undefined,
-      source: 'tablet',
+      orderType: 'dine-in',
     } as any);
   };
 

@@ -7,6 +7,7 @@ import {
   MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
   ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
   Users, PieChart as PieChartIcon, Circle,
+  Zap,
 } from 'lucide-react';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
