@@ -420,6 +420,10 @@ export default function VenuePublic() {
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; description: string } | null>(null);
   const [discountError, setDiscountError] = useState('');
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
+  const [waitlistForm, setWaitlistForm] = useState({ name: '', phone: '', partySize: 2 });
+  const [waitlistResult, setWaitlistResult] = useState<{ position: number } | null>(null);
+  const [waitlistError, setWaitlistError] = useState('');
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [cateringForm, setCateringForm] = useState({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
   const [cateringSubmitted, setCateringSubmitted] = useState(false);
   const [dietaryFilter, setDietaryFilter] = useState<string | null>(null);
@@ -602,6 +606,15 @@ export default function VenuePublic() {
       setCateringSubmitted(true);
       setCateringForm({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
     },
+  });
+
+  const joinWaitlistMutation = trpc.waitlist.join.useMutation({
+    onSuccess: (data) => {
+      setWaitlistResult({ position: data.position });
+      setWaitlistForm({ name: '', phone: '', partySize: 2 });
+      setWaitlistError('');
+    },
+    onError: (err) => setWaitlistError(err.message),
   });
 
   const redeemGiftCardMutation = trpc.venue.redeemGiftCard.useMutation({
@@ -3297,6 +3310,91 @@ export default function VenuePublic() {
                   <Download size={14} />
                   Download
                 </a>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Join Waitlist Section */}
+      {!!venue?.id && (
+        <section className="content-container py-8 border-t" style={{ borderColor: `${primaryColor}15` }}>
+          <div style={{ maxWidth: 560, margin: '0 auto' }}>
+            <button
+              onClick={() => setWaitlistOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                background: 'none', border: `1.5px solid ${primaryColor}22`, borderRadius: 10,
+                padding: '12px 18px', cursor: 'pointer', color: primaryColor,
+              }}
+            >
+              <Users size={18} style={{ color: primaryColor }} />
+              <span style={{ fontWeight: 600, fontSize: 15 }}>Join the Waitlist</span>
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888' }}>{waitlistOpen ? '▲' : '▼'}</span>
+            </button>
+            {waitlistOpen && (
+              <div style={{ marginTop: 12, padding: '16px', background: '#fff', border: `1px solid ${primaryColor}18`, borderRadius: 10 }}>
+                {waitlistResult ? (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                    <CheckCircle size={36} style={{ color: '#16a34a', margin: '0 auto 10px' }} />
+                    <p style={{ fontWeight: 700, fontSize: 16, color: '#181818' }}>You're #{waitlistResult.position} in the queue</p>
+                    <p style={{ fontSize: 13, color: '#5E5E5E', marginTop: 4 }}>We'll let you know when your table is ready.</p>
+                    <button onClick={() => { setWaitlistResult(null); setWaitlistOpen(false); }} style={{ marginTop: 14, background: 'none', border: 'none', color: primaryColor, fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>Close</button>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ fontSize: 13, color: '#5E5E5E', marginBottom: 12 }}>Add yourself to the queue and we'll notify you when a table is ready.</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#5E5E5E', display: 'block', marginBottom: 4 }}>Your Name *</label>
+                        <input
+                          value={waitlistForm.name}
+                          onChange={e => setWaitlistForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Name"
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 7, border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, color: '#181818' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#5E5E5E', display: 'block', marginBottom: 4 }}>Phone (optional)</label>
+                        <input
+                          value={waitlistForm.phone}
+                          onChange={e => setWaitlistForm(f => ({ ...f, phone: e.target.value }))}
+                          placeholder="+61 ..."
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 7, border: '1px solid rgba(24,24,24,0.15)', fontSize: 13, color: '#181818' }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#5E5E5E', display: 'block', marginBottom: 6 }}>Party Size</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[1, 2, 3, 4].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setWaitlistForm(f => ({ ...f, partySize: n }))}
+                            style={{
+                              width: 40, height: 40, borderRadius: 8, border: `1.5px solid ${waitlistForm.partySize === n ? primaryColor : 'rgba(24,24,24,0.15)'}`,
+                              background: waitlistForm.partySize === n ? primaryColor : '#fff',
+                              color: waitlistForm.partySize === n ? '#fff' : '#181818',
+                              fontWeight: 600, fontSize: 14, cursor: 'pointer',
+                            }}
+                          >{n === 4 ? '4+' : n}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {waitlistError && <p style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{waitlistError}</p>}
+                    <button
+                      onClick={() => {
+                        if (!venue?.id || !waitlistForm.name.trim()) { setWaitlistError('Please enter your name'); return; }
+                        const phone = waitlistForm.phone.trim() || 'N/A';
+                        joinWaitlistMutation.mutate({ venueId: venue.id, name: waitlistForm.name.trim(), phone, partySize: waitlistForm.partySize });
+                      }}
+                      disabled={joinWaitlistMutation.isPending}
+                      style={{ width: '100%', padding: '11px', borderRadius: 8, border: 'none', background: primaryColor, color: '#fff', fontSize: 14, fontWeight: 600, cursor: joinWaitlistMutation.isPending ? 'not-allowed' : 'pointer' }}
+                    >
+                      {joinWaitlistMutation.isPending ? 'Joining…' : 'Join Queue'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

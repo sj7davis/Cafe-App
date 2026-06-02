@@ -14,7 +14,7 @@ import {
   AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download,
   Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign,
   PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical,
-  Bell, CalendarDays, Clock, Package,
+  Bell, CalendarDays, Clock, Package, RotateCcw,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { ThemeProvider } from '@/components/layout/ThemeContext';
@@ -46,12 +46,13 @@ import { FranchiseeTab } from './tabs/FranchiseeTab';
 import { QRCodesTab } from './tabs/QRCodesTab';
 import { SchedulingTab } from './tabs/SchedulingTab';
 import { TimesheetTab } from './tabs/TimesheetTab';
+import { WaitlistTab } from './tabs/WaitlistTab';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'inventory' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'inventory' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets' | 'waitlist' | 'refunds'>('overview');
 
   const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
@@ -104,6 +105,7 @@ export default function OwnerDashboard() {
     ]},
     { group: 'Venue', items: [
       { id: 'locations',    label: 'Locations',      icon: MapPin },
+      { id: 'waitlist',     label: 'Waitlist',       icon: Users },
       { id: 'catering',     label: 'Catering',       icon: Briefcase },
       { id: 'integrations', label: 'Integrations',   icon: Link2 },
       { id: 'settings',     label: 'Settings',       icon: Settings },
@@ -265,6 +267,7 @@ export default function OwnerDashboard() {
           {activeTab === 'website' && <WebsiteTab venue={venue} />}
           {activeTab === 'scheduling' && venue && <SchedulingTab token={token} venueId={venue.id} />}
           {activeTab === 'timesheets' && venue && <TimesheetTab token={token} />}
+          {activeTab === 'waitlist' && venue && <WaitlistTab venueId={venue.id} />}
         </div>
       </AppShell>
     </ThemeProvider>
