@@ -422,6 +422,15 @@ export default function VenuePublic() {
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [cateringForm, setCateringForm] = useState({ name: '', phone: '', email: '', eventDate: '', guestCount: '', details: '' });
   const [cateringSubmitted, setCateringSubmitted] = useState(false);
+
+  // Subscription / recurring order state
+  const [showSubPrompt, setShowSubPrompt] = useState(false);
+  const [subPickupTime, setSubPickupTime] = useState('08:00');
+  const [subDays, setSubDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [subSubmitted, setSubSubmitted] = useState(false);
+  const createRecurring = trpc.venue.createRecurringOrder.useMutation({
+    onSuccess: () => { setSubSubmitted(true); setShowSubPrompt(false); },
+  });
   const [dietaryFilter, setDietaryFilter] = useState<string | null>(null);
   const [menuSearch, setMenuSearch] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -1492,6 +1501,64 @@ export default function VenuePublic() {
                     <p style={{ margin: 0, color: '#6B7280' }}>
                       Tap the Share button then "Add to Home Screen" for faster ordering.
                     </p>
+                  </div>
+                )}
+
+                {/* ── Subscribe to this order ──────────────────────────────── */}
+                {!subSubmitted && !showSubPrompt && cart.length > 0 && checkoutPhone && (
+                  <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 10, background: 'rgba(234,179,8,0.07)', border: '1px solid rgba(234,179,8,0.2)', textAlign: 'left' }}>
+                    <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: '#181818' }}>Subscribe to this order?</p>
+                    <p style={{ margin: '0 0 10px', fontSize: 12, color: '#5E5E5E' }}>Get this order prepared automatically every week — we'll have it ready at your pickup time.</p>
+                    <button onClick={() => setShowSubPrompt(true)} style={{ padding: '7px 16px', borderRadius: 7, background: '#181818', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      Set up recurring order
+                    </button>
+                  </div>
+                )}
+
+                {showSubPrompt && !subSubmitted && (
+                  <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 10, background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.2)', textAlign: 'left' }}>
+                    <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#181818' }}>Recurring order setup</p>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                      {[['Mon', 1], ['Tue', 2], ['Wed', 3], ['Thu', 4], ['Fri', 5], ['Sat', 6], ['Sun', 0]].map(([label, dow]) => (
+                        <button
+                          key={dow}
+                          onClick={() => setSubDays(d => d.includes(dow as number) ? d.filter(x => x !== dow) : [...d, dow as number])}
+                          style={{ padding: '5px 10px', borderRadius: 6, border: `1px solid ${subDays.includes(dow as number) ? '#5E8B8B' : 'rgba(24,24,24,0.15)'}`, background: subDays.includes(dow as number) ? '#5E8B8B' : '#fff', color: subDays.includes(dow as number) ? '#fff' : '#181818', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}
+                        >{label}</button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                      <label style={{ fontSize: 12, color: '#5E5E5E' }}>Pickup time:</label>
+                      <input type="time" value={subPickupTime} onChange={e => setSubPickupTime(e.target.value)} style={{ padding: '6px 10px', border: '1px solid rgba(24,24,24,0.15)', borderRadius: 6, fontSize: 13, color: '#181818' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => {
+                          if (!venue?.id || !checkoutPhone || !checkoutName || cart.length === 0 || subDays.length === 0) return;
+                          createRecurring.mutate({
+                            venueId: venue.id,
+                            customerPhone: checkoutPhone,
+                            customerName: checkoutName,
+                            items: cart.map(i => ({ menuItemId: i.id, quantity: i.quantity })),
+                            scheduleDays: subDays.sort().join(','),
+                            pickupTime: subPickupTime,
+                          });
+                        }}
+                        disabled={createRecurring.isPending || subDays.length === 0}
+                        style={{ flex: 1, padding: '9px 0', borderRadius: 7, background: '#5E8B8B', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: createRecurring.isPending ? 0.7 : 1 }}
+                      >
+                        {createRecurring.isPending ? 'Setting up…' : 'Subscribe'}
+                      </button>
+                      <button onClick={() => setShowSubPrompt(false)} style={{ padding: '9px 14px', borderRadius: 7, background: 'none', border: '1px solid rgba(24,24,24,0.18)', color: '#6B7280', fontSize: 13, cursor: 'pointer' }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {subSubmitted && (
+                  <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#065F46', fontWeight: 500 }}>
+                    Recurring order set up! We'll have it ready for you automatically.
                   </div>
                 )}
 
