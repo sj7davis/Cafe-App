@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses } from "@db/schema";
-import { eq, and, desc, asc, sql, gte, sum, isNull, lte, inArray, count, not } from "drizzle-orm";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries } from "@db/schema";
+import { eq, and, desc, asc, sql, gte, sum, isNull, lte, inArray, count, not, max } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
@@ -3042,5 +3042,149 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     const avg = rows.reduce((s, r) => s + r.score, 0) / rows.length;
 
     return { avg: Math.round(avg * 10) / 10, promoters, passives, detractors, nps, responses: rows };
+  }),
+
+  // ─── Waitlist / Virtual Queue ───────────────────────────────────────────────
+
+  // Public: customer joins the venue's waitlist queue
+  joinWaitlist: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    name: z.string().min(1).max(128),
+    phone: z.string().min(8),
+    partySize: z.number().int().min(1).max(20).default(1),
+    note: z.string().max(200).optional(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+
+    // Get current max active position for this venue
+    const maxResult = await db
+      .select({ maxPos: max(waitlistEntries.position) })
+      .from(waitlistEntries)
+      .where(
+        and(
+          eq(waitlistEntries.venueId, input.venueId),
+          inArray(waitlistEntries.status, ["waiting", "notified"] as any[]),
+        )
+      );
+    const nextPosition = (maxResult[0]?.maxPos ?? 0) + 1;
+
+    // Estimate 10 minutes per party ahead
+    const estimatedWait = (nextPosition - 1) * 10;
+
+    const [entry] = await db.insert(waitlistEntries).values({
+      venueId: input.venueId,
+      name: input.name,
+      phone: input.phone,
+      partySize: input.partySize,
+      note: input.note ?? null,
+      position: nextPosition,
+      estimatedWait,
+      status: "waiting",
+    }).returning({
+      id: waitlistEntries.id,
+      position: waitlistEntries.position,
+      estimatedWait: waitlistEntries.estimatedWait,
+    });
+
+    return {
+      id: entry.id,
+      position: entry.position,
+      estimatedWait: entry.estimatedWait,
+    };
+  }),
+
+  // Owner: list active waitlist entries (waiting + notified)
+  listWaitlist: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    const db = getDb();
+    return db
+      .select()
+      .from(waitlistEntries)
+      .where(
+        and(
+          eq(waitlistEntries.venueId, venueId),
+          inArray(waitlistEntries.status, ["waiting", "notified"] as any[]),
+        )
+      )
+      .orderBy(asc(waitlistEntries.position));
+  }),
+
+  // Owner: notify a customer their table is ready (sends SMS)
+  notifyWaitlistEntry: publicQuery.input(z.object({
+    token: z.string(),
+    entryId: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    const db = getDb();
+    const rows = await db.select().from(waitlistEntries)
+      .where(eq(waitlistEntries.id, input.entryId)).limit(1);
+    const entry = rows[0];
+    if (!entry) throw new TRPCError({ code: "NOT_FOUND", message: "Waitlist entry not found" });
+    if (entry.venueId !== venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Entry does not belong to your venue" });
+
+    // Look up venue name for the SMS
+    const venueRows = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const venueName = venueRows[0]?.name ?? "the cafe";
+
+    // Send SMS notification (non-blocking — sendSms never throws)
+    await sendSms(entry.phone, `Hi ${entry.name}, your table is ready at ${venueName}! Please come to the front.`);
+
+    await db.update(waitlistEntries)
+      .set({ status: "notified", notifiedAt: new Date() })
+      .where(eq(waitlistEntries.id, input.entryId));
+
+    return { success: true };
+  }),
+
+  // Owner: mark a waitlist entry as seated or left
+  updateWaitlistStatus: publicQuery.input(z.object({
+    token: z.string(),
+    entryId: z.number().int().positive(),
+    status: z.enum(["seated", "left"]),
+  })).mutation(async ({ input }) => {
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    const db = getDb();
+    const rows = await db.select({ id: waitlistEntries.id, venueId: waitlistEntries.venueId })
+      .from(waitlistEntries).where(eq(waitlistEntries.id, input.entryId)).limit(1);
+    const entry = rows[0];
+    if (!entry) throw new TRPCError({ code: "NOT_FOUND", message: "Waitlist entry not found" });
+    if (entry.venueId !== venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Entry does not belong to your venue" });
+
+    await db.update(waitlistEntries)
+      .set({ status: input.status })
+      .where(eq(waitlistEntries.id, input.entryId));
+
+    return { success: true };
+  }),
+
+  // Owner: clear seated/left entries from today's queue
+  clearWaitlist: publicQuery.input(z.object({
+    token: z.string(),
+  })).mutation(async ({ input }) => {
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    const db = getDb();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    await db.delete(waitlistEntries)
+      .where(
+        and(
+          eq(waitlistEntries.venueId, venueId),
+          inArray(waitlistEntries.status, ["seated", "left"] as any[]),
+          gte(waitlistEntries.createdAt, startOfDay),
+        )
+      );
+
+    return { success: true };
   }),
 });

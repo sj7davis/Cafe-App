@@ -677,11 +677,10 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
               } catch { /* non-blocking */ }
             }
 
-            // Earn loyalty points: 1pt per $1 of order subtotal (excluding tip)
+            // Earn loyalty points with tier multiplier (excluding tip)
             const subtotal = Math.max(0, (totalCents / 100) - Number(meta.tipAmount ?? 0));
-            const pointsEarned = Math.floor(subtotal);
             const loyaltyPhone = meta.loyaltyPhone || meta.customerPhone;
-            if (loyaltyPhone && pointsEarned > 0) {
+            if (loyaltyPhone && subtotal >= 1) {
               try {
                 let loyaltyAcc = await db.select().from(loyaltyAccounts)
                   .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
@@ -693,6 +692,7 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
                     name: meta.customerName ?? null,
                     pointsBalance: 0,
                     totalLifetimePoints: 0,
+                    tier: "bronze",
                   });
                   loyaltyAcc = await db.select().from(loyaltyAccounts)
                     .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
@@ -700,18 +700,25 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
                 }
                 const acc = loyaltyAcc[0];
                 if (acc) {
-                  await db.update(loyaltyAccounts).set({
-                    pointsBalance: acc.pointsBalance + pointsEarned,
-                    totalLifetimePoints: acc.totalLifetimePoints + pointsEarned,
-                  }).where(eq(loyaltyAccounts.id, acc.id));
-                  await db.insert(loyaltyTransactions).values({
-                    venueId,
-                    accountId: acc.id,
-                    type: "earn",
-                    points: pointsEarned,
-                    description: `Online order ${orderNumber} — ${pointsEarned} pts`,
-                    orderId,
-                  });
+                  const multiplier = acc.tier === "gold" ? 2 : acc.tier === "silver" ? 1.5 : 1;
+                  const pointsEarned = Math.floor(subtotal * multiplier);
+                  if (pointsEarned > 0) {
+                    const newLifetime = acc.totalLifetimePoints + pointsEarned;
+                    const newTier = newLifetime >= 2000 ? "gold" : newLifetime >= 500 ? "silver" : "bronze";
+                    await db.update(loyaltyAccounts).set({
+                      pointsBalance: acc.pointsBalance + pointsEarned,
+                      totalLifetimePoints: newLifetime,
+                      tier: newTier,
+                    }).where(eq(loyaltyAccounts.id, acc.id));
+                    await db.insert(loyaltyTransactions).values({
+                      venueId,
+                      accountId: acc.id,
+                      type: "earn",
+                      points: pointsEarned,
+                      description: `Online order ${orderNumber} — ${pointsEarned} pts (${acc.tier} ${multiplier}×)`,
+                      orderId,
+                    });
+                  }
                 }
               } catch { /* non-blocking */ }
             }

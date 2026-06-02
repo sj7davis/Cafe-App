@@ -219,6 +219,8 @@ export const orders = pgTable("orders", {
   stripeSessionId: varchar("stripe_session_id", { length: 100 }),
   tableNumber: varchar("table_number", { length: 16 }),
   orderType: varchar("order_type", { length: 16 }).default("pickup"),
+  refundedAt: timestamp("refunded_at"),
+  refundAmount: varchar("refund_amount", { length: 16 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
 });
@@ -503,11 +505,13 @@ export const wasteLog = pgTable("waste_log", {
 export const waitlistEntries = pgTable("waitlist_entries", {
   id: serial("id").primaryKey(),
   venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 128 }).notNull(),
   phone: varchar("phone", { length: 32 }).notNull(),
   partySize: integer("party_size").notNull().default(1),
+  note: text("note"),
+  status: varchar("status", { length: 16 }).notNull().default("waiting").$type<"waiting" | "notified" | "seated" | "left">(),
   position: integer("position").notNull(),
-  status: varchar("status", { length: 16 }).notNull().default("waiting").$type<"waiting" | "notified" | "seated" | "cancelled">(),
+  estimatedWait: integer("estimated_wait"),
   notifiedAt: timestamp("notified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

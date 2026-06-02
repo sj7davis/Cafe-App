@@ -3,13 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { orders, orderItems, menuItems, venues, franchiseeAccounts, giftCards, subscriptionPasses } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
+import { jwtVerify } from "jose";
 import Stripe from "stripe";
 import { env } from "./lib/env";
 import { randomBytes } from "crypto";
 import { sendEmail } from "./lib/email";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
+const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 function getStripe(): Stripe {
   if (!env.stripeSecretKey) {
@@ -385,5 +387,106 @@ export const stripeCheckoutRouter = createRouter({
     });
 
     return { url: session.url, sessionId: session.id };
+  }),
+
+  // ─── Refund Management (owner only) ────────────────────────────────────────
+
+  // List orders eligible for refund: completed, has Stripe session, not yet refunded
+  getRefundableOrders: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    let venueId: number;
+    try {
+      const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+      venueId = payload.venueId as number;
+    } catch {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
+    }
+
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        totalAmount: orders.totalAmount,
+        stripeSessionId: orders.stripeSessionId,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.venueId, venueId),
+          eq(orders.status, "completed" as any),
+          isNull(orders.refundedAt),
+        )
+      )
+      .orderBy(orders.createdAt);
+
+    // Filter to only those with a Stripe session (can't refund cash orders)
+    return rows.filter(r => !!r.stripeSessionId);
+  }),
+
+  // Issue a partial or full refund for a completed Stripe order
+  createRefund: publicQuery.input(z.object({
+    token: z.string(),
+    orderId: z.number().int().positive(),
+    amount: z.number().positive().optional(), // partial refund in dollars; omit for full refund
+    reason: z.enum(["duplicate", "fraudulent", "requested_by_customer"]).default("requested_by_customer"),
+  })).mutation(async ({ input }) => {
+    // 1. Verify JWT and extract venueId (owner only)
+    let venueId: number;
+    try {
+      const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+      venueId = payload.venueId as number;
+    } catch {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
+    }
+
+    const db = getDb();
+
+    // 2. Load order, verify venue ownership and refund eligibility
+    const orderRows = await db.select().from(orders).where(eq(orders.id, input.orderId)).limit(1);
+    const order = orderRows[0];
+    if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+    if (order.venueId !== venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Order does not belong to your venue" });
+    if (!order.stripeSessionId) throw new TRPCError({ code: "BAD_REQUEST", message: "Order has no Stripe session — cannot refund" });
+    if (order.refundedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Order has already been refunded" });
+
+    // 3. Retrieve Stripe session to get payment intent ID
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
+    if (!session.payment_intent) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "No payment intent found on Stripe session" });
+    }
+    const paymentIntentId = typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent.id;
+
+    // 4. Create refund via Stripe
+    const amountCents = input.amount !== undefined ? Math.round(input.amount * 100) : undefined;
+    const refund = await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      ...(amountCents !== undefined ? { amount: amountCents } : {}),
+      reason: input.reason,
+    });
+
+    const refundedDollars = refund.amount / 100;
+
+    // 5. Update order with refund timestamp and amount
+    await db.update(orders)
+      .set({
+        refundedAt: new Date(),
+        refundAmount: refundedDollars.toFixed(2),
+      })
+      .where(eq(orders.id, input.orderId));
+
+    // 6. Return result
+    return {
+      success: true,
+      refundId: refund.id,
+      amount: refundedDollars,
+    };
   }),
 });
