@@ -166,7 +166,9 @@ export function ImageUpload({
       const res = await fetch('/api/upload/image', { method: 'POST', body: fd });
       const json = await res.json() as { url?: string; error?: string };
       if (!res.ok || !json.url) throw new Error(json.error || 'Upload failed');
-      onChange(json.url);
+      // Prepend origin so the URL works from any page
+      const fullUrl = json.url.startsWith('http') ? json.url : window.location.origin + json.url;
+      onChange(fullUrl);
     } catch (e: any) {
       setError(e.message || 'Upload failed');
     } finally {
