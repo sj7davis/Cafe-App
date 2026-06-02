@@ -886,13 +886,21 @@ export default function VenuePublic() {
 
   const allMenuItems = menuItems || [];
   const filteredMenu = allMenuItems.filter(i => {
-    if (dietaryFilter && !i.dietary?.split(',').map(d => d.trim()).includes(dietaryFilter)) return false;
+    if (dietaryFilter) {
+      const inTags = Array.isArray((i as any).dietaryTags) && (i as any).dietaryTags.includes(dietaryFilter);
+      const inDietary = i.dietary?.split(',').map((d: string) => d.trim()).includes(dietaryFilter);
+      const inDietaryLoose = i.dietary?.toLowerCase().includes(dietaryFilter);
+      if (!inTags && !inDietary && !inDietaryLoose) return false;
+    }
     if (menuSearch.trim()) {
       const q = menuSearch.toLowerCase();
       if (!i.name.toLowerCase().includes(q) && !i.description?.toLowerCase().includes(q)) return false;
     }
     return true;
   });
+
+  // Show filter bar only if at least one item has dietary tags or dietary text
+  const hasAnyDietary = allMenuItems.some(i => (Array.isArray((i as any).dietaryTags) && (i as any).dietaryTags.length > 0) || !!i.dietary);
 
   const coffeeItems = filteredMenu.filter(i => i.category === 'coffee');
   const pastryItems = filteredMenu.filter(i => i.category === 'pastries');
@@ -2681,7 +2689,7 @@ export default function VenuePublic() {
         )}
 
         {/* Dietary Filter Pills */}
-        {allMenuItems.length > 0 && (
+        {allMenuItems.length > 0 && hasAnyDietary && (
           <div style={{
             display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4,
             marginBottom: 24, WebkitOverflowScrolling: 'touch',
@@ -2689,9 +2697,9 @@ export default function VenuePublic() {
             {[
               { label: 'All', value: null },
               { label: '🌱 Vegan', value: 'vegan' },
-              { label: '🌾 GF', value: 'gluten-free' },
-              { label: '🥛 Dairy-free', value: 'dairy-free' },
-              { label: '🥜 Nut-free', value: 'nut-free' },
+              { label: '🌾 Gluten Free', value: 'gluten-free' },
+              { label: '🥛 Dairy Free', value: 'dairy-free' },
+              { label: '🥜 Nut Free', value: 'nut-free' },
               { label: '🥦 Vegetarian', value: 'vegetarian' },
             ].map(pill => {
               const active = dietaryFilter === pill.value;
@@ -2703,9 +2711,10 @@ export default function VenuePublic() {
                     flexShrink: 0,
                     borderRadius: 99, padding: '6px 14px', fontSize: 12, fontWeight: 500,
                     border: active ? 'none' : '1px solid rgba(24,24,24,0.18)',
-                    background: active ? '#181818' : '#fff',
-                    color: active ? '#F3F2EE' : '#181818',
+                    background: active ? accentColor : '#F3F2EE',
+                    color: active ? '#fff' : '#181818',
                     cursor: 'pointer', whiteSpace: 'nowrap',
+                    transition: 'all 0.12s',
                   }}
                 >
                   {pill.label}
