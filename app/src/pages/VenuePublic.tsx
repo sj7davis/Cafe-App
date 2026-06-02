@@ -635,6 +635,13 @@ export default function VenuePublic() {
     { enabled: !!venue?.id && checkoutPhone.length >= 8 }
   );
   const loyaltyBalance = loyaltyQuery.data?.pointsBalance ?? null;
+  const loyaltyLifetimePts = loyaltyQuery.data?.totalLifetimePoints ?? 0;
+  const loyaltyTier: 'bronze' | 'silver' | 'gold' = loyaltyLifetimePts >= 2000 ? 'gold' : loyaltyLifetimePts >= 500 ? 'silver' : 'bronze';
+  const TIER_META: Record<'bronze' | 'silver' | 'gold', { emoji: string; color: string; label: string; multiplier: string }> = {
+    bronze: { emoji: '🥉', color: '#CD7F32', label: 'Bronze', multiplier: '1×' },
+    silver: { emoji: '🥈', color: '#C0C0C0', label: 'Silver', multiplier: '1.5×' },
+    gold:   { emoji: '🥇', color: '#D4AF37', label: 'Gold',   multiplier: '2×' },
+  };
 
   const redeemRewardMutation = trpc.loyaltyRewards.redeem.useMutation({
     onSuccess: (_, vars) => {
@@ -1815,6 +1822,15 @@ export default function VenuePublic() {
                         <span style={{ background: 'rgba(217,119,6,0.1)', color: '#d97706', borderRadius: 99, padding: '2px 10px', fontWeight: 600 }}>
                           ⭐ {loyaltyBalance} pts — ${(loyaltyBalance / 10).toFixed(2)} available to redeem
                         </span>
+                        {/* Tier badge */}
+                        {(() => {
+                          const tm = TIER_META[loyaltyTier];
+                          return (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 99, padding: '2px 10px', fontWeight: 600, background: 'rgba(255,255,255,0.9)', border: `1.5px solid ${tm.color}`, color: tm.color, fontSize: 11 }}>
+                              {tm.emoji} {tm.label} · {tm.multiplier} pts/$1
+                            </span>
+                          );
+                        })()}
                         {loyaltyBalance > 0 && (
                           <button
                             onClick={() => setShowRewardsCatalogue(true)}
