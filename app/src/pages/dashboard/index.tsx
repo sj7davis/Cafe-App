@@ -47,6 +47,7 @@ import { QRCodesTab } from './tabs/QRCodesTab';
 import { SchedulingTab } from './tabs/SchedulingTab';
 import { TimesheetTab } from './tabs/TimesheetTab';
 import { WaitlistTab } from './tabs/WaitlistTab';
+import { RefundsTab } from './tabs/RefundsTab';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -109,6 +110,9 @@ export default function OwnerDashboard() {
       { id: 'catering',     label: 'Catering',       icon: Briefcase },
       { id: 'integrations', label: 'Integrations',   icon: Link2 },
       { id: 'settings',     label: 'Settings',       icon: Settings },
+    ]},
+    { group: 'Finance', items: [
+      { id: 'refunds',      label: 'Refunds',        icon: RotateCcw },
     ]},
     { group: 'More', items: [
       { id: 'pl',           label: 'P&L Report',     icon: DollarSign },
@@ -268,6 +272,7 @@ export default function OwnerDashboard() {
           {activeTab === 'scheduling' && venue && <SchedulingTab token={token} venueId={venue.id} />}
           {activeTab === 'timesheets' && venue && <TimesheetTab token={token} />}
           {activeTab === 'waitlist' && venue && <WaitlistTab venueId={venue.id} />}
+          {activeTab === 'refunds' && <RefundsTab />}
         </div>
       </AppShell>
     </ThemeProvider>
