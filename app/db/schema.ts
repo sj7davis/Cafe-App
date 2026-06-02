@@ -777,3 +777,17 @@ export const timeOffRequests = pgTable("time_off_requests", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ─── Recurring Orders (subscription ordering) ───
+export const recurringOrders = pgTable("recurring_orders", {
+  id: serial("id").primaryKey(),
+  venueId: bigint("venue_id", { mode: "number" }).notNull().references(() => venues.id),
+  customerPhone: varchar("customer_phone", { length: 32 }).notNull(),
+  customerName: varchar("customer_name", { length: 128 }).notNull(),
+  items: json("items").$type<{ menuItemId: number; quantity: number }[]>().notNull(),
+  scheduleDays: varchar("schedule_days", { length: 20 }).notNull(), // "1,2,3,4,5" = Mon-Fri
+  pickupTime: varchar("pickup_time", { length: 8 }).notNull(),       // "08:30"
+  isActive: boolean("is_active").default(true).notNull(),
+  nextOrderAt: timestamp("next_order_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

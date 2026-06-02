@@ -9,7 +9,7 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
 import { eq, and, gte, isNull, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -1224,6 +1224,23 @@ cron.schedule("30 9 * * *", async () => {
 
         for (const customer of birthdayCustomers) {
           try {
+            // Generate a single-use $10 birthday discount code
+            const bdayCode = `BDAY-${randomBytes(4).toString("hex").toUpperCase()}`;
+            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // +7 days
+            try {
+              await db.insert(discountCodes).values({
+                venueId: venue.id,
+                code: bdayCode,
+                type: "fixed",
+                value: "10.00",
+                maxUses: 1,
+                expiresAt,
+                isActive: true,
+              });
+            } catch (codeErr) {
+              console.error(`Birthday voucher insert error for customer ${customer.id}:`, codeErr);
+            }
+
             if (customer.email) {
               await sendEmail({
                 to: customer.email,
@@ -1231,14 +1248,20 @@ cron.schedule("30 9 * * *", async () => {
                 html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
 <h2>Happy Birthday, ${customer.name ?? "friend"}! 🎂</h2>
 <p>The whole team at <strong>${venue.name}</strong> wishes you a wonderful birthday.</p>
-<p>Come celebrate with us — your favourite coffee is waiting.</p>
+<p>Come celebrate with us — your favourite coffee is waiting!</p>
+<div style="background:#f9f9f9;border-radius:8px;padding:1.5rem;text-align:center;margin:1.5rem 0">
+  <p style="margin:0 0 8px;color:#666;font-size:0.875rem">Your birthday gift</p>
+  <p style="font-size:1.75rem;font-weight:bold;letter-spacing:0.15em;margin:0 0 4px;color:#181818">${bdayCode}</p>
+  <p style="margin:0;color:#5E8B8B;font-weight:600">$10 off your next order</p>
+  <p style="margin:8px 0 0;color:#999;font-size:0.75rem">Valid for 7 days</p>
+</div>
 <p><a href="${env.appUrl}/v/${venue.slug}" style="display:inline-block;background:#181818;color:#F3F2EE;text-decoration:none;padding:0.75rem 2rem;border-radius:4px;font-weight:600">Order Online →</a></p>
 </div>`,
               });
             } else if (customer.phone) {
               await sendSms(
                 customer.phone,
-                `Happy Birthday from ${venue.name}! We hope your day is as wonderful as you are. ☕🎂`
+                `Happy Birthday from ${venue.name}! Here's a $10 birthday gift: use code ${bdayCode} at checkout. Valid 7 days. ☕🎂`
               );
             }
           } catch (err) {
@@ -1357,5 +1380,104 @@ cron.schedule("*/30 * * * *", async () => {
     }
   } catch (err) {
     console.error("Abandoned cart cron error:", err);
+  }
+});
+
+// ─── Recurring Orders cron — every day at 6am ─────────────────────────────────
+// Finds all active recurring orders scheduled for today and creates an order for each.
+cron.schedule("0 6 * * *", async () => {
+  try {
+    const db = getDb();
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+
+    // Find all active recurring orders where today is in scheduleDays
+    const activeSubscriptions = await db.select().from(recurringOrders)
+      .where(eq(recurringOrders.isActive, true));
+
+    for (const sub of activeSubscriptions) {
+      try {
+        const scheduledDays = sub.scheduleDays.split(",").map(d => parseInt(d.trim(), 10));
+        if (!scheduledDays.includes(dayOfWeek)) continue;
+
+        // Parse pickup time
+        const [hStr, mStr] = sub.pickupTime.split(":");
+        const pickupDate = new Date(today);
+        pickupDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+
+        // Build order
+        const venueRow = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, sub.venueId)).limit(1);
+        const venueName = venueRow[0]?.name ?? "Cafe";
+
+        // Get menu items for pricing
+        const { menuItems: menuItemsTable } = await import("@db/schema");
+        const { inArray } = await import("drizzle-orm");
+        const itemIds = sub.items.map((i: any) => i.menuItemId);
+        if (itemIds.length === 0) continue;
+        const menuRows = await db.select({ id: menuItemsTable.id, name: menuItemsTable.name, price: menuItemsTable.price })
+          .from(menuItemsTable)
+          .where(inArray(menuItemsTable.id, itemIds));
+        const menuMap: Record<number, { name: string; price: string }> = {};
+        for (const m of menuRows) menuMap[m.id] = { name: m.name, price: m.price };
+
+        const lineItems = sub.items.map((i: any) => ({
+          menuItemId: i.menuItemId,
+          itemName: menuMap[i.menuItemId]?.name ?? `Item #${i.menuItemId}`,
+          quantity: i.quantity,
+          unitPrice: Number(menuMap[i.menuItemId]?.price ?? 0),
+        }));
+        const total = lineItems.reduce((s: number, i: any) => s + i.unitPrice * i.quantity, 0);
+
+        const orderNumber = `SUB-${Date.now().toString(36).toUpperCase()}`;
+        const [orderResult] = await db.insert(orders).values({
+          venueId: sub.venueId,
+          orderNumber,
+          customerName: sub.customerName,
+          customerPhone: sub.customerPhone,
+          status: "pending",
+          pickupTime: sub.pickupTime,
+          orderNote: "Recurring subscription order",
+          paymentMethod: "pickup",
+          totalAmount: total.toFixed(2),
+        }).returning({ id: orders.id });
+
+        for (const item of lineItems) {
+          try {
+            await db.insert(orderItems).values({
+              orderId: orderResult.id,
+              menuItemId: item.menuItemId,
+              itemName: item.itemName,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice.toFixed(2),
+            });
+          } catch { /* non-blocking per item */ }
+        }
+
+        // Compute next order date
+        let nextAt: Date | null = null;
+        for (let offset = 1; offset <= 8; offset++) {
+          const candidate = new Date(today);
+          candidate.setDate(today.getDate() + offset);
+          candidate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+          if (scheduledDays.includes(candidate.getDay())) { nextAt = candidate; break; }
+        }
+
+        await db.update(recurringOrders)
+          .set({ nextOrderAt: nextAt })
+          .where(eq(recurringOrders.id, sub.id));
+
+        // Notify customer via SMS
+        if (sub.customerPhone) {
+          await sendSms(
+            sub.customerPhone,
+            `Hi ${sub.customerName}! Your recurring order at ${venueName} is confirmed for pickup at ${sub.pickupTime}. Order #${orderNumber}`
+          ).catch(() => {});
+        }
+      } catch (subErr) {
+        console.error(`Recurring order error for subscription ${sub.id}:`, subErr);
+      }
+    }
+  } catch (err) {
+    console.error("Recurring orders cron error:", err);
   }
 });

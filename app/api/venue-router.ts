@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries, recurringOrders } from "@db/schema";
 import { eq, and, desc, asc, sql, gte, sum, isNull, lte, inArray, count, not, max } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -91,6 +91,28 @@ function getAUPublicHolidays(state: string = "VIC"): Set<string> {
     NT:  ["2025-08-04", "2026-08-03"],
   };
   return new Set([...national, ...(stateHolidays[state.toUpperCase()] ?? [])]);
+}
+
+// Helper: compute next scheduled order date based on scheduleDays (e.g. "1,2,3,4,5") and pickupTime ("HH:MM")
+function computeNextOrderAt(scheduleDays: string, pickupTime: string): Date | null {
+  try {
+    const days = scheduleDays.split(",").map(d => parseInt(d.trim(), 10)).filter(d => !isNaN(d));
+    if (days.length === 0) return null;
+    const [hStr, mStr] = pickupTime.split(":");
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    const now = new Date();
+    for (let offset = 0; offset <= 7; offset++) {
+      const candidate = new Date(now);
+      candidate.setDate(now.getDate() + offset);
+      candidate.setHours(h, m, 0, 0);
+      const dow = candidate.getDay(); // 0=Sun
+      if (days.includes(dow) && candidate > now) return candidate;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export const venueRouter = createRouter({
@@ -3186,5 +3208,196 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
       );
 
     return { success: true };
+  }),
+
+  // ─── Birthday Vouchers ────────────────────────────────────────────────────
+  getBirthdayVouchers: publicQuery.input(z.object({
+    token: z.string(),
+    limit: z.number().int().min(1).max(100).default(50),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    // Birthday vouchers have codes starting with "BDAY-"
+    const rows = await db.select().from(discountCodes)
+      .where(and(
+        eq(discountCodes.venueId, venueId),
+        sql`${discountCodes.code} LIKE 'BDAY-%'`,
+      ))
+      .orderBy(desc(discountCodes.createdAt))
+      .limit(input.limit);
+
+    return rows;
+  }),
+
+  // ─── Booking Deposit Config ───────────────────────────────────────────────
+  setBookingDepositConfig: publicQuery.input(z.object({
+    token: z.string(),
+    requireDeposit: z.boolean(),
+    depositAmount: z.number().min(0),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
+    const updated = {
+      ...existing,
+      bookingDeposit: {
+        requireDeposit: input.requireDeposit,
+        depositAmount: input.depositAmount,
+      },
+    };
+    await db.update(venues).set({ settingsJson: updated, updatedAt: new Date() }).where(eq(venues.id, venueId));
+    return updated.bookingDeposit;
+  }),
+
+  // ─── Recurring Orders (Subscriptions) ────────────────────────────────────
+  createRecurringOrder: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    customerPhone: z.string().min(1),
+    customerName: z.string().min(1),
+    items: z.array(z.object({ menuItemId: z.number().int().positive(), quantity: z.number().int().positive() })),
+    scheduleDays: z.string().min(1),
+    pickupTime: z.string().regex(/^\d{2}:\d{2}$/),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const nextOrderAt = computeNextOrderAt(input.scheduleDays, input.pickupTime);
+    const [row] = await db.insert(recurringOrders).values({
+      venueId: input.venueId,
+      customerPhone: input.customerPhone,
+      customerName: input.customerName,
+      items: input.items,
+      scheduleDays: input.scheduleDays,
+      pickupTime: input.pickupTime,
+      isActive: true,
+      nextOrderAt,
+    }).returning();
+    return row;
+  }),
+
+  listRecurringOrders: publicQuery.input(z.object({
+    token: z.string(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+    return db.select().from(recurringOrders)
+      .where(eq(recurringOrders.venueId, venueId))
+      .orderBy(desc(recurringOrders.createdAt));
+  }),
+
+  toggleRecurringOrder: publicQuery.input(z.object({
+    token: z.string(),
+    id: z.number().int().positive(),
+    isActive: z.boolean(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+    await db.update(recurringOrders)
+      .set({ isActive: input.isActive })
+      .where(and(eq(recurringOrders.id, input.id), eq(recurringOrders.venueId, venueId)));
+    return { ok: true };
+  }),
+
+  deleteRecurringOrder: publicQuery.input(z.object({
+    token: z.string(),
+    id: z.number().int().positive(),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+    await db.delete(recurringOrders)
+      .where(and(eq(recurringOrders.id, input.id), eq(recurringOrders.venueId, venueId)));
+    return { ok: true };
+  }),
+
+  // ─── Customer CRM ─────────────────────────────────────────────────────────
+  getCustomerList: publicQuery.input(z.object({
+    token: z.string(),
+    limit: z.number().int().min(1).max(200).default(50),
+    search: z.string().optional(),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    // Aggregate distinct customers from orders
+    const customerRows = await db
+      .select({
+        customerPhone: orders.customerPhone,
+        customerName: orders.customerName,
+        customerEmail: orders.customerEmail,
+        orderCount: count(orders.id),
+        totalSpent: sum(orders.totalAmount),
+        lastOrderAt: max(orders.createdAt),
+      })
+      .from(orders)
+      .where(eq(orders.venueId, venueId))
+      .groupBy(orders.customerPhone, orders.customerName, orders.customerEmail)
+      .orderBy(desc(max(orders.createdAt)))
+      .limit(input.limit);
+
+    // Join with loyaltyAccounts for points/tier
+    const phones = customerRows.map(r => r.customerPhone).filter(Boolean);
+    let loyaltyMap: Record<string, { pointsBalance: number; tier?: string }> = {};
+    if (phones.length > 0) {
+      const loyaltyRows = await db.select({
+        phone: loyaltyAccounts.phone,
+        pointsBalance: loyaltyAccounts.pointsBalance,
+        tier: (loyaltyAccounts as any).tier,
+      }).from(loyaltyAccounts)
+        .where(and(eq(loyaltyAccounts.venueId, venueId), inArray(loyaltyAccounts.phone, phones)));
+      for (const row of loyaltyRows) {
+        loyaltyMap[row.phone] = { pointsBalance: row.pointsBalance, tier: row.tier };
+      }
+    }
+
+    let results = customerRows.map(r => ({
+      phone: r.customerPhone,
+      name: r.customerName,
+      email: r.customerEmail ?? null,
+      orderCount: Number(r.orderCount),
+      totalSpent: Number(r.totalSpent ?? 0),
+      lastOrderAt: r.lastOrderAt,
+      loyaltyTier: loyaltyMap[r.customerPhone]?.tier ?? "bronze",
+      loyaltyPoints: loyaltyMap[r.customerPhone]?.pointsBalance ?? 0,
+    }));
+
+    // Apply search filter if provided
+    if (input.search) {
+      const q = input.search.toLowerCase();
+      results = results.filter(r =>
+        r.name?.toLowerCase().includes(q) ||
+        r.phone?.toLowerCase().includes(q) ||
+        r.email?.toLowerCase().includes(q)
+      );
+    }
+
+    return results;
+  }),
+
+  getCustomerOrderHistory: publicQuery.input(z.object({
+    token: z.string(),
+    customerPhone: z.string().min(1),
+    limit: z.number().int().min(1).max(20).default(5),
+  })).query(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+
+    return db.select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      createdAt: orders.createdAt,
+    }).from(orders)
+      .where(and(eq(orders.venueId, venueId), eq(orders.customerPhone, input.customerPhone)))
+      .orderBy(desc(orders.createdAt))
+      .limit(input.limit);
   }),
 });
