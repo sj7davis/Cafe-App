@@ -17,7 +17,15 @@ interface OrderWithItems {
   items: { itemName: string; quantity: number; note: string | null }[]
 }
 
+type KDSStatus = 'pending' | 'confirmed' | 'ready'
 type KDSView = 'live' | 'history'
+
+// Column definitions — also used as drag-drop targets
+const COLUMNS: { status: KDSStatus; title: string; color: string; advanceLabel: string }[] = [
+  { status: 'pending',   title: 'NEW',              color: '#F59E0B', advanceLabel: 'Start →' },
+  { status: 'confirmed', title: 'IN PROGRESS',      color: '#3B82F6', advanceLabel: 'Ready →' },
+  { status: 'ready',     title: 'READY FOR PICKUP', color: '#10B981', advanceLabel: null as any },
+]
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function timeSince(dateStr: string): string {
@@ -36,9 +44,7 @@ function urgency(createdAt: string): 'normal' | 'warn' | 'urgent' {
 
 // ─── KDS Main ─────────────────────────────────────────────────────────────────
 export default function KitchenDisplay() {
-  const [token, setToken] = useState<string | null>(
-    () => sessionStorage.getItem('kds-token')
-  )
+  const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('kds-token'))
   const [venueId, setVenueId] = useState<number | null>(() => {
     const v = sessionStorage.getItem('kds-venueId')
     return v ? Number(v) : null
@@ -46,16 +52,21 @@ export default function KitchenDisplay() {
   const [loginInput, setLoginInput] = useState({ username: '', password: '' })
   const [loginError, setLoginError] = useState('')
   const [view, setView] = useState<KDSView>('live')
+
+  // Drag state — id of the order being dragged
+  const [draggingId, setDraggingId] = useState<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<KDSStatus | null>(null)
+
+  // Undo toast
   const [undoOrder, setUndoOrder] = useState<{ id: number; orderNumber: string; prevStatus: string } | null>(null)
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const prevOrderIds = useRef<Set<number>>(new Set())
   const audioCtx = useRef<AudioContext | null>(null)
   const playChimeRef = useRef<() => void>(() => {})
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   const utils = trpc.useUtils()
 
-  // ── SSE live connection ──────────────────────────────────────────────────
+  // ── SSE ──────────────────────────────────────────────────────────────────────
   const { connected } = useVenueSSE({
     venueId,
     token,
@@ -66,34 +77,37 @@ export default function KitchenDisplay() {
     },
   })
 
-  // ── Polling fallback — 8s when SSE disconnected, 30s when connected ──────
+  // ── Queries ───────────────────────────────────────────────────────────────────
   const pollInterval = connected ? 30000 : 8000
   const ordersQuery = trpc.venue.listOrdersWithItems.useQuery(
     { venueId: venueId!, statuses: ['pending', 'confirmed', 'ready'], limit: 100, token: token! },
     { enabled: !!token && !!venueId, staleTime: 0, refetchInterval: pollInterval }
   )
-
-  // History query — completed + cancelled today
   const historyQuery = trpc.venue.listOrdersWithItems.useQuery(
     { venueId: venueId!, statuses: ['completed', 'cancelled'], limit: 50, token: token! },
     { enabled: !!token && !!venueId && view === 'history', staleTime: 30000 }
   )
+  const updateStatus = trpc.venue.updateOrderStatus.useMutation({
+    onSuccess: () => { ordersQuery.refetch(); historyQuery.refetch() },
+  })
 
-  // ── Tick every second for live age counter ────────────────────────────────
+  const staffLoginMut = trpc.staffAuth.login.useMutation()
+
+  // ── Tick ──────────────────────────────────────────────────────────────────────
   const [, setTick] = useState(0)
   useEffect(() => {
     const id = setInterval(() => setTick(s => s + 1), 1000)
     return () => clearInterval(id)
   }, [])
 
-  // ── Auto-dismiss undo toast after 8 seconds ───────────────────────────────
+  // ── Undo auto-dismiss ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!undoOrder) return
     undoTimer.current = setTimeout(() => setUndoOrder(null), 8000)
     return () => { if (undoTimer.current) clearTimeout(undoTimer.current) }
   }, [undoOrder])
 
-  // ── Chime on new orders ───────────────────────────────────────────────────
+  // ── New-order chime ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!ordersQuery.data) return
     const current = ordersQuery.data as any[]
@@ -106,14 +120,6 @@ export default function KitchenDisplay() {
     prevOrderIds.current = ids
   }, [ordersQuery.data])
 
-  const staffLoginMut = trpc.staffAuth.login.useMutation()
-  const updateStatus = trpc.venue.updateOrderStatus.useMutation({
-    onSuccess: () => {
-      ordersQuery.refetch()
-      historyQuery.refetch()
-    },
-  })
-
   function playChime() {
     try {
       const ctx = audioCtx.current ?? (audioCtx.current = new AudioContext())
@@ -125,7 +131,7 @@ export default function KitchenDisplay() {
       gain.gain.setValueAtTime(0.3, ctx.currentTime)
       gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4)
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4)
-    } catch { /* audio blocked by browser — user must interact first */ }
+    } catch { /* browser may block audio without user gesture */ }
   }
   playChimeRef.current = playChime
 
@@ -133,11 +139,7 @@ export default function KitchenDisplay() {
     setLoginError('')
     if (!venueId) { setLoginError('Enter venue ID'); return }
     try {
-      const result = await staffLoginMut.mutateAsync({
-        venueId: venueId!,
-        username: loginInput.username,
-        password: loginInput.password,
-      })
+      const result = await staffLoginMut.mutateAsync({ venueId: venueId!, username: loginInput.username, password: loginInput.password })
       setToken(result.token)
       sessionStorage.setItem('kds-token', result.token)
       sessionStorage.setItem('kds-venueId', String(venueId))
@@ -146,29 +148,62 @@ export default function KitchenDisplay() {
     }
   }
 
+  // Advance one step
   async function advance(order: any) {
-    const next = order.status === 'pending' ? 'confirmed'
-      : order.status === 'confirmed' ? 'ready'
-      : order.status === 'ready' ? 'completed' : null
+    const next = order.status === 'pending' ? 'confirmed' : order.status === 'confirmed' ? 'ready' : null
     if (!next || !token) return
     await updateStatus.mutateAsync({ token, orderId: order.id, status: next as any })
   }
 
-  async function clearOrder(order: any) {
-    // Single-click clear: mark cancelled, show undo toast for 8 seconds
+  // Jump directly to any status (drag-and-drop target)
+  async function moveTo(orderId: number, toStatus: KDSStatus) {
     if (!token) return
-    const prev = order.status
-    await updateStatus.mutateAsync({ token, orderId: order.id, status: 'cancelled' as any })
-    setUndoOrder({ id: order.id, orderNumber: order.orderNumber, prevStatus: prev })
+    await updateStatus.mutateAsync({ token, orderId, status: toStatus as any })
   }
 
+  // Quick complete (skips to completed from any status)
+  async function quickComplete(order: any) {
+    if (!token) return
+    await updateStatus.mutateAsync({ token, orderId: order.id, status: 'completed' as any })
+  }
+
+  // Clear = cancel, with undo toast
+  async function clearOrder(order: any) {
+    if (!token) return
+    await updateStatus.mutateAsync({ token, orderId: order.id, status: 'cancelled' as any })
+    setUndoOrder({ id: order.id, orderNumber: order.orderNumber, prevStatus: order.status })
+  }
+
+  // Restore from history or undo
   async function restoreOrder(orderId: number, toStatus: string) {
     if (!token) return
     await updateStatus.mutateAsync({ token, orderId, status: toStatus as any })
     setUndoOrder(null)
   }
 
-  // ── Login gate ───────────────────────────────────────────────────────────
+  // ── Drag handlers ─────────────────────────────────────────────────────────────
+  function handleDragStart(orderId: number) {
+    setDraggingId(orderId)
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null)
+    setDropTarget(null)
+  }
+
+  async function handleDrop(targetStatus: KDSStatus) {
+    if (draggingId && token) {
+      const allOrders = (ordersQuery.data ?? []) as any[]
+      const order = allOrders.find(o => o.id === draggingId)
+      if (order && order.status !== targetStatus) {
+        await moveTo(draggingId, targetStatus)
+      }
+    }
+    setDraggingId(null)
+    setDropTarget(null)
+  }
+
+  // ── Login gate ───────────────────────────────────────────────────────────────
   if (!token) {
     return (
       <div style={{ minHeight: '100vh', background: '#0F0F0F', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -181,7 +216,7 @@ export default function KitchenDisplay() {
           {[
             { label: 'Venue ID', type: 'number', value: String(venueId ?? ''), onChange: (v: string) => setVenueId(Number(v)), placeholder: '1' },
             { label: 'Username', type: 'text', value: loginInput.username, onChange: (v: string) => setLoginInput(p => ({ ...p, username: v })), placeholder: 'staff username' },
-            { label: 'Password', type: 'password', value: loginInput.password, onChange: (v: string) => setLoginInput(p => ({ ...p, password: v })), placeholder: '••••••••' },
+            { label: 'Password', type: 'password', value: loginInput.password, onChange: (v: string) => setLoginInput(p => ({ ...p, password: v })), placeholder: '...' },
           ].map(f => (
             <div key={f.label} style={{ marginBottom: '0.875rem' }}>
               <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>{f.label}</label>
@@ -202,10 +237,9 @@ export default function KitchenDisplay() {
   }
 
   const allOrders = ((ordersQuery.data ?? []) as any[]).filter(o => ['pending', 'confirmed', 'ready'].includes(o.status))
-  const pending = allOrders.filter(o => o.status === 'pending')
-  const confirmed = allOrders.filter(o => o.status === 'confirmed')
-  const ready = allOrders.filter(o => o.status === 'ready')
+  const byStatus = (s: KDSStatus) => allOrders.filter(o => o.status === s)
   const historyOrders = ((historyQuery.data ?? []) as any[])
+  const historyCount = historyOrders.length
 
   return (
     <div style={{ minHeight: '100vh', background: '#0F0F0F', color: '#F5F5F5', fontFamily: 'Inter, system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
@@ -214,21 +248,22 @@ export default function KitchenDisplay() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.25rem', borderBottom: '1px solid #1C1C1E', background: '#141414', flexShrink: 0, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.02em' }}>Kitchen Display</span>
-          {/* SSE connection indicator */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: connected ? '#10B981' : '#EF4444', boxShadow: connected ? '0 0 6px #10B981' : 'none' }} />
             <span style={{ fontSize: '0.7rem', color: connected ? '#10B981' : '#EF4444', fontWeight: 600 }}>
-              {connected ? 'LIVE' : `POLLING ${Math.round(pollInterval / 1000)}s`}
+              {connected ? 'LIVE' : `POLLING`}
             </span>
           </div>
         </div>
 
-        {/* Order counts — live view */}
+        {/* Order counts */}
         {view === 'live' && (
           <div style={{ display: 'flex', gap: 12, fontSize: '0.8rem' }}>
-            <span style={{ color: '#F59E0B', fontWeight: 700 }}>{pending.length} new</span>
-            <span style={{ color: '#3B82F6', fontWeight: 700 }}>{confirmed.length} in progress</span>
-            <span style={{ color: '#10B981', fontWeight: 700 }}>{ready.length} ready</span>
+            {COLUMNS.map(col => (
+              <span key={col.status} style={{ color: col.color, fontWeight: 700 }}>
+                {byStatus(col.status).length} {col.status === 'pending' ? 'new' : col.status === 'confirmed' ? 'in progress' : 'ready'}
+              </span>
+            ))}
           </div>
         )}
 
@@ -237,7 +272,7 @@ export default function KitchenDisplay() {
           <div style={{ display: 'flex', background: '#1C1C1E', borderRadius: 8, overflow: 'hidden', border: '1px solid #2a2a2a' }}>
             {(['live', 'history'] as KDSView[]).map(v => (
               <button key={v} onClick={() => setView(v)} style={{ padding: '0.4rem 0.875rem', background: view === v ? '#5E8B8B' : 'transparent', color: view === v ? '#fff' : '#71717A', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
-                {v === 'live' ? '🟢 Live' : '📋 History'}
+                {v === 'live' ? '🟢 Live' : `📋 History${historyCount > 0 ? ` (${historyCount})` : ''}`}
               </button>
             ))}
           </div>
@@ -247,6 +282,13 @@ export default function KitchenDisplay() {
           </button>
         </div>
       </div>
+
+      {/* ── Drag instruction banner (shown while dragging) ── */}
+      {draggingId && (
+        <div style={{ background: '#F59E0B22', borderBottom: '1px solid #F59E0B44', padding: '0.5rem 1.25rem', fontSize: '0.8rem', color: '#F59E0B', fontWeight: 600, textAlign: 'center' }}>
+          Drop on a column to move this order — or drag back to cancel
+        </div>
+      )}
 
       {/* ── Undo toast ── */}
       {undoOrder && (
@@ -271,13 +313,37 @@ export default function KitchenDisplay() {
             <div style={{ textAlign: 'center', padding: '4rem', color: '#71717A' }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>☕</div>
               <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>No active orders</p>
-              <p style={{ margin: '8px 0 0', fontSize: '0.85rem' }}>New orders will appear here automatically</p>
+              <p style={{ margin: '8px 0 0', fontSize: '0.85rem' }}>New orders appear here instantly</p>
             </div>
           )}
           <div className="kds-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', alignItems: 'start' }}>
-            <Column title="NEW" color="#F59E0B" orders={pending} actionLabel="Start →" onAction={advance} onClear={clearOrder} />
-            <Column title="IN PROGRESS" color="#3B82F6" orders={confirmed} actionLabel="Ready →" onAction={advance} onClear={clearOrder} />
-            <Column title="READY FOR PICKUP" color="#10B981" orders={ready} actionLabel="✓ Done" onAction={advance} onClear={clearOrder} />
+            {COLUMNS.map(col => (
+              <DropColumn
+                key={col.status}
+                title={col.title}
+                color={col.color}
+                orders={byStatus(col.status)}
+                isDragTarget={dropTarget === col.status}
+                onDragOver={() => setDropTarget(col.status)}
+                onDragLeave={() => setDropTarget(null)}
+                onDrop={() => handleDrop(col.status)}
+              >
+                {byStatus(col.status).map(order => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    items={order.items ?? []}
+                    isDragging={draggingId === order.id}
+                    advanceLabel={col.advanceLabel}
+                    onAdvance={() => advance(order)}
+                    onQuickComplete={() => quickComplete(order)}
+                    onClear={() => clearOrder(order)}
+                    onDragStart={() => handleDragStart(order.id)}
+                    onDragEnd={handleDragEnd}
+                  />
+                ))}
+              </DropColumn>
+            ))}
           </div>
         </div>
       )}
@@ -287,13 +353,19 @@ export default function KitchenDisplay() {
         <div style={{ flex: 1, padding: '1rem', overflow: 'auto' }}>
           <div style={{ maxWidth: 860, margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F5F5F5' }}>Order History</h2>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#F5F5F5' }}>Order History</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#71717A' }}>
+                  Restore a completed or cancelled order — tap ↩ Restore to bring it back to the live board.
+                </p>
+              </div>
               <button onClick={() => historyQuery.refetch()} style={{ background: 'none', border: '1px solid #2a2a2a', color: '#71717A', borderRadius: 6, padding: '0.3rem 0.75rem', cursor: 'pointer', fontSize: '0.75rem' }}>↻ Refresh</button>
             </div>
             {historyQuery.isLoading && <div style={{ textAlign: 'center', padding: '3rem', color: '#71717A' }}>Loading…</div>}
             {!historyQuery.isLoading && historyOrders.length === 0 && (
               <div style={{ textAlign: 'center', padding: '3rem', color: '#71717A' }}>
-                <p style={{ margin: 0 }}>No completed or cancelled orders yet today.</p>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+                <p style={{ margin: 0 }}>No completed or cancelled orders yet.</p>
               </div>
             )}
             {historyOrders.map((order: any) => (
@@ -303,66 +375,97 @@ export default function KitchenDisplay() {
         </div>
       )}
 
-      {/* Responsive grid override */}
       <style>{`
         @media (max-width: 900px) { .kds-grid { grid-template-columns: 1fr 1fr !important; } }
         @media (max-width: 560px) { .kds-grid { grid-template-columns: 1fr !important; } }
         * { -webkit-tap-highlight-color: transparent; }
+        .kds-drop-col { transition: background 0.15s, border-color 0.15s; }
       `}</style>
     </div>
   )
 }
 
-// ─── Column ──────────────────────────────────────────────────────────────────
-function Column({ title, color, orders, actionLabel, onAction, onClear }: {
-  title: string; color: string; orders: any[]
-  actionLabel: string; onAction: (o: any) => void; onClear: (o: any) => void
+// ─── Drop Column ─────────────────────────────────────────────────────────────
+function DropColumn({ title, color, orders, isDragTarget, onDragOver, onDragLeave, onDrop, children }: {
+  title: string; color: string; orders: any[]; isDragTarget: boolean
+  onDragOver: () => void; onDragLeave: () => void; onDrop: () => void
+  children: React.ReactNode
 }) {
   return (
-    <div>
+    <div
+      className="kds-drop-col"
+      onDragOver={e => { e.preventDefault(); onDragOver() }}
+      onDragLeave={onDragLeave}
+      onDrop={e => { e.preventDefault(); onDrop() }}
+      style={{
+        minHeight: 120,
+        borderRadius: 12,
+        padding: isDragTarget ? '0.5rem' : '0',
+        background: isDragTarget ? color + '15' : 'transparent',
+        border: isDragTarget ? `2px dashed ${color}` : '2px solid transparent',
+      }}
+    >
+      {/* Column header */}
       <div style={{ background: color + '18', border: `1px solid ${color}40`, borderRadius: 8, padding: '0.5rem 0.875rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
         <span style={{ fontWeight: 700, fontSize: '0.75rem', color, letterSpacing: '0.06em' }}>{title}</span>
         <span style={{ marginLeft: 'auto', background: color + '30', color, borderRadius: 99, padding: '1px 8px', fontSize: '0.7rem', fontWeight: 700 }}>{orders.length}</span>
       </div>
-      {orders.length === 0 ? (
-        <div style={{ color: '#3a3a3a', textAlign: 'center', padding: '2.5rem 0', fontSize: '0.85rem', border: '1px dashed #2a2a2a', borderRadius: 10 }}>
-          Nothing here
+
+      {/* Drop zone hint when empty */}
+      {orders.length === 0 && (
+        <div style={{ color: isDragTarget ? color : '#3a3a3a', textAlign: 'center', padding: '2.5rem 0', fontSize: '0.85rem', border: `1px dashed ${isDragTarget ? color : '#2a2a2a'}`, borderRadius: 10, transition: 'all 0.15s' }}>
+          {isDragTarget ? 'Drop to move here' : 'Nothing here'}
         </div>
-      ) : orders.map(o => (
-        <OrderCard key={o.id} order={o} items={o.items ?? []} actionLabel={actionLabel} onAction={onAction} onClear={onClear} />
-      ))}
+      )}
+
+      {children}
     </div>
   )
 }
 
 // ─── Order Card ───────────────────────────────────────────────────────────────
-function OrderCard({ order, items, actionLabel, onAction, onClear }: {
-  order: any; items: any[]; actionLabel: string
-  onAction: (o: any) => void; onClear: (o: any) => void
+function OrderCard({ order, items, isDragging, advanceLabel, onAdvance, onQuickComplete, onClear, onDragStart, onDragEnd }: {
+  order: any; items: any[]; isDragging: boolean; advanceLabel: string | null
+  onAdvance: () => void; onQuickComplete: () => void; onClear: () => void
+  onDragStart: () => void; onDragEnd: () => void
 }) {
   const [clearing, setClearing] = useState(false)
+  const [completing, setCompleting] = useState(false)
   const u = urgency(order.createdAt)
   const borderColor = u === 'urgent' ? '#EF4444' : u === 'warn' ? '#F59E0B' : '#2C2C2E'
   const ageColor = u === 'urgent' ? '#EF4444' : u === 'warn' ? '#F59E0B' : '#71717A'
-  const actionBg = order.status === 'ready' ? '#10B981' : order.status === 'confirmed' ? '#3B82F6' : '#F59E0B'
+  const advanceBg = order.status === 'confirmed' ? '#3B82F6' : '#F59E0B'
 
-  async function handleClear() {
-    setClearing(true)
-    await onClear(order)
-    setClearing(false)
-  }
+  async function handleClear() { setClearing(true); await onClear(); setClearing(false) }
+  async function handleComplete() { setCompleting(true); await onQuickComplete(); setCompleting(false) }
 
   return (
-    <div style={{ background: '#1C1C1E', border: `2px solid ${borderColor}`, borderRadius: 12, padding: '0.875rem', marginBottom: '0.75rem', transition: 'border-color 0.3s' }}>
-      {/* Header */}
+    <div
+      draggable
+      onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
+      onDragEnd={onDragEnd}
+      style={{
+        background: '#1C1C1E',
+        border: `2px solid ${borderColor}`,
+        borderRadius: 12,
+        padding: '0.875rem',
+        marginBottom: '0.75rem',
+        opacity: isDragging ? 0.4 : 1,
+        cursor: 'grab',
+        transition: 'opacity 0.15s, border-color 0.3s',
+        userSelect: 'none',
+      }}
+    >
+      {/* Drag handle hint */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#3a3a3a', fontSize: '0.9rem', cursor: 'grab' }}>⠿</span>
           <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#F5F5F5', fontFamily: 'monospace', letterSpacing: '0.02em' }}>
             #{order.orderNumber.replace('B1-', '')}
           </span>
           {order.tableNumber && (
-            <span style={{ marginLeft: 8, background: '#7C3AED', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700, verticalAlign: 'middle' }}>
+            <span style={{ background: '#7C3AED', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: '0.65rem', fontWeight: 700 }}>
               Table {order.tableNumber}
             </span>
           )}
@@ -370,7 +473,7 @@ function OrderCard({ order, items, actionLabel, onAction, onClear }: {
         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: ageColor }}>{timeSince(order.createdAt)}</span>
       </div>
 
-      {/* Customer */}
+      {/* Customer + pickup */}
       <div style={{ fontSize: '0.8rem', color: '#a0a0a0', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
         <span>{order.customerName}</span>
         {order.pickupTime && <span style={{ color: '#555', fontSize: '0.75rem' }}>· {order.pickupTime}</span>}
@@ -394,15 +497,40 @@ function OrderCard({ order, items, actionLabel, onAction, onClear }: {
         </div>
       )}
 
-      {/* Actions — large touch targets for tablet */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={() => onAction(order)}
-          style={{ flex: 1, background: actionBg, color: '#fff', border: 'none', borderRadius: 8, padding: '0.625rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem', minHeight: 44 }}>
-          {actionLabel}
+      {/* Actions — three buttons: advance, quick-complete, clear */}
+      <div style={{ display: 'flex', gap: 6 }}>
+        {/* Advance (step-by-step) */}
+        {advanceLabel && (
+          <button onClick={onAdvance}
+            style={{ flex: 1, background: advanceBg, color: '#fff', border: 'none', borderRadius: 8, padding: '0.6rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem', minHeight: 44 }}>
+            {advanceLabel}
+          </button>
+        )}
+
+        {/* Quick Complete — always visible, prominent green */}
+        <button onClick={handleComplete} disabled={completing}
+          title="Mark as complete (skip to done)"
+          style={{
+            flex: advanceLabel ? 0 : 1,
+            background: '#10B981',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: advanceLabel ? '0.6rem 0.875rem' : '0.6rem',
+            fontWeight: 700,
+            cursor: completing ? 'not-allowed' : 'pointer',
+            fontSize: advanceLabel ? '0.875rem' : '0.9rem',
+            minHeight: 44,
+            whiteSpace: 'nowrap' as const,
+            opacity: completing ? 0.6 : 1,
+          }}>
+          {completing ? '…' : advanceLabel ? '✓' : '✓ Complete'}
         </button>
+
+        {/* Clear / cancel */}
         <button onClick={handleClear} disabled={clearing}
-          title="Clear order (with undo)"
-          style={{ background: '#2C2C2E', color: '#71717A', border: '1px solid #3a3a3a', borderRadius: 8, padding: '0 0.875rem', cursor: 'pointer', fontSize: '1rem', minHeight: 44, minWidth: 44, opacity: clearing ? 0.5 : 1 }}>
+          title="Cancel order (8s undo)"
+          style={{ background: '#2C2C2E', color: '#71717A', border: '1px solid #3a3a3a', borderRadius: 8, padding: '0 0.75rem', cursor: 'pointer', fontSize: '1rem', minHeight: 44, minWidth: 44, opacity: clearing ? 0.5 : 1 }}>
           🗑
         </button>
       </div>
@@ -418,12 +546,9 @@ function HistoryCard({ order, onRestore }: { order: any; onRestore: (id: number,
 
   return (
     <div style={{ background: '#1C1C1E', border: '1px solid #2C2C2E', borderRadius: 12, padding: '0.875rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-      {/* Status pill */}
-      <div style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 99, background: statusColor + '20', color: statusColor, fontSize: '0.7rem', fontWeight: 700, marginTop: 2 }}>
+      <div style={{ flexShrink: 0, padding: '4px 10px', borderRadius: 99, background: statusColor + '20', color: statusColor, fontSize: '0.7rem', fontWeight: 700, marginTop: 2, whiteSpace: 'nowrap' as const }}>
         {statusLabel}
       </div>
-
-      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' as const }}>
           <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#F5F5F5', fontFamily: 'monospace' }}>#{order.orderNumber.replace('B1-', '')}</span>
@@ -434,8 +559,6 @@ function HistoryCard({ order, onRestore }: { order: any; onRestore: (id: number,
           {(order.items ?? []).map((i: any) => `${i.quantity}× ${i.itemName}`).join(', ')}
         </div>
       </div>
-
-      {/* Restore button */}
       <button
         onClick={() => onRestore(order.id, isCompleted ? 'ready' : 'confirmed')}
         title={isCompleted ? 'Restore to Ready' : 'Restore to Confirmed'}
