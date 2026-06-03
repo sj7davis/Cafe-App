@@ -24,6 +24,15 @@ import QRCode from 'qrcode';
 import { SetupChecklist } from '@/components/SetupChecklist';
 import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
 
+const SMS_SEGMENTS = [
+  { id: 'all', label: 'All Customers', description: 'Every customer in your database' },
+  { id: 'lapsed_30d', label: 'Lapsed 30 Days', description: 'No order in last 30 days' },
+  { id: 'lapsed_60d', label: 'Lapsed 60 Days', description: 'No order in last 60 days' },
+  { id: 'birthday_month', label: 'Birthday This Month', description: 'Customers with birthday this month' },
+  { id: 'top_spenders', label: 'Top Spenders', description: 'Top 20% by lifetime value' },
+] as const;
+
+type SmsSegmentId = typeof SMS_SEGMENTS[number]['id'];
 
 export function SmsMarketingTab() {
   const token = localStorage.getItem('b1-owner-token') || '';

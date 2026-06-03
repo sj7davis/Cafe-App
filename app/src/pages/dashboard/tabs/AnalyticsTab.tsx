@@ -22,7 +22,7 @@ import {
 } from 'recharts';
 import QRCode from 'qrcode';
 import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+import { DS, getMonday, addWeekDays, WEEK_DAYS, CHART_COLORS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
 
 
 export function AnalyticsTab() {
