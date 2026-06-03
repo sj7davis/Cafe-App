@@ -312,3 +312,216 @@ export function AnalyticsTab() {
     </div>
   );
 }
+function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+
+  const { data: periodComparison } = trpc.analytics.getPeriodComparison.useQuery(
+    { token, days: analyticsRange }, { enabled: !!token }
+  );
+  const { data: revenueForecast } = trpc.analytics.getRevenueForecast.useQuery(
+    { token }, { enabled: !!token }
+  );
+  const { data: menuScorecard } = trpc.analytics.getMenuScorecard.useQuery(
+    { token, days: analyticsRange }, { enabled: !!token }
+  );
+
+  const [gstFromDate, setGstFromDate] = useState('');
+  const [gstToDate, setGstToDate] = useState('');
+  const [showGST, setShowGST] = useState(false);
+  const { data: gstSummary, isFetching: gstFetching } = trpc.analytics.getGSTSummary.useQuery(
+    { token, fromDate: gstFromDate, toDate: gstToDate },
+    { enabled: showGST && !!gstFromDate && !!gstToDate }
+  );
+
+  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
+  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
+
+  function downloadGSTCsv() {
+    if (!(gstSummary as any)?.csv) return;
+    const blob = new Blob([(gstSummary as any).csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'gst-report.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const pc = periodComparison as any;
+
+  return (
+    <>
+      {/* Period Comparison */}
+      {pc && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Period Comparison</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: 'Revenue', cur: pc.revenue?.current, prev: pc.revenue?.previous, prefix: '$' },
+              { label: 'Orders', cur: pc.orders?.current, prev: pc.orders?.previous, prefix: '' },
+              { label: 'Avg Order', cur: pc.avgOrder?.current, prev: pc.avgOrder?.previous, prefix: '$' },
+            ].map((card) => {
+              const change = card.prev && card.prev !== 0
+                ? ((card.cur - card.prev) / card.prev) * 100
+                : null;
+              const up = change !== null && change >= 0;
+              return (
+                <div key={card.label} className="border p-5" style={statCardStyle}>
+                  <span style={monoLabel}>{card.label}</span>
+                  <span style={bigNum}>{card.prefix}{typeof card.cur === 'number' ? card.cur.toFixed(2) : '—'}</span>
+                  {card.prev !== undefined && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>
+                        prev: {card.prefix}{typeof card.prev === 'number' ? card.prev.toFixed(2) : '—'}
+                      </span>
+                      {change !== null && (
+                        <span className="font-data" style={{ fontSize: '0.5625rem', color: up ? '#5E8B5E' : '#B85450' }}>
+                          {up ? '↑' : '↓'}{Math.abs(change).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Revenue Forecast */}
+      {revenueForecast && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Predicted Revenue — Next 7 Days</h2>
+          {(revenueForecast as any).days && (revenueForecast as any).days.length > 0 && (
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart data={(revenueForecast as any).days} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
+                <XAxis dataKey="date" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v}`} />
+                <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Predicted']} labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
+                <Area type="monotone" dataKey="predicted" stroke="#C4953A" fill="rgba(196,149,58,0.15)" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+          {(revenueForecast as any).total !== undefined && (
+            <p className="font-data mt-3" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
+              Predicted total: <span style={{ color: 'var(--op-text)', fontWeight: 600 }}>${Number((revenueForecast as any).total).toFixed(2)}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Menu Scorecard */}
+      {menuScorecard && (menuScorecard as any[]).length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Menu Scorecard</h2>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  {['Rank', 'Item', 'Units Sold', 'Revenue', 'Rev Share %', 'Trend'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(menuScorecard as { name: string; unitsSold: number; revenue: number; revenueShare: number; trendPct: number }[]).map((row, idx) => {
+                  const trendColor = row.trendPct > 5 ? '#5E8B5E' : row.trendPct < -5 ? '#B85450' : '#5E5E5E';
+                  const trendArrow = row.trendPct > 5 ? '↑' : row.trendPct < -5 ? '↓' : '→';
+                  return (
+                    <tr key={row.name} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>{idx + 1}</td>
+                      <td style={{ padding: '10px 10px', fontWeight: 500, color: 'var(--op-text)' }}>{row.name}</td>
+                      <td style={{ padding: '10px 10px' }}>{row.unitsSold}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E8B5E' }}>${Number(row.revenue).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px' }}>{Number(row.revenueShare).toFixed(1)}%</td>
+                      <td style={{ padding: '10px 10px' }}>
+                        <span className="font-data" style={{ fontSize: '0.625rem', color: trendColor }}>
+                          {trendArrow} {Math.abs(row.trendPct).toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* GST Summary */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>GST Summary</h2>
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>From</label>
+            <input type="date" value={gstFromDate} onChange={e => { setGstFromDate(e.target.value); setShowGST(false); }}
+              className="border px-3 py-2 focus:outline-none bg-transparent"
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>To</label>
+            <input type="date" value={gstToDate} onChange={e => { setGstToDate(e.target.value); setShowGST(false); }}
+              className="border px-3 py-2 focus:outline-none bg-transparent"
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
+          </div>
+          <button
+            disabled={!gstFromDate || !gstToDate || gstFetching}
+            onClick={() => setShowGST(true)}
+            className="px-4 py-2 font-button flex items-center gap-2"
+            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!gstFromDate || !gstToDate) ? 0.5 : 1 }}
+          >
+            {gstFetching ? <Loader2 size={14} className="animate-spin" /> : <PieChartIcon size={14} />}
+            Generate
+          </button>
+        </div>
+        {gstSummary && (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {[
+                { label: 'Total Revenue', value: `$${Number((gstSummary as any).totalRevenue ?? 0).toFixed(2)}` },
+                { label: 'GST (1/11th)', value: `$${Number((gstSummary as any).gstComponent ?? 0).toFixed(2)}` },
+                { label: 'Net Ex-GST', value: `$${Number((gstSummary as any).netExGST ?? 0).toFixed(2)}` },
+              ].map(s => (
+                <div key={s.label} className="border p-4" style={statCardStyle}>
+                  <span style={monoLabel}>{s.label}</span>
+                  <span style={bigNum}>{s.value}</span>
+                </div>
+              ))}
+            </div>
+            {(gstSummary as any).byPaymentMethod && (gstSummary as any).byPaymentMethod.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
+                    {['Payment Method', 'Revenue', 'GST', 'Net Ex-GST'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(gstSummary as any).byPaymentMethod.map((row: any) => (
+                    <tr key={row.method} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: 'var(--op-text)' }}>{row.method || 'Other'}</td>
+                      <td style={{ padding: '8px 10px' }}>${Number(row.revenue).toFixed(2)}</td>
+                      <td style={{ padding: '8px 10px', color: '#C4953A' }}>${Number(row.gst).toFixed(2)}</td>
+                      <td style={{ padding: '8px 10px', color: '#5E8B5E' }}>${Number(row.net).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <button
+              onClick={downloadGSTCsv}
+              className="px-4 py-2 font-button flex items-center gap-2"
+              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+            >
+              <Download size={14} /> Download GST Report
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Delivery Tab ─────────────────────────────────────────────────────────────
+type DeliveryPlatform = 'all' | 'uber_eats' | 'doordash' | 'menulog' | 'manual';
