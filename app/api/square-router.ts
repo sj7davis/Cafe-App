@@ -53,7 +53,8 @@ export const squareRouter = createRouter({
     return { success: true };
   }),
 
-  // Sync menu from Square
+  // Import menu from Square (one-way: Square → B1 only)
+  // Fetches ITEM + IMAGE objects in one call so images are included.
   syncMenu: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
     const db = getDb();
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
@@ -62,9 +63,9 @@ export const squareRouter = createRouter({
     const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
     if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
 
-    // Fetch catalog from Square API
     try {
-      const res = await fetch(`${SQUARE_API_BASE}/v2/catalog/list?types=ITEM`, {
+      // Fetch both ITEM and IMAGE objects in one request
+      const res = await fetch(`${SQUARE_API_BASE}/v2/catalog/list?types=ITEM,IMAGE`, {
         headers: {
           "Authorization": `Bearer ${venue.squareAccessToken}`,
           "Content-Type": "application/json",
@@ -77,11 +78,22 @@ export const squareRouter = createRouter({
       }
 
       const data = await res.json() as any;
-      const items = data.objects || [];
+      const allObjects: any[] = data.objects || [];
+
+      // Build image lookup map: imageId → URL
+      const imageMap: Record<string, string> = {};
+      for (const obj of allObjects) {
+        if (obj.type === "IMAGE" && obj.imageData?.url) {
+          imageMap[obj.id] = obj.imageData.url;
+        }
+      }
+
+      const items = allObjects.filter((o: any) => o.type === "ITEM");
 
       let imported = 0;
+      let withImages = 0;
+
       for (const item of items) {
-        if (item.type !== "ITEM") continue;
         const itemData = item.itemData;
         const variation = itemData.variations?.[0];
         if (!variation) continue;
@@ -90,13 +102,20 @@ export const squareRouter = createRouter({
           ? Number(variation.itemVariationData.priceMoney.amount) / 100
           : 0;
 
-        // Determine category
+        // Determine category from name keywords
         const name = (itemData.name || "").toLowerCase();
-        let category: "coffee" | "pastries" | "bread" = "coffee";
+        let category: "coffee" | "pastries" | "bread" | "food" | "drinks" = "coffee";
         if (name.includes("bread") || name.includes("loaf") || name.includes("sourdough")) category = "bread";
-        else if (name.includes("tart") || name.includes("danish") || name.includes("croissant")) category = "pastries";
+        else if (name.includes("tart") || name.includes("danish") || name.includes("croissant") || name.includes("muffin") || name.includes("pastry")) category = "pastries";
+        else if (name.includes("juice") || name.includes("smoothie") || name.includes("tea") || name.includes("chai") || name.includes("water")) category = "drinks";
+        else if (name.includes("toast") || name.includes("sandwich") || name.includes("bowl") || name.includes("wrap") || name.includes("salad")) category = "food";
 
-        // Upsert
+        // Resolve image URL: item may reference an IMAGE object via imageIds array
+        const imageId = itemData.imageIds?.[0];
+        const imageUrl = imageId ? (imageMap[imageId] || null) : null;
+        if (imageUrl) withImages++;
+
+        // Upsert: find existing by squareCatalogId
         const existing = await db.query.menuItems?.findFirst({
           where: eq(menuItems.squareCatalogId, item.id),
         });
@@ -105,8 +124,10 @@ export const squareRouter = createRouter({
           await db.update(menuItems).set({
             name: itemData.name,
             price: String(price),
-            category,
+            category: category as any,
             description: itemData.description || null,
+            // Only update image if Square provides one (don't overwrite a manually-set image)
+            ...(imageUrl ? { image: imageUrl } : {}),
           }).where(eq(menuItems.id, existing.id));
         } else {
           await db.insert(menuItems).values({
@@ -115,16 +136,17 @@ export const squareRouter = createRouter({
             name: itemData.name,
             description: itemData.description || null,
             price: String(price),
-            category,
+            category: category as any,
             squareCatalogId: item.id,
+            ...(imageUrl ? { image: imageUrl } : {}),
           });
           imported++;
         }
       }
 
-      return { imported, total: items.length };
+      return { imported, updated: items.length - imported, total: items.length, withImages };
     } catch (e: any) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: e.message || "Failed to sync with Square" });
+      throw new TRPCError({ code: "BAD_REQUEST", message: e.message || "Failed to import from Square" });
     }
   }),
 

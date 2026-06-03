@@ -57,7 +57,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
   const squareDisconnect = trpc.square.disconnect.useMutation({ onSuccess: () => window.location.reload() });
   const squareSyncMenu = trpc.square.syncMenu.useMutation();
   const squareSyncInventory = trpc.square.syncInventory.useMutation();
-  const [squareSyncMenuResult, setSquareSyncMenuResult] = useState<{ imported: number; total: number } | null>(null);
+  const [squareSyncMenuResult, setSquareSyncMenuResult] = useState<{ imported: number; updated: number; total: number; withImages: number } | null>(null);
   const [squareSyncInvResult, setSquareSyncInvResult] = useState<{ synced: number } | null>(null);
   const squareNotConfigured = oauthError && String(oauthError.message).toLowerCase().includes('not configured');
 
@@ -285,25 +285,60 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
               </p>
             )}
             {squareStatus?.connected ? (
-              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
-                <button style={{ ...primaryBtn, opacity: squareSyncMenu.isPending ? 0.6 : 1 }}
-                  disabled={squareSyncMenu.isPending}
-                  onClick={() => { setSquareSyncMenuResult(null); squareSyncMenu.mutate({ token }, { onSuccess: (d) => { setSquareSyncMenuResult(d); showToast(`Imported ${d.imported}/${d.total} items`); }, onError: (e) => showToast(e.message, false) }); }}>
-                  {squareSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Coffee size={12} />}
-                  Sync Menu
-                </button>
-                <button style={{ ...primaryBtn, opacity: squareSyncInventory.isPending ? 0.6 : 1 }}
-                  disabled={squareSyncInventory.isPending}
-                  onClick={() => { setSquareSyncInvResult(null); squareSyncInventory.mutate({ token }, { onSuccess: (d) => { setSquareSyncInvResult(d); showToast(`Synced ${d.synced} levels`); }, onError: (e) => showToast(e.message, false) }); }}>
-                  {squareSyncInventory.isPending ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
-                  Sync Inventory
-                </button>
-                <button style={{ ...ghostBtn }} disabled={squareDisconnect.isPending}
-                  onClick={() => squareDisconnect.mutate({ token })}>
-                  Disconnect
-                </button>
-                {squareSyncMenuResult && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Imported {squareSyncMenuResult.imported}/{squareSyncMenuResult.total}</span>}
-                {squareSyncInvResult && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Synced {squareSyncInvResult.synced}</span>}
+              <div style={{ borderTop: '1px solid rgba(24,24,24,0.06)', paddingTop: 12 }}>
+                {/* One-way import notice */}
+                <p style={{ fontSize: 11, color: 'var(--op-text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
+                  ↓ <strong>Import from Square only</strong> — changes in B1 are not pushed back to Square.
+                  Includes names, prices, descriptions, categories and photos.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button style={{ ...primaryBtn, opacity: squareSyncMenu.isPending ? 0.6 : 1 }}
+                    disabled={squareSyncMenu.isPending}
+                    onClick={() => {
+                      setSquareSyncMenuResult(null);
+                      squareSyncMenu.mutate({ token }, {
+                        onSuccess: (d: any) => {
+                          setSquareSyncMenuResult(d);
+                          const imgNote = d.withImages > 0 ? ` (${d.withImages} with photos)` : '';
+                          showToast(`Imported ${d.imported} new · ${d.updated ?? 0} updated${imgNote}`);
+                        },
+                        onError: (e: any) => showToast(e.message, false),
+                      });
+                    }}>
+                    {squareSyncMenu.isPending ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                    {squareSyncMenu.isPending ? 'Importing from Square…' : 'Import Menu from Square'}
+                  </button>
+                  <button style={{ ...primaryBtn, opacity: squareSyncInventory.isPending ? 0.6 : 1 }}
+                    disabled={squareSyncInventory.isPending}
+                    onClick={() => {
+                      setSquareSyncInvResult(null);
+                      squareSyncInventory.mutate({ token }, {
+                        onSuccess: (d: any) => { setSquareSyncInvResult(d); showToast(`Stock levels updated for ${d.synced} items`); },
+                        onError: (e: any) => showToast(e.message, false),
+                      });
+                    }}>
+                    {squareSyncInventory.isPending ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
+                    {squareSyncInventory.isPending ? 'Importing stock…' : 'Import Stock Levels'}
+                  </button>
+                  <button style={{ ...ghostBtn }} disabled={squareDisconnect.isPending}
+                    onClick={() => squareDisconnect.mutate({ token })}>
+                    Disconnect
+                  </button>
+                </div>
+                {squareSyncMenuResult && (
+                  <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(94,139,94,0.08)', border: '1px solid rgba(94,139,94,0.2)', borderRadius: 6, fontSize: 12, color: '#3D7A3D', lineHeight: 1.6 }}>
+                    ✓ <strong>{squareSyncMenuResult.imported}</strong> new items imported
+                    {(squareSyncMenuResult.updated ?? 0) > 0 && <> · <strong>{squareSyncMenuResult.updated}</strong> existing updated</>}
+                    {(squareSyncMenuResult.withImages ?? 0) > 0
+                      ? <> · <strong>{squareSyncMenuResult.withImages}</strong> photos imported from Square</>
+                      : <> · no photos found in Square catalog</>}
+                  </div>
+                )}
+                {squareSyncInvResult && (
+                  <p style={{ marginTop: 8, fontSize: 11, color: '#3D7A3D' }}>
+                    ✓ Stock levels updated for <strong>{squareSyncInvResult.synced}</strong> items
+                  </p>
+                )}
               </div>
             ) : squareNotConfigured ? null : (
               <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
