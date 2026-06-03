@@ -122,3 +122,57 @@ export function ReviewsTab({ venueId }: { venueId: number }) {
     </div>
   );
 }
+function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess: () => void }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const [reply, setReply] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const replyMutation = trpc.venue.replyToReview.useMutation({
+    onSuccess: () => {
+      setReply('');
+      setOpen(false);
+      onSuccess();
+    },
+  });
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--op-text-secondary)', background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+      >
+        Reply to this review
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(24,24,24,0.03)', border: '1px solid rgba(24,24,24,0.08)' }}>
+      <textarea
+        value={reply}
+        onChange={(e) => setReply(e.target.value)}
+        rows={3}
+        placeholder="Write your reply…"
+        style={{ width: '100%', fontSize: 13, color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 10px', resize: 'vertical', fontFamily: 'Inter', boxSizing: 'border-box' as const }}
+      />
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button
+          onClick={() => replyMutation.mutate({ token, reviewId, reply })}
+          disabled={replyMutation.isPending || !reply.trim()}
+          style={{ fontSize: '0.625rem', background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, opacity: replyMutation.isPending || !reply.trim() ? 0.6 : 1 }}
+        >
+          {replyMutation.isPending ? 'Submitting…' : 'Submit'}
+        </button>
+        <button
+          onClick={() => { setOpen(false); setReply(''); }}
+          style={{ fontSize: '0.625rem', background: 'none', color: 'var(--op-text-secondary)', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+        >
+          Cancel
+        </button>
+      </div>
+      {replyMutation.isError && (
+        <p style={{ fontSize: 12, color: '#B85450', marginTop: 6 }}>{replyMutation.error?.message}</p>
+      )}
+    </div>
+  );
+}
