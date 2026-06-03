@@ -1,5 +1,5 @@
 import {
-  pgTable, pgEnum, serial, varchar, text, timestamp, numeric, bigint, integer, boolean, json,
+  pgTable, pgEnum, serial, varchar, text, timestamp, numeric, bigint, integer, boolean, json, index,
 } from "drizzle-orm/pg-core";
 
 // ═══════════════════════════════════════════════════
@@ -223,7 +223,14 @@ export const orders = pgTable("orders", {
   refundAmount: varchar("refund_amount", { length: 16 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  // Critical for all analytics/KDS queries — covered by nearly every lookup
+  index("orders_venue_id_created_at_idx").on(t.venueId, t.createdAt),
+  index("orders_venue_id_status_idx").on(t.venueId, t.status),
+  index("orders_stripe_session_id_idx").on(t.stripeSessionId),
+  index("orders_customer_phone_idx").on(t.customerPhone),
+  index("orders_order_number_idx").on(t.orderNumber),
+]);
 export type Order = typeof orders.$inferSelect;
 
 // ─── Order Items ───
@@ -253,7 +260,9 @@ export const loyaltyAccounts = pgTable("loyalty_accounts", {
   birthday: varchar("birthday", { length: 5 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  index("loyalty_accounts_venue_phone_idx").on(t.venueId, t.phone),
+]);
 
 // ─── Loyalty Transactions ───
 export const loyaltyTransactions = pgTable("loyalty_transactions", {
@@ -333,7 +342,9 @@ export const reviews = pgTable("reviews", {
   ownerReply: text("owner_reply"),
   ownerRepliedAt: timestamp("owner_replied_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("reviews_venue_id_idx").on(t.venueId),
+]);
 
 // ─── Corporate Accounts (per-venue) ───
 export const corporateAccounts = pgTable("corporate_accounts", {

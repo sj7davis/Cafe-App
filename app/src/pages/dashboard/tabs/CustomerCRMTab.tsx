@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { trpc } from '@/providers/trpc';
 import { Loader2, Search, Download, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { DS } from '../shared';
@@ -36,11 +36,18 @@ function exportToCSV(rows: any[]) {
 export function CustomerCRMTab() {
   const token = localStorage.getItem('b1-owner-token') || '';
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
 
+  // Debounce search so we don't fire a full-table scan on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data: customers, isLoading } = trpc.venue.getCustomerList.useQuery(
-    { token, limit: 200, search: search.trim() || undefined },
-    { enabled: !!token }
+    { token, limit: 100, search: debouncedSearch.trim() || undefined },
+    { enabled: !!token, staleTime: 2 * 60 * 1000 }
   );
 
   const { data: orderHistory } = trpc.venue.getCustomerOrderHistory.useQuery(

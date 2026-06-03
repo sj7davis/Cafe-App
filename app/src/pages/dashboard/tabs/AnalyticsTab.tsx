@@ -32,26 +32,29 @@ export function AnalyticsTab() {
   const today = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+  // Cache for 5 minutes — analytics don't need real-time refresh
+  const analyticsOpts = { enabled: !!token, staleTime: 5 * 60 * 1000 };
+
   const { data: overview, isLoading: overviewLoading } = trpc.analytics.getOverview.useQuery(
-    { token, days: selectedDays }, { enabled: !!token }
+    { token, days: selectedDays }, analyticsOpts
   );
   const { data: dailyRevenue, isLoading: dailyLoading } = trpc.analytics.getDailyRevenue.useQuery(
-    { token, days: selectedDays as 7 | 30 | 90 }, { enabled: !!token }
+    { token, days: selectedDays as 7 | 30 | 90 }, analyticsOpts
   );
   const { data: topItems } = trpc.analytics.getTopItems.useQuery(
-    { token, days: selectedDays, limit: 5 }, { enabled: !!token }
+    { token, days: selectedDays, limit: 5 }, analyticsOpts
   );
   const { data: hourlyDist } = trpc.analytics.getHourlyDistribution.useQuery(
-    { token, days: selectedDays as 7 | 30 | 90 }, { enabled: !!token }
+    { token, days: selectedDays as 7 | 30 | 90 }, analyticsOpts
   );
   const { data: orderTypeBreakdown } = trpc.analytics.getOrderTypeBreakdown.useQuery(
-    { token, days: selectedDays }, { enabled: !!token }
+    { token, days: selectedDays }, analyticsOpts
   );
   const { data: itemsByHour } = trpc.analytics.getItemsByHour.useQuery(
-    { token, days: selectedDays }, { enabled: !!token }
+    { token, days: selectedDays }, analyticsOpts
   );
   const { data: selloutEvents } = trpc.analytics.getSelloutEvents.useQuery(
-    { token, days: 30 }, { enabled: !!token }
+    { token, days: 30 }, analyticsOpts
   );
   const { data: ordersExportData, isFetching: exporting } = trpc.audit.exportOrders.useQuery(
     { token, fromDate: thirtyDaysAgo, toDate: today },
