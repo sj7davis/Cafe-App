@@ -24,7 +24,7 @@ export function useVenueAuth() {
 
   const { data, isLoading } = trpc.venue.me.useQuery(
     token ? { token } : undefined,
-    { enabled: !!token, retry: false }
+    { enabled: !!token, retry: false, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
   );
 
   const owner: VenueOwner | null = data?.owner || null;

@@ -62,7 +62,8 @@ export default function OwnerDashboard() {
 
 
 
-  const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token });
+  // staleTime: venue list doesn't change often — cache for 10 minutes
+  const { data: myVenues } = trpc.venue.listMyVenues.useQuery({ token }, { enabled: !!token, staleTime: 10 * 60 * 1000 });
   const switchVenue = trpc.venue.getVenueToken.useMutation({
     onSuccess: (data) => {
       localStorage.setItem('b1-token', data.token);
@@ -72,9 +73,10 @@ export default function OwnerDashboard() {
 
   // ── Activity feed ──────────────────────────────────────────────────────────
   const [activityOpen, setActivityOpen] = useState(false);
+  // staleTime: 2 min — SSE invalidates this on new orders anyway
   const { data: activityFeed } = trpc.venue.getActivityFeed.useQuery(
     { token },
-    { enabled: !!token, refetchInterval: false }
+    { enabled: !!token, refetchInterval: false, staleTime: 2 * 60 * 1000 }
   );
   const feedUtils = trpc.useUtils();
   useVenueSSE({

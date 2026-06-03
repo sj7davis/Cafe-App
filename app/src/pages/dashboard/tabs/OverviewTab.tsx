@@ -30,13 +30,13 @@ export function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner:
   const token = localStorage.getItem('b1-owner-token') || '';
   const { data: summary, isLoading: summaryLoading } = trpc.venue.getDailySummary.useQuery(
     { token },
-    { enabled: !!token }
+    { enabled: !!token, staleTime: 2 * 60 * 1000 }
   );
   const sendEmail = trpc.venue.sendDailySummaryEmail.useMutation();
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sent' | 'error'>('idle');
 
   // ── Setup checklist ──────────────────────────────────────────────────────
-  const { data: menuData } = trpc.venue.listMenu.useQuery({ venueId: venue?.id || 0 }, { enabled: !!venue?.id });
+  const { data: menuData } = trpc.venue.listMenu.useQuery({ venueId: venue?.id || 0 }, { enabled: !!venue?.id, staleTime: 10 * 60 * 1000 });
   const setupDismissKey = `b1-setup-dismissed-${venue?.id}`;
   const [setupDismissed, setSetupDismissed] = useState(() => !!localStorage.getItem(setupDismissKey));
 
