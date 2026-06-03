@@ -33,6 +33,12 @@ export function SettingsTab({ venue }: { venue: any }) {
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
   const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
 
+  // Booking Deposit state
+  const setBookingDeposit = trpc.venue.setBookingDepositConfig.useMutation();
+  const initialDeposit = (venue.settingsJson as any)?.bookingDeposit ?? { requireDeposit: false, depositAmount: 0 };
+  const [depositForm, setDepositForm] = useState({ requireDeposit: !!initialDeposit.requireDeposit, depositAmount: String(initialDeposit.depositAmount ?? '0') });
+  const [depositMsg, setDepositMsg] = useState('');
+
   // Happy Hour state
   const { data: hhData } = trpc.venue.getHappyHour.useQuery({ venueId: venue.id }, { enabled: !!venue.id });
   const setHappyHour = trpc.venue.setHappyHour.useMutation();
@@ -146,6 +152,38 @@ export function SettingsTab({ venue }: { venue: any }) {
             {setHappyHour.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Happy Hour</>}
           </button>
           {hhMsg && <span className="font-data" style={{ fontSize: '0.625rem', color: hhMsg.includes('saved') ? '#5E8B5E' : '#B85450' }}>{hhMsg}</span>}
+        </div>
+      </div>
+
+      {/* Booking Deposits */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Booking Deposits</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="md:col-span-2 flex items-center gap-3">
+            <input type="checkbox" id="deposit-enabled" checked={depositForm.requireDeposit} onChange={e => setDepositForm({ ...depositForm, requireDeposit: e.target.checked })} style={{ accentColor: '#181818', width: 16, height: 16 }} />
+            <label htmlFor="deposit-enabled" className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text)', cursor: 'pointer' }}>Require deposit to confirm bookings</label>
+          </div>
+          <div>
+            <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Deposit Amount ($)</label>
+            <input type="number" min={0} step={1} value={depositForm.depositAmount} onChange={e => setDepositForm({ ...depositForm, depositAmount: e.target.value })} className={inputCls} style={inputStyle} placeholder="e.g. 20" />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            disabled={setBookingDeposit.isPending}
+            onClick={() => {
+              setDepositMsg('');
+              setBookingDeposit.mutate({ token, requireDeposit: depositForm.requireDeposit, depositAmount: Number(depositForm.depositAmount) || 0 }, {
+                onSuccess: () => setDepositMsg('Deposit settings saved!'),
+                onError: (e) => setDepositMsg(e.message),
+              });
+            }}
+            className="px-6 py-3 font-button flex items-center gap-2"
+            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+          >
+            {setBookingDeposit.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Deposit Settings</>}
+          </button>
+          {depositMsg && <span className="font-data" style={{ fontSize: '0.625rem', color: depositMsg.includes('saved') ? '#5E8B5E' : '#B85450' }}>{depositMsg}</span>}
         </div>
       </div>
 

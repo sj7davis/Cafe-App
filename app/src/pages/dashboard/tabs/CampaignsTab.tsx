@@ -29,6 +29,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const utils = trpc.useUtils();
   const { data: campaigns, isLoading } = trpc.campaigns.list.useQuery({ token }, { enabled: !!token });
+  const { data: birthdayVouchers } = trpc.venue.getBirthdayVouchers.useQuery({ token, limit: 50 }, { enabled: !!token });
   const createCampaign = trpc.campaigns.create.useMutation({ onSuccess: () => { utils.campaigns.list.invalidate(); setShowForm(false); resetForm(); } });
   const sendCampaign = trpc.campaigns.send.useMutation({ onSuccess: () => utils.campaigns.list.invalidate() });
   const deleteCampaign = trpc.campaigns.delete.useMutation({ onSuccess: () => utils.campaigns.list.invalidate() });
@@ -151,6 +152,40 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Birthday Vouchers Section */}
+      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <h2 style={DS.sectionTitle}>Birthday Vouchers</h2>
+        <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 16 }}>
+          Auto-generated $10 discount codes sent with birthday greetings.
+        </p>
+        {!birthdayVouchers || (birthdayVouchers as any[]).length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--op-text-secondary)' }}>No birthday vouchers generated yet.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
+                  {['Code', 'Value', 'Uses', 'Expires', 'Created'].map(h => (
+                    <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(birthdayVouchers as any[]).map((v) => (
+                  <tr key={v.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.04)' }}>
+                    <td style={{ padding: '8px 10px', fontFamily: 'Geist Mono', fontWeight: 600, color: 'var(--op-text)' }}>{v.code}</td>
+                    <td style={{ padding: '8px 10px', color: 'var(--op-text)' }}>${Number(v.value).toFixed(2)}</td>
+                    <td style={{ padding: '8px 10px', color: 'var(--op-text)' }}>{v.usedCount ?? 0} / {v.maxUses ?? 1}</td>
+                    <td style={{ padding: '8px 10px', color: 'var(--op-text-secondary)' }}>{v.expiresAt ? new Date(v.expiresAt).toLocaleDateString() : '—'}</td>
+                    <td style={{ padding: '8px 10px', color: 'var(--op-text-secondary)' }}>{new Date(v.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       </div>
     </div>

@@ -241,6 +241,14 @@ export default function BookingPage() {
                 style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(24,24,24,0.15)', fontSize: 14, color: '#181818', background: '#fff', resize: 'vertical' }}
               />
 
+              {/* Deposit note */}
+              {(venue?.settingsJson as any)?.bookingDeposit?.requireDeposit && (
+                <div style={{ padding: '12px 14px', background: 'rgba(94,139,139,0.08)', border: '1px solid rgba(94,139,139,0.2)', borderRadius: 8, fontSize: 13, color: '#374151' }}>
+                  A ${(venue?.settingsJson as any)?.bookingDeposit?.depositAmount ?? 0} deposit is required to confirm your booking.
+                  You will be contacted after submitting.
+                </div>
+              )}
+
               {formError && (
                 <p style={{ color: '#dc2626', fontSize: 13, margin: 0 }}>{formError}</p>
               )}
