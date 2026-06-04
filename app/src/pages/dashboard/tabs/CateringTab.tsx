@@ -24,6 +24,16 @@ import QRCode from 'qrcode';
 import { SetupChecklist } from '@/components/SetupChecklist';
 import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
 
+const CATERING_STATUS_LABELS: Record<string, string> = {
+  new: 'New', quoted: 'Quoted', confirmed: 'Confirmed', completed: 'Completed',
+};
+const CATERING_STATUS_COLORS: Record<string, string> = {
+  new: '#C4953A', quoted: '#2563EB', confirmed: '#5E8B5E', completed: '#5E5E5E',
+};
+const CATERING_STATUS_NEXT: Record<string, string[]> = {
+  new: ['quoted', 'confirmed'], quoted: ['confirmed', 'completed'],
+  confirmed: ['completed'], completed: [],
+};
 
 export function CateringTab({ venueId }: { venueId: number }) {
   const token = localStorage.getItem('b1-owner-token') || '';

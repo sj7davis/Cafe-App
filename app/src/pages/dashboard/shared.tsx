@@ -143,6 +143,17 @@ export const DS = {
   } as React.CSSProperties),
 };
 
+// ─── Image upload styles (used inside ImageUpload below) ──────────────────────
+const IMG_UPLOAD_INPUT: React.CSSProperties = {
+  width: '100%', padding: '7px 10px', border: '1px solid var(--op-card-border)',
+  borderRadius: 6, fontSize: 11, color: 'var(--op-text-muted)', background: 'var(--op-card-bg)',
+  boxSizing: 'border-box', outline: 'none', fontFamily: 'var(--op-font-sans)',
+};
+const IMG_UPLOAD_LABEL: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--op-text-secondary)',
+  textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5,
+};
+
 export function ImageUpload({
   value, onChange, label = 'Image', compact = false,
 }: {
