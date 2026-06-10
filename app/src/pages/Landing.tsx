@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import {
   ShoppingCart, Monitor, Users, BarChart3, Gift, Star,
-  ArrowRight, Check, Coffee,
+  ArrowRight, Coffee,
 } from 'lucide-react';
 
 const FEATURES = [

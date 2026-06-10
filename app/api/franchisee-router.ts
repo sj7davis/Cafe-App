@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchiseeAccounts, franchiseePayouts, orders, venues } from "@db/schema";
-import { eq, and, gte, lte, desc, sql, sum } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 
@@ -278,7 +278,7 @@ export const franchiseeRouter = createRouter({
       const stripeAccount = config.stripeConnectAccountId;
 
       const [balance, payouts] = await Promise.all([
-        stripe.balance.retrieve({ stripeAccount }),
+        stripe.balance.retrieve({}, { stripeAccount }),
         stripe.payouts.list({ limit: 1 }, { stripeAccount }),
       ]);
 

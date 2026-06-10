@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { wasteLog, menuItems } from "@db/schema";
-import { eq, and, desc, gte, sql, sum } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 

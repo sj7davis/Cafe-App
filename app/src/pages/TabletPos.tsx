@@ -25,14 +25,12 @@ function urgencyColor(createdAt: string) {
 function PinScreen({
   venueName,
   accentColor,
-  onSuccess,
   verifyPin,
   isPending,
   error,
 }: {
   venueName: string;
   accentColor: string;
-  onSuccess: () => void;
   verifyPin: (pin: string) => void;
   isPending: boolean;
   error: string;
@@ -117,7 +115,7 @@ function PinScreen({
 }
 
 // ─── Main Tablet Interface ────────────────────────────────────────────────────
-function TabletMain({ venueId, accentColor, primaryColor, tabletToken }: { venueId: number; accentColor: string; primaryColor: string; tabletToken: string }) {
+function TabletMain({ venueId, accentColor, tabletToken }: { venueId: number; accentColor: string; tabletToken: string }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [orderNote, setOrderNote] = useState('');
@@ -475,9 +473,8 @@ export default function TabletPos() {
     );
   }
 
-  const { name, accentColor, primaryColor, hasPinSet, id: venueId } = venueQuery.data;
+  const { name, accentColor, hasPinSet, id: venueId } = venueQuery.data;
   const accent = accentColor ?? '#5E8B8B';
-  const primary = primaryColor ?? '#181818';
 
   // If no PIN set yet — show instructions
   if (!hasPinSet) {
@@ -499,7 +496,6 @@ export default function TabletPos() {
       <PinScreen
         venueName={name}
         accentColor={accent}
-        onSuccess={() => setUnlocked(true)}
         verifyPin={handleVerify}
         isPending={verifyMutation.isPending}
         error={pinError}
@@ -507,5 +503,5 @@ export default function TabletPos() {
     );
   }
 
-  return <TabletMain venueId={venueId} accentColor={accent} primaryColor={primary} tabletToken={tabletToken} />;
+  return <TabletMain venueId={venueId} accentColor={accent} tabletToken={tabletToken} />;
 }

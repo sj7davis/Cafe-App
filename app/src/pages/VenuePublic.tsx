@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import {
   Coffee, MapPin, Phone, Clock, Globe, Loader2,
-  ShoppingBag, Plus, Minus, X, ChevronRight, Star,
+  ShoppingBag, Plus, Minus, X, Star,
   Package, CheckCircle, QrCode, Download, Gift, AlertTriangle, Bell, Users, Search, History, ChevronDown,
 } from 'lucide-react';
 
@@ -226,7 +226,7 @@ function renderWebsiteBlocks(
   allMenuItems: any[],
   reviewsList: any[],
   accentColor: string,
-  bgColor?: string,
+  _bgColor?: string,
   font?: string,
   templateId?: string,
 ) {
@@ -442,10 +442,6 @@ export default function VenuePublic() {
   const [modifierModalItem, setModifierModalItem] = useState<NonNullable<typeof menuItems>[number] | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  // ── Upsell state ─────────────────────────────────────────────────────────────
-  const [showUpsell, setShowUpsell] = useState(false);
-  const shownUpsell = useRef(false);
-  const upsellDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Countdown state ───────────────────────────────────────────────────────────
   const [now, setNow] = useState(Date.now());
@@ -569,9 +565,11 @@ export default function VenuePublic() {
   );
   const isPublicHoliday = holidayData?.isHoliday ?? false;
 
-  const { data: customerMe } = trpc.customerAuth.me.useQuery(undefined, {
-    enabled: !!venue?.id,
-  });
+  const customerToken = typeof window !== 'undefined' ? localStorage.getItem('customerToken') : null;
+  const { data: customerMe } = trpc.customerAuth.me.useQuery(
+    { token: customerToken ?? '' },
+    { enabled: !!venue?.id && !!customerToken },
+  );
 
   const { data: loyaltyRewards } = trpc.loyaltyRewards.list.useQuery(
     { venueId: venue?.id || 0 },
@@ -609,7 +607,6 @@ export default function VenuePublic() {
 
   const historyOrders = orderHistoryPanelQuery.data ?? [];
 
-  const upsertPreferences = trpc.venue.upsertCustomerPreferences.useMutation();
   const submitCatering = trpc.venue.submitCateringRequest.useMutation({
     onSuccess: () => {
       setCateringSubmitted(true);
@@ -637,8 +634,9 @@ export default function VenuePublic() {
   );
   const passInfo = passQuery.data ?? null;
 
-  const usePassCreditMutation = trpc.venue.usePassCredit.useMutation();
-  const validateDiscountMut = trpc.promo.validateDiscount.useMutation();
+  // validateDiscount is a query procedure — fetched imperatively on Apply click
+  const trpcUtils = trpc.useUtils();
+  const [validatingDiscount, setValidatingDiscount] = useState(false);
 
   // ── Stripe session verification (called when ?session= is in URL after payment) ─
   const verifySessionQuery = trpc.stripeCheckout.verifySession.useQuery(
@@ -674,7 +672,6 @@ export default function VenuePublic() {
   });
 
   const saveAbandonedCartMutation = trpc.venue.saveAbandonedCart.useMutation();
-  const clearAbandonedCartMutation = trpc.venue.clearAbandonedCart.useMutation();
 
   // ── Stripe Checkout mutations ─────────────────────────────────────────────────
   const createCheckoutSession = trpc.stripeCheckout.createCheckoutSession.useMutation();
@@ -707,44 +704,6 @@ export default function VenuePublic() {
       setAddMoreCart([]);
       setShowAddMore(false);
       showToast('Additional items added to your table!');
-    },
-  });
-
-  const createOrder = trpc.venue.createOrder.useMutation({
-    onSuccess: (data) => {
-      // capture cart before clearing for save-favourite
-      const savedCart = [...cart];
-      setCart([]);
-      setPlacedOrderNumber(data.orderNumber);
-      setShowCart(true);
-      shownUpsell.current = false;
-      if (checkoutPhone && venue?.id) {
-        clearAbandonedCartMutation.mutate({ venueId: venue.id, phone: checkoutPhone });
-      }
-      if (checkoutPhone && venue?.id && (checkoutMilk || checkoutSugar)) {
-        upsertPreferences.mutate({
-          venueId: venue.id,
-          phone: checkoutPhone,
-          milk: checkoutMilk || undefined,
-          sugar: checkoutSugar || undefined,
-        });
-      }
-      if (checkoutUsePass && passInfo?.id && venue?.id) {
-        usePassCreditMutation.mutate({ passId: passInfo.id, venueId: venue.id });
-      }
-      // Push notification subscription if opted in
-      if (wantsPushNotify && checkoutPhone && 'serviceWorker' in navigator && 'PushManager' in window) {
-        import('@/hooks/usePushSubscription').then(({ subscribePush }) => {
-          subscribePush(checkoutPhone).catch(() => {});
-        }).catch(() => {});
-      }
-      // Show save-favourite prompt if phone filled and has items
-      if (checkoutPhone && savedCart.length > 0) {
-        setFavLabel(savedCart[0].name + (savedCart.length > 1 ? ` + ${savedCart.length - 1} more` : ''));
-        setShowSaveFav(true);
-        if (saveFavTimer.current) clearTimeout(saveFavTimer.current);
-        saveFavTimer.current = setTimeout(() => setShowSaveFav(false), 10000);
-      }
     },
   });
 
@@ -832,7 +791,7 @@ export default function VenuePublic() {
         phone: checkoutPhone,
         customerName: checkoutName || undefined,
         itemsJson: JSON.stringify(cart),
-        totalAmount: total,
+        totalAmount: total.toFixed(2),
       });
     }, 2 * 60 * 1000);
     return () => {
@@ -917,7 +876,8 @@ export default function VenuePublic() {
 
   type MenuItem = NonNullable<typeof menuItems>[number];
 
-  const addToCart = (item: MenuItem, modifiers?: { group: string; option: string; priceAdj: number }[]) => {
+  // Accepts anything carrying the fields the cart needs (full menu items or reorder rows).
+  const addToCart = (item: { id: number; name: string; price: string | number }, modifiers?: { group: string; option: string; priceAdj: number }[]) => {
     const key = cartKey(item.id, modifiers);
     const modAdj = modifiers ? modifiers.reduce((s, m) => s + m.priceAdj, 0) : 0;
     setCart(prev => {
@@ -972,7 +932,7 @@ export default function VenuePublic() {
   type HistoryOrder = {
     id: number;
     orderNumber: string;
-    createdAt: Date;
+    createdAt: string | Date;
     totalAmount: string;
     items: { itemName: string; quantity: number; menuItemId: number }[];
   };
@@ -1040,8 +1000,9 @@ export default function VenuePublic() {
   async function handleApplyDiscountCode() {
     setDiscountError('');
     if (!discountCodeInput.trim() || !venue?.id) return;
+    setValidatingDiscount(true);
     try {
-      const result = await validateDiscountMut.mutateAsync({
+      const result = await trpcUtils.promo.validateDiscount.fetch({
         venueId: venue.id,
         code: discountCodeInput.trim(),
         orderAmount: cartSubtotal,
@@ -1050,6 +1011,8 @@ export default function VenuePublic() {
       setDiscountCodeInput('');
     } catch (e: unknown) {
       setDiscountError((e as { message?: string }).message ?? 'Invalid code');
+    } finally {
+      setValidatingDiscount(false);
     }
   }
 
@@ -1138,7 +1101,7 @@ export default function VenuePublic() {
             <div style={{ fontWeight: 700, fontSize: 15, color: '#09090B', marginBottom: 4, letterSpacing: '-0.02em' }}>
               Payment confirmed
             </div>
-            {verifySessionQuery.data.orderNumber ? (
+            {'orderNumber' in verifySessionQuery.data && verifySessionQuery.data.orderNumber ? (
               <div style={{ fontSize: 13, color: '#71717A' }}>
                 Order{' '}
                 <span style={{ fontWeight: 700, color: accentColor }}>
@@ -1567,7 +1530,7 @@ export default function VenuePublic() {
                             venueId: venue.id,
                             customerPhone: checkoutPhone,
                             customerName: checkoutName,
-                            items: cart.map(i => ({ menuItemId: i.id, quantity: i.quantity })),
+                            items: cart.map(i => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
                             scheduleDays: subDays.sort().join(','),
                             pickupTime: subPickupTime,
                           });
@@ -2125,10 +2088,10 @@ export default function VenuePublic() {
                         />
                         <button
                           onClick={handleApplyDiscountCode}
-                          disabled={!discountCodeInput.trim() || validateDiscountMut.isPending}
+                          disabled={!discountCodeInput.trim() || validatingDiscount}
                           style={{ padding: '10px 14px', borderRadius: 8, border: 'none', background: '#181818', color: '#F3F2EE', fontSize: 13, cursor: 'pointer', opacity: !discountCodeInput.trim() ? 0.5 : 1 }}
                         >
-                          {validateDiscountMut.isPending ? '…' : 'Apply'}
+                          {validatingDiscount ? '…' : 'Apply'}
                         </button>
                       </div>
                       {discountError && <p style={{ fontSize: 12, color: '#dc2626', margin: '4px 0 0' }}>{discountError}</p>}
@@ -2894,7 +2857,7 @@ export default function VenuePublic() {
               <div className="flex-1 h-px" style={{ background: `${primaryColor}10` }} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(bundles as { id: number; name: string; description?: string; bundlePrice: number; items?: string[] }[]).map(bundle => (
+              {bundles.map(bundle => (
                 <div key={bundle.id} style={{
                   border: '1px solid rgba(24,24,24,0.08)', borderRadius: 8,
                   background: 'white', padding: 16,
@@ -2908,14 +2871,14 @@ export default function VenuePublic() {
                       {bundle.items && bundle.items.length > 0 && (
                         <ul style={{ margin: '4px 0 8px', paddingLeft: 16 }}>
                           {bundle.items.map((it, idx) => (
-                            <li key={idx} style={{ fontSize: 11, color: '#5E5E5E', marginBottom: 2 }}>{it}</li>
+                            <li key={idx} style={{ fontSize: 11, color: '#5E5E5E', marginBottom: 2 }}>{it.name}</li>
                           ))}
                         </ul>
                       )}
                       <div style={{ fontWeight: 700, fontSize: 16, color: accentColor }}>${Number(bundle.bundlePrice).toFixed(2)}</div>
                     </div>
                     <button
-                      onClick={() => addBundleToCart(bundle)}
+                      onClick={() => addBundleToCart({ id: bundle.id, name: bundle.name, bundlePrice: Number(bundle.bundlePrice) })}
                       style={{
                         padding: '8px 16px', borderRadius: 8, border: 'none',
                         background: '#181818', color: '#F3F2EE', fontSize: 13, fontWeight: 600,
@@ -3793,9 +3756,9 @@ type MenuItemWithExtras = {
   price: string;
   image: string | null;
   dietary?: string | null;
-  isLimitedTime?: boolean;
+  isLimitedTime?: boolean | null;
   limitedTimeLabel?: string | null;
-  activeTo?: string | null;
+  activeTo?: string | Date | null;
 };
 
 function MenuCard({
@@ -3819,7 +3782,7 @@ function MenuCard({
   const dietaryTags = item.dietary ? item.dietary.split(',').map(d => d.trim()).filter(Boolean) : [];
 
   const countdown = item.activeTo && new Date(item.activeTo).getTime() > nowMs
-    ? formatCountdown(item.activeTo)
+    ? formatCountdown(String(item.activeTo))
     : null;
 
   return (

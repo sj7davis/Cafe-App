@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { waitlistEntries, venues } from "@db/schema";
-import { eq, and, inArray, max, desc } from "drizzle-orm";
+import { eq, and, inArray, max } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 import { sendSms } from "./lib/sms";
@@ -130,7 +130,7 @@ export const waitlistRouter = createRouter({
       const db = getDb();
       const [updated] = await db
         .update(waitlistEntries)
-        .set({ status: "cancelled" })
+        .set({ status: "left" })
         .where(and(eq(waitlistEntries.id, input.id), eq(waitlistEntries.venueId, venueId)))
         .returning();
       if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Waitlist entry not found" });
@@ -144,7 +144,7 @@ export const waitlistRouter = createRouter({
       const db = getDb();
       const [updated] = await db
         .update(waitlistEntries)
-        .set({ status: "cancelled" })
+        .set({ status: "left" })
         .where(eq(waitlistEntries.id, input.id))
         .returning();
       if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Waitlist entry not found" });

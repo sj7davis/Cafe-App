@@ -1,26 +1,16 @@
 // Shared constants, helpers and sub-components for OwnerDashboard tabs.
 // Exported from here and imported by each tab file.
 
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState, useRef, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send,
-  Tag, DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp,
-  CalendarDays, Clock, Shield, Building2, Percent, MessageSquare,
-  QrCode, Link2, CreditCard, MapPin, Briefcase, Edit2, Trash2,
-  GripVertical, Download, ChevronDown, ChevronUp, Monitor, Smartphone,
-  RefreshCw, Bell, Eye, EyeOff, ArrowRight, CheckCircle, Users,
-  PieChart as PieChartIcon, Circle,
+  Loader2, Check, Coffee, Edit2, Trash2,
+  GripVertical, ChevronDown, ChevronUp, Plus,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
+
+import { useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import QRCode from 'qrcode';
 
 
 export const DS = {
@@ -284,7 +274,6 @@ export function ImageUpload({
 
 export function TemplatePreviewCard({ template: t }: { template: { id: string; preview: { bg: string; accent: string; headline: string }; palette: { primary: string; accent: string; bg: string } } }) {
   const { bg, accent, headline } = t.preview;
-  const isDark = t.id === 'noir';
 
   // Each template gets a unique layout thumbnail
   const thumbnails: Record<string, React.ReactNode> = {
@@ -610,7 +599,7 @@ export function SortableMenuRow({
         </div>
       </div>
 
-      {openModifiers.has(item.id) && <ModifiersPanel menuItemId={item.id} venueId={venue.id} />}
+      {openModifiers.has(item.id) && <ModifiersPanel menuItemId={item.id} venueId={venue.id} token={token} />}
 
       {deleteConfirm === item.id && (
         <div className="p-4 border-x border-b" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#F3F2EE' }}>
@@ -625,6 +614,77 @@ export function SortableMenuRow({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Inline editor for a menu item's modifier groups (e.g. "Milk: Oat +$0.50").
+// Options are entered as comma-separated "Name:+price" pairs.
+function ModifiersPanel({ menuItemId, venueId, token }: { menuItemId: number; venueId: number; token: string }) {
+  const [name, setName] = useState('');
+  const [optionsText, setOptionsText] = useState('');
+  const [required, setRequired] = useState(false);
+
+  const { data: groups, isLoading, refetch } = trpc.venue.listMenuModifiers.useQuery({ venueId, menuItemId });
+  const addMutation = trpc.venue.addMenuModifier.useMutation({
+    onSuccess: () => { setName(''); setOptionsText(''); setRequired(false); refetch(); },
+  });
+  const deleteMutation = trpc.venue.deleteMenuModifier.useMutation({ onSuccess: () => refetch() });
+
+  const parsedOptions = optionsText
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(s => {
+      const [optName, priceStr] = s.split(':').map(p => p.trim());
+      return { name: optName, priceAdj: Number(priceStr) || 0 };
+    })
+    .filter(o => o.name);
+
+  return (
+    <div className="p-4 border-x border-b" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#F3F2EE' }}>
+      <p className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', marginBottom: 10 }}>Modifier Groups</p>
+
+      {isLoading ? (
+        <Loader2 size={14} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+          {(groups ?? []).length === 0 && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)', margin: 0 }}>No modifiers yet — add one below.</p>
+          )}
+          {(groups ?? []).map(g => (
+            <div key={g.id} className="flex items-center justify-between gap-3" style={{ background: 'var(--op-card-bg)', border: '1px solid var(--op-card-border)', padding: '8px 12px' }}>
+              <div style={{ minWidth: 0 }}>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--op-text)' }}>{g.name}</span>
+                {g.required && <span className="font-data" style={{ fontSize: '0.5625rem', marginLeft: 8, padding: '1px 5px', background: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Required</span>}
+                <div style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)', marginTop: 2 }}>
+                  {(g.options ?? []).map(o => o.priceAdj ? `${o.name} +$${o.priceAdj.toFixed(2)}` : o.name).join(' · ')}
+                </div>
+              </div>
+              <button onClick={() => deleteMutation.mutate({ token, modifierId: g.id })} disabled={deleteMutation.isPending} title="Delete group" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent', flexShrink: 0 }}>
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="Group name (e.g. Milk)" style={{ ...DS.input, width: 180 }} />
+        <input value={optionsText} onChange={e => setOptionsText(e.target.value)} placeholder="Options: Full Cream, Oat:0.50, Soy:0.50" style={{ ...DS.input, flex: 1, minWidth: 220 }} />
+        <label className="flex items-center gap-1" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)} /> Required
+        </label>
+        <button
+          onClick={() => addMutation.mutate({ token, menuItemId, name: name.trim(), options: parsedOptions, required })}
+          disabled={addMutation.isPending || !name.trim() || parsedOptions.length === 0}
+          className="px-4 py-2 font-button flex items-center gap-2"
+          style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!name.trim() || parsedOptions.length === 0) ? 0.5 : 1 }}
+        >
+          {addMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add Group
+        </button>
+      </div>
+      {addMutation.isError && <p style={{ fontSize: '0.75rem', color: '#B85450', marginTop: 6 }}>{addMutation.error.message}</p>}
     </div>
   );
 }

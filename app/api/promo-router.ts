@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { discountCodes, referralCodes, loyaltyAccounts, venues } from "@db/schema";
+import { discountCodes, referralCodes, loyaltyAccounts } from "@db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { randomBytes } from "crypto";

@@ -1,28 +1,13 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+  Loader2, Check, AlertCircle, TrendingUp, Link2,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
-} from 'recharts';
-import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+
+
+
+
+import { DS, TabletPinSection } from '../shared';
 
 
 export function SettingsTab({ venue }: { venue: any }) {
@@ -57,8 +42,8 @@ export function SettingsTab({ venue }: { venue: any }) {
   }
 
   // Xero state
-  const { data: xeroConn, refetch: refetchXero } = trpc.xero.getConnection.useQuery();
-  const { data: xeroAuthUrl } = trpc.xero.getAuthUrl.useQuery();
+  const { data: xeroConn, refetch: refetchXero } = trpc.xero.getConnection.useQuery({ token }, { enabled: !!token });
+  const { data: xeroAuthUrl } = trpc.xero.getAuthUrl.useQuery({ token }, { enabled: !!token });
   const xeroDisconnect = trpc.xero.disconnect.useMutation({ onSuccess: () => refetchXero() });
   const xeroSync = trpc.xero.syncRevenue.useMutation();
   const [xeroSyncFrom, setXeroSyncFrom] = useState('');
@@ -141,7 +126,7 @@ export function SettingsTab({ venue }: { venue: any }) {
             disabled={setHappyHour.isPending}
             onClick={() => {
               setHhMsg('');
-              setHappyHour.mutate({ venueId: venue.id, enabled: hhForm.enabled, startTime: hhForm.startTime, endTime: hhForm.endTime, discountPercent: Number(hhForm.discountPercent) || 0, label: hhForm.label }, {
+              setHappyHour.mutate({ token, enabled: hhForm.enabled, startTime: hhForm.startTime, endTime: hhForm.endTime, discountPercent: Number(hhForm.discountPercent) || 0, label: hhForm.label }, {
                 onSuccess: () => setHhMsg('Happy hour saved!'),
                 onError: (e) => setHhMsg(e.message),
               });
@@ -212,7 +197,7 @@ export function SettingsTab({ venue }: { venue: any }) {
                     disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
                     onClick={() => {
                       setXeroMsg('');
-                      xeroSync.mutate({ from: xeroSyncFrom, to: xeroSyncTo }, {
+                      xeroSync.mutate({ token, fromDate: xeroSyncFrom, toDate: xeroSyncTo }, {
                         onSuccess: () => setXeroMsg('Revenue synced to Xero!'),
                         onError: (e) => setXeroMsg(e.message),
                       });
@@ -225,7 +210,7 @@ export function SettingsTab({ venue }: { venue: any }) {
                   </button>
                   <button
                     disabled={xeroDisconnect.isPending}
-                    onClick={() => { if (window.confirm('Disconnect Xero?')) xeroDisconnect.mutate(); }}
+                    onClick={() => { if (window.confirm('Disconnect Xero?')) xeroDisconnect.mutate({ token }); }}
                     className="px-4 py-2 font-data border"
                     style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent', cursor: 'pointer' }}
                   >

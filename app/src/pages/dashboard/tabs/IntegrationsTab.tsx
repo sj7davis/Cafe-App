@@ -1,29 +1,15 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+  Loader2, Check, X, AlertCircle,
+  DollarSign, Globe, Coffee, BarChart3, TrendingUp, QrCode, Link2, CreditCard, Download, Bell,
   Zap,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
-} from 'recharts';
+
+
+
+
 import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
 
 
 export function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | null }) {
@@ -90,8 +76,8 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
   const imposC = imposConn as any;
 
   // ── Xero ──────────────────────────────────────────────────────────────────
-  const { data: xeroConn, refetch: refetchXeroHub } = trpc.xero.getConnection.useQuery();
-  const { data: xeroAuthUrlData } = trpc.xero.getAuthUrl.useQuery();
+  const { data: xeroConn, refetch: refetchXeroHub } = trpc.xero.getConnection.useQuery({ token }, { enabled: !!token });
+  const { data: xeroAuthUrlData } = trpc.xero.getAuthUrl.useQuery({ token }, { enabled: !!token });
   const xeroDisconnect = trpc.xero.disconnect.useMutation({ onSuccess: () => refetchXeroHub() });
   const xeroSync = trpc.xero.syncRevenue.useMutation();
   const [xeroSyncFrom, setXeroSyncFrom] = useState('');
@@ -525,13 +511,13 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                   </div>
                   <button style={{ ...primaryBtn, opacity: (!xeroSyncFrom || !xeroSyncTo || xeroSync.isPending) ? 0.5 : 1 }}
                     disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
-                    onClick={() => { setXeroMsg(''); xeroSync.mutate({ from: xeroSyncFrom, to: xeroSyncTo }, { onSuccess: (d: any) => { setXeroMsg(`Synced ${d.invoicesCreated ?? 0} invoices`); showToast('Xero sync complete'); }, onError: (e) => { setXeroMsg(e.message); showToast(e.message, false); } }); }}>
+                    onClick={() => { setXeroMsg(''); xeroSync.mutate({ token, fromDate: xeroSyncFrom, toDate: xeroSyncTo }, { onSuccess: (d: any) => { setXeroMsg(`Synced ${d.invoicesCreated ?? 0} invoices`); showToast('Xero sync complete'); }, onError: (e) => { setXeroMsg(e.message); showToast(e.message, false); } }); }}>
                     {xeroSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
                     Sync Revenue
                   </button>
                 </div>
                 {xeroMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>{xeroMsg}</p>}
-                <button style={ghostBtn} disabled={xeroDisconnect.isPending} onClick={() => xeroDisconnect.mutate()}>Disconnect</button>
+                <button style={ghostBtn} disabled={xeroDisconnect.isPending} onClick={() => xeroDisconnect.mutate({ token })}>Disconnect</button>
               </div>
             ) : (
               <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>

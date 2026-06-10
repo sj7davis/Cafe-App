@@ -2,13 +2,11 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { orders, orderItems, menuItems, venues, franchiseeAccounts, giftCards, subscriptionPasses } from "@db/schema";
+import { orders, orderItems, menuItems, venues, franchiseeAccounts } from "@db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import Stripe from "stripe";
 import { env } from "./lib/env";
-import { randomBytes } from "crypto";
-import { sendEmail } from "./lib/email";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
@@ -18,11 +16,6 @@ function getStripe(): Stripe {
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe is not configured" });
   }
   return new Stripe(env.stripeSecretKey, { apiVersion: STRIPE_API_VERSION });
-}
-
-/** Generate a 12-char base64url gift card code — same algorithm as venue-router generateGiftCardCode(). */
-function generateGiftCardCode(): string {
-  return randomBytes(8).toString("base64url").toUpperCase().slice(0, 12);
 }
 
 /**

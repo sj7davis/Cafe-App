@@ -112,6 +112,9 @@ export const customerAuthRouter = createRouter({
         email: account.email,
         name: account.name,
         phone: account.phone,
+        birthday: account.birthday,
+        allergies: account.allergies,
+        marketingOptIn: account.marketingOptIn,
         createdAt: account.createdAt,
         loyaltyBalance,
       };
@@ -125,6 +128,9 @@ export const customerAuthRouter = createRouter({
     token: z.string(),
     name: z.string().optional(),
     phone: z.string().optional(),
+    birthday: z.string().regex(/^\d{2}-\d{2}$/, "Use MM-DD format").or(z.literal("")).optional(),
+    allergies: z.string().optional(),
+    marketingOptIn: z.boolean().optional(),
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const customerId = payload.payload.customerId as number;
@@ -133,12 +139,36 @@ export const customerAuthRouter = createRouter({
     const updateData: Record<string, unknown> = {};
     if (input.name !== undefined) updateData.name = input.name;
     if (input.phone !== undefined) updateData.phone = input.phone;
+    if (input.birthday !== undefined) updateData.birthday = input.birthday || null;
+    if (input.allergies !== undefined) updateData.allergies = input.allergies;
+    if (input.marketingOptIn !== undefined) updateData.marketingOptIn = input.marketingOptIn;
 
     if (Object.keys(updateData).length === 0) {
       return { success: true };
     }
 
     await db.update(customerAccounts).set(updateData).where(eq(customerAccounts.id, customerId));
+    return { success: true };
+  }),
+
+  changePassword: publicQuery.input(z.object({
+    token: z.string(),
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(6),
+  })).mutation(async ({ input }) => {
+    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const customerId = payload.payload.customerId as number;
+    const db = getDb();
+
+    const rows = await db.select().from(customerAccounts).where(eq(customerAccounts.id, customerId)).limit(1);
+    const account = rows[0];
+    if (!account) throw new TRPCError({ code: "UNAUTHORIZED", message: "Account not found" });
+
+    const valid = await compare(input.currentPassword, account.passwordHash);
+    if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Current password is incorrect" });
+
+    const passwordHash = await hash(input.newPassword, 10);
+    await db.update(customerAccounts).set({ passwordHash }).where(eq(customerAccounts.id, customerId));
     return { success: true };
   }),
 

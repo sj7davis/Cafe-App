@@ -219,7 +219,7 @@ export const schedulingRouter = createRouter({
     }
 
     let notified = 0;
-    for (const [staffId, staffShiftList] of byStaff) {
+    for (const [, staffShiftList] of byStaff) {
       const email = staffShiftList[0]?.staffEmail;
       const name = staffShiftList[0]?.staffName;
       if (!email) continue;

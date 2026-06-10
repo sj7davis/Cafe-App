@@ -1,33 +1,19 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+  Loader2, Plus, Edit2, Trash2,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
-} from 'recharts';
-import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+
+
+
+
+import { DS } from '../shared';
 
 
 export function BundlesTab({ venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-owner-token') || '';
   const utils = trpc.useUtils();
-  const { data: bundles, isLoading } = trpc.venue.listBundles.useQuery({ venueId }, { enabled: !!venueId });
+  const { data: bundles, isLoading } = trpc.venue.listBundles.useQuery({ token }, { enabled: !!token && !!venueId });
   const createBundle = trpc.venue.createBundle.useMutation({ onSuccess: () => { utils.venue.listBundles.invalidate(); setShowForm(false); resetForm(); } });
   const updateBundle = trpc.venue.updateBundle.useMutation({ onSuccess: () => { utils.venue.listBundles.invalidate(); setEditId(null); } });
   const deleteBundle = trpc.venue.deleteBundle.useMutation({ onSuccess: () => utils.venue.listBundles.invalidate() });
@@ -78,7 +64,7 @@ export function BundlesTab({ venueId }: { venueId: number }) {
             <label htmlFor="bundle-active-new" style={{ fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}>Active</label>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => { if (!form.name || !form.bundlePrice) { setMsg('Error: Name and price required'); return; } setMsg(''); createBundle.mutate({ venueId, name: form.name, description: form.description || undefined, itemSlugs: form.itemSlugs.split(',').map(s => s.trim()).filter(Boolean), bundlePrice: form.bundlePrice, isActive: form.isActive }); }} disabled={createBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
+            <button onClick={() => { if (!form.name || !form.bundlePrice) { setMsg('Error: Name and price required'); return; } setMsg(''); createBundle.mutate({ token, name: form.name, description: form.description || undefined, itemSlugs: form.itemSlugs.split(',').map(s => s.trim()).filter(Boolean).join(','), bundlePrice: form.bundlePrice }); }} disabled={createBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
               {createBundle.isPending ? 'Saving…' : 'Create Bundle'}
             </button>
             <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
@@ -105,7 +91,7 @@ export function BundlesTab({ venueId }: { venueId: number }) {
                   <label htmlFor={`bundle-active-${b.id}`} style={{ fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}>Active</label>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { updateBundle.mutate({ bundleId: b.id, name: editForm.name, description: editForm.description || undefined, itemSlugs: editForm.itemSlugs.split(',').map((s: string) => s.trim()).filter(Boolean), bundlePrice: editForm.bundlePrice, isActive: editForm.isActive }); }} disabled={updateBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                  <button onClick={() => { updateBundle.mutate({ token, id: b.id, name: editForm.name, description: editForm.description || undefined, itemSlugs: editForm.itemSlugs.split(',').map((s: string) => s.trim()).filter(Boolean).join(','), bundlePrice: editForm.bundlePrice, isActive: editForm.isActive }); }} disabled={updateBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
                   <button onClick={() => setEditId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
                 </div>
               </div>
@@ -124,7 +110,7 @@ export function BundlesTab({ venueId }: { venueId: number }) {
                   <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
                   {deleteConfirm === b.id ? (
                     <div className="flex gap-1 items-center">
-                      <button onClick={() => { deleteBundle.mutate({ bundleId: b.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                      <button onClick={() => { deleteBundle.mutate({ token, id: b.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
                       <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                     </div>
                   ) : (

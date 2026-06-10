@@ -1,28 +1,13 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+  Loader2, Plus, Edit2, Trash2,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
-} from 'recharts';
-import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+
+
+
+
+import { DS } from '../shared';
 
 
 export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
@@ -30,7 +15,7 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
   const loyaltyToken = localStorage.getItem('b1-owner-token') || '';
   const { data: accounts, isLoading: accsLoading } = trpc.loyalty.listAccounts.useQuery({ token: loyaltyToken }, { enabled: !!loyaltyToken });
   const [loyaltySearch, setLoyaltySearch] = useState('');
-  const { data: rewards, isLoading: rewardsLoading } = trpc.loyaltyRewards.listAll.useQuery();
+  const { data: rewards, isLoading: rewardsLoading } = trpc.loyaltyRewards.listAll.useQuery({ token: loyaltyToken }, { enabled: !!loyaltyToken });
   const createReward = trpc.loyaltyRewards.create.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setShowRewardForm(false); resetRewardForm(); } });
   const updateReward = trpc.loyaltyRewards.update.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setEditRewardId(null); } });
   const deleteReward = trpc.loyaltyRewards.delete.useMutation({ onSuccess: () => utils.loyaltyRewards.listAll.invalidate() });
@@ -170,7 +155,7 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                 onClick={() => {
                   if (!rewardForm.name || !rewardForm.pointsCost) { setMsg('Error: Name and points cost required'); return; }
                   setMsg('');
-                  createReward.mutate({ name: rewardForm.name, description: rewardForm.description || undefined, pointsCost: Number(rewardForm.pointsCost), rewardType: rewardForm.rewardType, rewardValue: rewardForm.rewardValue || undefined, menuItemSlug: rewardForm.menuItemSlug || undefined, sortOrder: rewardForm.sortOrder ? Number(rewardForm.sortOrder) : undefined });
+                  createReward.mutate({ token: loyaltyToken, name: rewardForm.name, description: rewardForm.description || undefined, pointsCost: Number(rewardForm.pointsCost), rewardType: rewardForm.rewardType as 'free_item' | 'discount_percent' | 'discount_fixed' | 'custom', rewardValue: rewardForm.rewardValue || undefined, menuItemSlug: rewardForm.menuItemSlug || undefined, sortOrder: rewardForm.sortOrder ? Number(rewardForm.sortOrder) : undefined });
                 }}
                 style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
               >{createReward.isPending ? 'Saving…' : 'Create Reward'}</button>
@@ -201,7 +186,7 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                     <div><label style={labelStyle}>Sort Order</label><input type="number" min="0" value={editRewardForm.sortOrder} onChange={e => setEditRewardForm({ ...editRewardForm, sortOrder: e.target.value })} style={inputStyle} /></div>
                   </div>
                   <div className="flex gap-2">
-                    <button disabled={updateReward.isPending} onClick={() => { updateReward.mutate({ rewardId: r.id, name: editRewardForm.name, pointsCost: Number(editRewardForm.pointsCost), rewardType: editRewardForm.rewardType, rewardValue: editRewardForm.rewardValue || undefined, menuItemSlug: editRewardForm.menuItemSlug || undefined, sortOrder: editRewardForm.sortOrder ? Number(editRewardForm.sortOrder) : undefined }); }} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                    <button disabled={updateReward.isPending} onClick={() => { updateReward.mutate({ token: loyaltyToken, id: r.id, name: editRewardForm.name, pointsCost: Number(editRewardForm.pointsCost), rewardType: editRewardForm.rewardType as 'free_item' | 'discount_percent' | 'discount_fixed' | 'custom', rewardValue: editRewardForm.rewardValue || undefined, menuItemSlug: editRewardForm.menuItemSlug || undefined, sortOrder: editRewardForm.sortOrder ? Number(editRewardForm.sortOrder) : undefined }); }} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
                     <button onClick={() => setEditRewardId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
                   </div>
                 </div>
@@ -223,7 +208,7 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                     <button onClick={() => { setEditRewardId(r.id); setEditRewardForm({ name: r.name, description: r.description || '', pointsCost: String(r.pointsCost), rewardType: r.rewardType || 'free_item', rewardValue: r.rewardValue || '', menuItemSlug: r.menuItemSlug || '', sortOrder: r.sortOrder != null ? String(r.sortOrder) : '' }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
                     {deleteConfirm === r.id ? (
                       <div className="flex gap-1 items-center">
-                        <button onClick={() => { deleteReward.mutate({ rewardId: r.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                        <button onClick={() => { deleteReward.mutate({ token: loyaltyToken, id: r.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
                         <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                       </div>
                     ) : (

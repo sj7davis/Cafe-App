@@ -2,21 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { trpc } from '@/providers/trpc'
 import { useVenueSSE } from '@/hooks/useVenueSSE'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-interface OrderWithItems {
-  id: number
-  orderNumber: string
-  customerName: string
-  customerPhone: string
-  pickupTime: string
-  orderNote: string | null
-  status: string
-  totalAmount: string
-  tableNumber: string | null
-  createdAt: string
-  items: { itemName: string; quantity: number; note: string | null }[]
-}
-
 type KDSStatus = 'pending' | 'confirmed' | 'ready'
 type KDSView = 'live' | 'history'
 
@@ -140,6 +125,7 @@ export default function KitchenDisplay() {
     if (!venueId) { setLoginError('Enter venue ID'); return }
     try {
       const result = await staffLoginMut.mutateAsync({ venueId: venueId!, username: loginInput.username, password: loginInput.password })
+      if (!('token' in result)) { setLoginError('This account requires two-factor login — use the staff login page first'); return }
       setToken(result.token)
       sessionStorage.setItem('kds-token', result.token)
       sessionStorage.setItem('kds-venueId', String(venueId))

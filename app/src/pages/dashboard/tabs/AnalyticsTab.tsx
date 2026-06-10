@@ -1,28 +1,15 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState, useEffect } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+  Loader2, AlertCircle, Download, PieChart as PieChartIcon,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+
+
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
+  PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
-import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, CHART_COLORS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+import { CHART_COLORS } from '../shared';
 
 
 export function AnalyticsTab() {
@@ -424,19 +411,20 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
                 </tr>
               </thead>
               <tbody>
-                {(menuScorecard as { name: string; unitsSold: number; revenue: number; revenueShare: number; trendPct: number }[]).map((row, idx) => {
-                  const trendColor = row.trendPct > 5 ? '#5E8B5E' : row.trendPct < -5 ? '#B85450' : '#5E5E5E';
-                  const trendArrow = row.trendPct > 5 ? '↑' : row.trendPct < -5 ? '↓' : '→';
+                {menuScorecard.map((row, idx) => {
+                  const trendPct = Number(row.trend) || 0;
+                  const trendColor = trendPct > 5 ? '#5E8B5E' : trendPct < -5 ? '#B85450' : '#5E5E5E';
+                  const trendArrow = trendPct > 5 ? '↑' : trendPct < -5 ? '↓' : '→';
                   return (
                     <tr key={row.name} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
                       <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>{idx + 1}</td>
                       <td style={{ padding: '10px 10px', fontWeight: 500, color: 'var(--op-text)' }}>{row.name}</td>
-                      <td style={{ padding: '10px 10px' }}>{row.unitsSold}</td>
-                      <td style={{ padding: '10px 10px', color: '#5E8B5E' }}>${Number(row.revenue).toFixed(2)}</td>
+                      <td style={{ padding: '10px 10px' }}>{row.totalQty}</td>
+                      <td style={{ padding: '10px 10px', color: '#5E8B5E' }}>${Number(row.totalRevenue).toFixed(2)}</td>
                       <td style={{ padding: '10px 10px' }}>{Number(row.revenueShare).toFixed(1)}%</td>
                       <td style={{ padding: '10px 10px' }}>
                         <span className="font-data" style={{ fontSize: '0.625rem', color: trendColor }}>
-                          {trendArrow} {Math.abs(row.trendPct).toFixed(1)}%
+                          {trendArrow} {Math.abs(trendPct).toFixed(1)}%
                         </span>
                       </td>
                     </tr>
@@ -523,5 +511,3 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
   );
 }
 
-// ─── Delivery Tab ─────────────────────────────────────────────────────────────
-type DeliveryPlatform = 'all' | 'uber_eats' | 'doordash' | 'menulog' | 'manual';

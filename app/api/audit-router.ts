@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { auditLog, orders, loyaltyAccounts } from "@db/schema";
-import { eq, and, gte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 
@@ -36,7 +36,7 @@ export const auditRouter = createRouter({
       .where(and(
         eq(orders.venueId, venueId),
         gte(orders.createdAt, new Date(input.fromDate)),
-        gte(new Date(input.toDate + "T23:59:59"), orders.createdAt),
+        lte(orders.createdAt, new Date(input.toDate + "T23:59:59")),
       ))
       .orderBy(desc(orders.createdAt))
       .limit(5000);

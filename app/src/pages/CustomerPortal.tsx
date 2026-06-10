@@ -14,11 +14,12 @@ export default function CustomerPortal() {
 
   const [activeTab, setActiveTab] = useState<Tab>('orders')
 
-  const { data: customer, isLoading: authLoading } = trpc.customerAuth.me.useQuery(undefined, {
-    retry: false,
-  })
-
   const customerToken = typeof window !== 'undefined' ? localStorage.getItem('customerToken') : null
+
+  const { data: customer, isLoading: authLoading } = trpc.customerAuth.me.useQuery(
+    { token: customerToken ?? '' },
+    { retry: false, enabled: !!customerToken },
+  )
 
   useEffect(() => {
     if (!authLoading && !customer && !customerToken) {
@@ -171,8 +172,8 @@ function OrdersTab({ venueId, phone, venue }: { venueId: number; phone: string; 
   const navigate = useNavigate()
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
-  const { data: orders, isLoading } = trpc.venue.listOrders.useQuery(
-    { venueId, customerPhone: phone, limit: 30, statuses: ['pending', 'confirmed', 'ready', 'completed', 'cancelled'] },
+  const { data: orders, isLoading } = trpc.venue.getOrdersByPhone.useQuery(
+    { venueId, phone, limit: 20 },
     { enabled: !!venueId && !!phone }
   )
 
@@ -452,8 +453,13 @@ function ProfileTab({ customer }: { customer: Record<string, unknown> }) {
   const [newPassword, setNewPassword] = useState('')
   const [saved, setSaved] = useState(false)
 
+  const token = (typeof window !== 'undefined' ? localStorage.getItem('customerToken') : null) ?? ''
+
   const updateProfile = trpc.customerAuth.updateProfile.useMutation({
     onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 3000) },
+  })
+  const changePassword = trpc.customerAuth.changePassword.useMutation({
+    onSuccess: () => { setCurrentPassword(''); setNewPassword('') },
   })
 
   return (
@@ -482,7 +488,7 @@ function ProfileTab({ customer }: { customer: Record<string, unknown> }) {
             Receive marketing emails &amp; offers
           </label>
           <button
-            onClick={() => updateProfile.mutate({ name, phone, birthday, allergies, marketingOptIn })}
+            onClick={() => updateProfile.mutate({ token, name, phone, birthday, allergies, marketingOptIn })}
             disabled={updateProfile.isPending}
             style={{ padding: '10px 0', borderRadius: 8, border: 'none', background: TEAL, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
           >
@@ -497,8 +503,8 @@ function ProfileTab({ customer }: { customer: Record<string, unknown> }) {
           <input type="password" placeholder="Current password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} style={inputStyle} />
           <input type="password" placeholder="New password" value={newPassword} onChange={e => setNewPassword(e.target.value)} style={inputStyle} />
           <button
-            onClick={() => updateProfile.mutate({ currentPassword, newPassword })}
-            disabled={!currentPassword || !newPassword || updateProfile.isPending}
+            onClick={() => changePassword.mutate({ token, currentPassword, newPassword })}
+            disabled={!currentPassword || !newPassword || changePassword.isPending}
             style={{ padding: '10px 0', borderRadius: 8, border: 'none', background: '#181818', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: (!currentPassword || !newPassword) ? 0.5 : 1 }}
           >
             Update Password

@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 export default function GiftCardLanding() {
   const { code } = useParams<{ code: string }>()
-  const [venueId, setVenueId] = useState<number>(1)
+  const [venueId] = useState<number>(1)
   const [orderAmount, setOrderAmount] = useState('')
   const [redeemed, setRedeemed] = useState<{ discount: number; remainingBalance: number } | null>(null)
   const [error, setError] = useState('')
@@ -16,8 +16,6 @@ export default function GiftCardLanding() {
 
   const redeemMut = trpc.venue.redeemGiftCard.useMutation()
 
-  // For display: fetch balance without redeeming
-  const balanceQuery = trpc.venue.redeemGiftCard.useMutation()
 
   async function handleRedeem() {
     setError('')

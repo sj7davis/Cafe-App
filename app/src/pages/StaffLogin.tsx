@@ -257,7 +257,7 @@ export default function StaffLogin() {
       return;
     }
     resetPasswordMutation.mutate({
-      token: resetToken!,
+      resetToken: resetToken!,
       venueId: Number(venueIdParam),
       newPassword: resetNewPw,
     });

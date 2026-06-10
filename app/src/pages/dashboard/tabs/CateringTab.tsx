@@ -1,28 +1,12 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
-import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+import { Briefcase,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
-} from 'recharts';
-import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+
+
+
+
+import { DS } from '../shared';
 
 const CATERING_STATUS_LABELS: Record<string, string> = {
   new: 'New', quoted: 'Quoted', confirmed: 'Confirmed', completed: 'Completed',
@@ -35,7 +19,7 @@ const CATERING_STATUS_NEXT: Record<string, string[]> = {
   confirmed: ['completed'], completed: [],
 };
 
-export function CateringTab({ venueId }: { venueId: number }) {
+export function CateringTab({ venueId: _venueId }: { venueId: number }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const [statusFilter, setStatusFilter] = useState('all');
   const [editingId, setEditingId] = useState<number | null>(null);

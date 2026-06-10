@@ -1,28 +1,13 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+  Loader2, Check, AlertCircle,
+  DollarSign,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
-} from 'recharts';
-import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+
+
+
+
 
 
 export function FranchiseeTab() {
@@ -135,7 +120,7 @@ export function FranchiseeTab() {
             disabled={setupMutation.isPending || configLoading}
             onClick={() => {
               setConfigMsg('');
-              setupMutation.mutate({ token, platformFeePercent: Number(feeInput), payoutSchedule: scheduleInput });
+              setupMutation.mutate({ token, platformFeePercent: Number(feeInput), payoutSchedule: scheduleInput as 'monthly' | 'weekly' | 'fortnightly' });
             }}
             className="px-6 py-3 font-button flex items-center gap-2"
             style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (setupMutation.isPending || configLoading) ? 0.6 : 1 }}
@@ -193,7 +178,7 @@ export function FranchiseeTab() {
                 Process payout for {new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}?
               </span>
               <button
-                onClick={() => { setPayoutMsg(''); payoutMutation.mutate({ token, periodStart, periodEnd }); setConfirmPayout(false); }}
+                onClick={() => { setPayoutMsg(''); payoutMutation.mutate({ token }); setConfirmPayout(false); }}
                 disabled={payoutMutation.isPending}
                 className="px-4 py-2 font-button flex items-center gap-2"
                 style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', opacity: payoutMutation.isPending ? 0.6 : 1 }}

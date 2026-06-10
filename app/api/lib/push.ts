@@ -18,7 +18,7 @@ export interface PushSubscriptionData {
 
 export async function sendPush(
   subscription: PushSubscriptionData,
-  payload: { title: string; body: string; icon?: string; tag?: string }
+  payload: { title: string; body: string; icon?: string; tag?: string; url?: string }
 ): Promise<void> {
   ensureConfigured();
   if (!env.vapidPublicKey || !env.vapidPrivateKey) return; // silent no-op if not configured

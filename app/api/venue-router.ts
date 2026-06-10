@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, customerAccounts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries, recurringOrders } from "@db/schema";
-import { eq, and, desc, asc, sql, gte, sum, isNull, lte, inArray, count, not, max } from "drizzle-orm";
+import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries, recurringOrders } from "@db/schema";
+import { eq, and, desc, asc, sql, gte, sum, inArray, notInArray, count, not, max } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
@@ -124,6 +124,15 @@ export const venueRouter = createRouter({
     if (!venue || venue.isPublic === false) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
     const { squareAccessToken, squareRefreshToken, stripeCustomerId, stripeSubscriptionId, ...safe } = venue;
     return safe;
+  }),
+
+  // Public: minimal venue lookup by id (used by the customer portal)
+  getById: publicQuery.input(z.object({ id: z.number().int().positive() })).query(async ({ input }) => {
+    const db = getDb();
+    const results = await db.select({ id: venues.id, name: venues.name, slug: venues.slug })
+      .from(venues).where(eq(venues.id, input.id)).limit(1);
+    if (!results[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    return results[0];
   }),
 
   // Public: List all public venues (for platform directory)
@@ -728,10 +737,6 @@ export const venueRouter = createRouter({
       .limit(1);
     const ownerEmail = ownerRow[0]?.email;
 
-    const itemLines = itemDetails
-      .map(i => `<li>${i.quantity}x ${i.itemName} — $${(i.unitPrice * i.quantity).toFixed(2)}</li>`)
-      .join("");
-
     // EMAIL-01: customer confirmation — branded template with idempotency
     if (input.customerEmail) {
       void sendOrderConfirmation({
@@ -1028,7 +1033,7 @@ export const venueRouter = createRouter({
         name: menuItems.name,
         category: menuItems.category,
         price: menuItems.price,
-        imageUrl: menuItems.imageUrl,
+        imageUrl: menuItems.image,
         // inventory fields (null if no inventory row)
         invId: inventory.id,
         isAvailable: inventory.isAvailable,
@@ -1155,8 +1160,8 @@ export const venueRouter = createRouter({
       hoursWeekday: input.hoursWeekday,
       hoursSaturday: input.hoursSaturday,
       hoursSunday: input.hoursSunday,
-    });
-    return { locationId: Number(result[0].insertId) };
+    }).returning({ id: locations.id });
+    return { locationId: result[0].id };
   }),
 
   updateLocation: publicQuery.input(z.object({
@@ -2681,7 +2686,7 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     y: z.number().optional(),
     width: z.number().optional(),
     height: z.number().optional(),
-    shape: z.string().optional(),
+    shape: z.enum(["round", "rect"]).optional(),
     section: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
@@ -2849,8 +2854,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     if (!settings?.gmbAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB not connected" });
     if (!settings?.gmbAccountId || !settings?.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB account/location ID not set" });
 
+    // Availability is tracked per-venue in the inventory table; exclude items marked unavailable.
+    const unavailableIds = db.select({ id: inventory.menuItemId }).from(inventory)
+      .where(and(eq(inventory.venueId, venueId), eq(inventory.isAvailable, false)));
     const items = await db.select().from(menuItems)
-      .where(and(eq(menuItems.venueId, venueId), eq(menuItems.isAvailable, true)));
+      .where(and(eq(menuItems.venueId, venueId), notInArray(menuItems.id, unavailableIds)));
 
     // Build GMB food menu structure
     // NOTE: The GMB Food Menus API endpoint may change — verify against

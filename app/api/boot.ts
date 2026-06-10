@@ -692,7 +692,6 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
                     name: meta.customerName ?? null,
                     pointsBalance: 0,
                     totalLifetimePoints: 0,
-                    tier: "bronze",
                   });
                   loyaltyAcc = await db.select().from(loyaltyAccounts)
                     .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyPhone)))
@@ -700,22 +699,22 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
                 }
                 const acc = loyaltyAcc[0];
                 if (acc) {
-                  const multiplier = acc.tier === "gold" ? 2 : acc.tier === "silver" ? 1.5 : 1;
+                  // Tier is derived from lifetime points (no tier column in the schema)
+                  const tier = acc.totalLifetimePoints >= 2000 ? "gold" : acc.totalLifetimePoints >= 500 ? "silver" : "bronze";
+                  const multiplier = tier === "gold" ? 2 : tier === "silver" ? 1.5 : 1;
                   const pointsEarned = Math.floor(subtotal * multiplier);
                   if (pointsEarned > 0) {
                     const newLifetime = acc.totalLifetimePoints + pointsEarned;
-                    const newTier = newLifetime >= 2000 ? "gold" : newLifetime >= 500 ? "silver" : "bronze";
                     await db.update(loyaltyAccounts).set({
                       pointsBalance: acc.pointsBalance + pointsEarned,
                       totalLifetimePoints: newLifetime,
-                      tier: newTier,
                     }).where(eq(loyaltyAccounts.id, acc.id));
                     await db.insert(loyaltyTransactions).values({
                       venueId,
                       accountId: acc.id,
                       type: "earn",
                       points: pointsEarned,
-                      description: `Online order ${orderNumber} — ${pointsEarned} pts (${acc.tier} ${multiplier}×)`,
+                      description: `Online order ${orderNumber} — ${pointsEarned} pts (${tier} ${multiplier}×)`,
                       orderId,
                     });
                   }

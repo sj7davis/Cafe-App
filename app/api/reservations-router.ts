@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { reservations, venues } from "@db/schema";
-import { eq, and, ne, inArray, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 import { sendSms } from "./lib/sms";

@@ -3,17 +3,14 @@
  * Tab components are split into individual files in ./tabs/.
  * Shared helpers and DS constants are in ./shared.ts.
  */
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useVenueAuth } from '@/hooks/useVenueAuth';
 import { useVenueSSE } from '@/hooks/useVenueSSE';
 import { trpc } from '@/providers/trpc';
-import {
-  ArrowLeft, Settings, CreditCard, Coffee, Link2, Loader2, Check, Zap,
-  Globe, BarChart3, Users, LogOut, Shield, Plus, Edit2, Trash2, X,
-  AlertCircle, Star, Gift, Ticket, MapPin, Briefcase, QrCode, Download,
-  Send, TrendingUp, ChevronDown, ChevronUp, Tag, DollarSign,
-  PieChart as PieChartIcon, Building2, MessageSquare, Percent, GripVertical,
+import { Settings, CreditCard, Coffee, Link2, Loader2,
+  Globe, BarChart3, Users, LogOut, Shield, Star, Gift, Ticket, MapPin, Briefcase, QrCode,
+  Send, TrendingUp, Tag, DollarSign, Building2, MessageSquare, Percent,
   Bell, CalendarDays, Clock, Package, RotateCcw,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';

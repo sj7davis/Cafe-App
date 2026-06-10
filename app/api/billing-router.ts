@@ -15,15 +15,6 @@ const TIERS = {
   enterprise: { name: "Enterprise", monthlyPrice: 249, features: ["Multi-location", "API access", "White-label app", "Unlimited staff", "Account manager", "Custom integrations"] },
 };
 
-/** Map a Stripe price ID to a tier name, or null if unknown. */
-function priceIdToTier(priceId: string): "starter" | "pro" | "enterprise" | null {
-  if (priceId === env.stripePriceIdStarter) return "starter";
-  if (priceId === env.stripePriceIdGrowth || priceId === env.stripePriceIdPro) return "pro";
-  // Also handle direct pro price ID
-  if (priceId === env.stripePriceIdPro) return "pro";
-  return null;
-}
-
 function tierToPriceId(tier: "starter" | "pro" | "enterprise"): string {
   if (tier === "starter") return env.stripePriceIdStarter;
   if (tier === "pro") return env.stripePriceIdPro;
@@ -72,7 +63,7 @@ export const billingRouter = createRouter({
     if (input.tier === "free") {
       if (venue.stripeSubscriptionId && env.stripeSecretKey) {
         const { default: Stripe } = await import("stripe");
-        const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+        const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2026-04-22.dahlia" });
         await stripe.subscriptions.cancel(venue.stripeSubscriptionId);
       }
       await db.update(venues).set({
@@ -94,7 +85,7 @@ export const billingRouter = createRouter({
     }
 
     const { default: Stripe } = await import("stripe");
-    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2026-04-22.dahlia" });
 
     // ── Ensure Stripe customer exists ────────────────────────────────────
     let stripeCustomerId = venue.stripeCustomerId ?? null;
@@ -158,7 +149,7 @@ export const billingRouter = createRouter({
 
     if (venue?.stripeSubscriptionId && env.stripeSecretKey) {
       const { default: Stripe } = await import("stripe");
-      const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+      const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2026-04-22.dahlia" });
       await stripe.subscriptions.cancel(venue.stripeSubscriptionId);
     }
 
@@ -182,7 +173,7 @@ export const billingRouter = createRouter({
     }
 
     const { default: Stripe } = await import("stripe");
-    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2025-04-30.basil" });
+    const stripe = new Stripe(env.stripeSecretKey, { apiVersion: "2026-04-22.dahlia" });
     const session = await stripe.billingPortal.sessions.create({
       customer: venue.stripeCustomerId,
       return_url: env.appUrl + "/dashboard",

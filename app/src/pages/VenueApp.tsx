@@ -228,7 +228,7 @@ export default function VenueApp() {
           />
         )}
         {activeTab === 'my-orders' && (
-          <MyOrdersTab venueId={venue.id} onSetCart={setCart} navigate={navigate} slug={venue.slug} />
+          <MyOrdersTab venueId={venue.id} navigate={navigate} slug={venue.slug} />
         )}
         {activeTab === 'loyalty' && (
           <LoyaltyAppTab venueId={venue.id} />
@@ -448,7 +448,7 @@ function OrderTab({
 }
 
 // ─── My Orders Tab ────────────────────────────────────────────────────────────
-function MyOrdersTab({ venueId, onSetCart, navigate, slug }: { venueId: number; onSetCart: (items: CartItem[]) => void; navigate: ReturnType<typeof useNavigate>; slug: string }) {
+function MyOrdersTab({ venueId, navigate, slug }: { venueId: number; navigate: ReturnType<typeof useNavigate>; slug: string }) {
   const [phone, setPhone] = useState(() => localStorage.getItem('b1-phone') || '')
   const [submitted, setSubmitted] = useState(!!phone)
 
@@ -582,8 +582,11 @@ function LoyaltyAppTab({ venueId }: { venueId: number }) {
 // ─── Profile App Tab ──────────────────────────────────────────────────────────
 function ProfileAppTab({ venueId, venueName }: { venueId: number; venueName: string }) {
   const navigate = useNavigate()
-  const { data: customer } = trpc.customerAuth.me.useQuery(undefined, { retry: false })
   const customerToken = typeof window !== 'undefined' ? localStorage.getItem('customerToken') : null
+  const { data: customer } = trpc.customerAuth.me.useQuery(
+    { token: customerToken ?? '' },
+    { retry: false, enabled: !!customerToken },
+  )
 
   if (!customer && !customerToken) {
     return (

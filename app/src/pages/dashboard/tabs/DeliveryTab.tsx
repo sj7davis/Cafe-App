@@ -1,28 +1,14 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Check, Plus, X, AlertCircle, Star, Gift, Ticket, Send, Tag,
-  DollarSign, Globe, Settings, Coffee, BarChart3, TrendingUp, CalendarDays,
-  Clock, Shield, Building2, Percent, MessageSquare, QrCode, Link2, CreditCard,
-  MapPin, Briefcase, Edit2, Trash2, GripVertical, Download, ChevronDown,
-  ChevronUp, Monitor, Smartphone, RefreshCw, Bell, Eye, EyeOff, CheckCircle,
-  Users, PieChart as PieChartIcon, Circle,
+  Loader2, Check, Plus,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
-} from 'recharts';
-import QRCode from 'qrcode';
-import { SetupChecklist } from '@/components/SetupChecklist';
-import { DS, getMonday, addWeekDays, WEEK_DAYS, TemplatePreviewCard, ImageUpload, SortableMenuRow, TabletPinSection } from '../shared';
+
+type DeliveryPlatform = 'all' | 'uber_eats' | 'doordash' | 'menulog' | 'manual';
+
+
+
+
 
 
 export function DeliveryTab() {
@@ -173,12 +159,12 @@ export function DeliveryTab() {
                 setLogMsg('');
                 logManual.mutate({
                   token,
-                  platform: logForm.platform,
-                  customerName: logForm.customerName,
-                  items: logForm.items,
-                  subtotal: Number(logForm.subtotal) || 0,
-                  platformFee: Number(logForm.platformFee) || 0,
-                  notes: logForm.notes,
+                  platform: logForm.platform as Exclude<DeliveryPlatform, 'all'>,
+                  customerName: logForm.customerName || undefined,
+                  itemsJson: logForm.items,
+                  subtotal: (Number(logForm.subtotal) || 0).toFixed(2),
+                  platformFee: (Number(logForm.platformFee) || 0).toFixed(2),
+                  notes: logForm.notes || undefined,
                 });
               }}
               className="px-6 py-3 font-button flex items-center gap-2"

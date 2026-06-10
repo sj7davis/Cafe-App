@@ -36,11 +36,11 @@ function PageLoader() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#F8F6F2',
+      background: '#F3F2EE',
     }}>
       <div style={{
         width: 32, height: 32,
-        border: '3px solid #E4E4E7',
+        border: '3px solid #E6E4E0',
         borderTopColor: '#5E8B8B',
         borderRadius: '50%',
         animation: 'spin 0.7s linear infinite',

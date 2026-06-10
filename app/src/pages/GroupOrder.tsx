@@ -45,13 +45,26 @@ export default function GroupOrder() {
     )
   }
 
-  const s = session as {
-    sessionCode: string
-    hostName: string
-    venueId: number
-    participants?: { name: string; items: { name: string; qty: number }[] }[]
-    totalAmount?: number
-    status?: string
+  // The API returns { session, participants } with items stored as JSON per participant.
+  const s = {
+    sessionCode: session.session.sessionCode,
+    hostName: session.session.hostName,
+    venueId: session.session.venueId,
+    status: session.session.status as string | undefined,
+    totalAmount: session.session.totalAmount != null ? Number(session.session.totalAmount) : undefined,
+    participants: session.participants.map(p => {
+      let items: { name: string; qty: number }[] = []
+      try {
+        const parsed = JSON.parse(p.itemsJson)
+        if (Array.isArray(parsed)) {
+          items = parsed.map((it: any) => ({
+            name: String(it.name ?? it.itemName ?? 'Item'),
+            qty: Number(it.qty ?? it.quantity ?? 1),
+          }))
+        }
+      } catch { /* malformed itemsJson — show participant with no items */ }
+      return { name: p.participantName, items }
+    }),
   }
 
   const addMyItemsUrl = venueIdParam

@@ -44,6 +44,21 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Form controls inherit the app font instead of UA defaults */
+  input, button, textarea, select {
+    font-family: inherit;
+  }
+
+  /* Visible focus ring for keyboard users only */
+  :focus-visible {
+    outline: 2px solid var(--color-accent, #5E8B8B);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgba(94, 139, 139, 0.25);
+  }
 }
 
 /* Layout */

@@ -5,7 +5,7 @@ import { trpc } from '@/providers/trpc';
 import { useVenueSSE } from '@/hooks/useVenueSSE';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import {
   Coffee,
@@ -16,7 +16,6 @@ import {
   Settings,
   LogOut,
   Plus,
-  ChevronRight,
   TrendingUp,
   Clock,
   CheckCircle,
@@ -42,8 +41,6 @@ import {
   Loader2,
   UserCircle,
   Shield,
-  Mail,
-  Phone,
   Lock,
 } from 'lucide-react';
 
@@ -59,7 +56,7 @@ type TabDef = {
   badge?: number;
 };
 
-function buildTabs(pendingOrders: number, pendingTimeOff: number): TabDef[] {
+function buildTabs(_pendingOrders: number, pendingTimeOff: number): TabDef[] {
   return [
     { id: 'orders',        label: 'Orders',             icon: <ShoppingBag size={18} />,  minRole: 'staff' },
     { id: 'kitchen',       label: 'Kitchen/KDS',        icon: <Utensils size={18} />,     minRole: 'staff' },
@@ -673,7 +670,7 @@ function OrdersTab({ venueId, token, venue }: { venueId: number; token: string; 
               onClick={() => {
                 const mins = Number(waitInput);
                 if (!mins || mins < 1) return;
-                setWaitTime.mutate({ token, venueId, minutes: mins });
+                setWaitTime.mutate({ token, minutes: mins });
               }}
               disabled={setWaitTime.isPending}
               style={{
@@ -1040,9 +1037,9 @@ function InventoryTab({ venueId, isManager }: { venueId: number; isManager: bool
   const [savingQtyIds, setSavingQtyIds] = useState<Set<number>>(new Set());
   const [qtySavedIds, setQtySavedIds] = useState<Set<number>>(new Set());
 
-  const { data: menuItems } = trpc.venue.listMenuItems.useQuery({ venueId });
+  const { data: menuItems } = trpc.venue.listMenu.useQuery({ venueId });
   const { data: inventoryRows } = trpc.venue.getInventory.useQuery({ venueId });
-  const { data: invLevels } = trpc.venue.getInventoryLevels.useQuery();
+  const { data: invLevels } = trpc.venue.getInventoryLevels.useQuery({ token }, { enabled: !!token });
 
   const toggleItem = trpc.venue.toggleInventoryItem.useMutation({
     onSuccess: () => utils.venue.getInventory.invalidate(),
@@ -1147,7 +1144,7 @@ function InventoryTab({ venueId, isManager }: { venueId: number; isManager: bool
     const alert = alertStr !== undefined && alertStr !== '' ? Number(alertStr) : undefined;
     if (qty === undefined) return;
     setSavingQtyIds(prev => new Set(prev).add(menuItemId));
-    setInventoryQty.mutate({ menuItemId, quantity: qty, quantityAlert: alert });
+    setInventoryQty.mutate({ token, menuItemId, quantity: qty, quantityAlert: alert });
   }
 
   function getStockStatus(item: { quantity: number | null; quantityAlert: number | null; isAvailable: boolean }) {
@@ -1427,7 +1424,7 @@ function InventoryTab({ venueId, isManager }: { venueId: number; isManager: bool
   );
 }
 
-function LoyaltyTab({ venueId, token }: { venueId: number; token: string }) {
+function LoyaltyTab({ venueId: _venueId, token }: { venueId: number; token: string }) {
   const [search, setSearch] = useState('');
   const [adjustPhone, setAdjustPhone] = useState('');
   const [adjustPoints, setAdjustPoints] = useState('');
@@ -1784,7 +1781,7 @@ function PushNotificationsTab({ venueId }: { venueId: number }) {
   );
 }
 
-function CateringTab({ venueId }: { venueId: number }) {
+function CateringTab({ venueId: _venueId }: { venueId: number }) {
   const token = localStorage.getItem('b1-staff-token') || '';
   const utils = trpc.useUtils();
   const [statusFilter, setStatusFilter] = useState('all');
@@ -2081,9 +2078,9 @@ function AnalyticsTab({ venueId: _venueId, token }: { venueId: number; token: st
   const topItemsQuery = trpc.analytics.getTopItems.useQuery({ token, days, limit: 8 }, { enabled: !!token });
   const hourlyQuery = trpc.analytics.getHourlyDistribution.useQuery({ token, days }, { enabled: !!token });
   const categoryQuery = trpc.analytics.getRevenueByCategory.useQuery({ token, days }, { enabled: !!token });
-  const npsQuery = trpc.nps.getStats.useQuery();
-  const wasteSummaryQuery = trpc.waste.getSummary.useQuery();
-  const invLevelsQuery = trpc.venue.getInventoryLevels.useQuery();
+  const npsQuery = trpc.nps.getStats.useQuery({ token }, { enabled: !!token });
+  const wasteSummaryQuery = trpc.waste.getSummary.useQuery({ token }, { enabled: !!token });
+  const invLevelsQuery = trpc.venue.getInventoryLevels.useQuery({ token }, { enabled: !!token });
 
   // Wave 4 new queries
   const { data: itemsByHour } = trpc.analytics.getItemsByHour.useQuery(
@@ -2999,7 +2996,7 @@ const updateVenueMut = trpc.venue.update.useMutation({
               const mins = Number(waitInput);
               if (!waitInput || mins < 0) return;
               setWaitMsg('');
-              setWaitTime.mutate({ token, venueId, minutes: mins });
+              setWaitTime.mutate({ token, minutes: mins });
             }}
             disabled={setWaitTime.isPending}
             style={{ ...saveBtnStyle, marginTop: 0 }}
@@ -3313,7 +3310,7 @@ function ScheduleTab({ venueId: _venueId, token }: { venueId: number; token: str
                           }
                           addShift.mutate({
                             token,
-                            date: day,
+                            shiftDate: day,
                             staffId: Number(newShift.staffId),
                             startTime: newShift.startTime,
                             endTime: newShift.endTime,
@@ -3369,9 +3366,10 @@ function ScheduleTab({ venueId: _venueId, token }: { venueId: number; token: str
 
 // ─── Waste Log Tab ───
 function WasteLogTab({ venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
   const utils = trpc.useUtils();
-  const { data: menuItems } = trpc.venue.listMenuItems.useQuery({ venueId });
-  const { data: wasteEntries, isLoading: wasteLoading } = trpc.waste.list.useQuery();
+  const { data: menuItems } = trpc.venue.listMenu.useQuery({ venueId });
+  const { data: wasteEntries, isLoading: wasteLoading } = trpc.waste.list.useQuery({ token }, { enabled: !!token });
 
   const [itemName, setItemName] = useState('');
   const [menuItemId, setMenuItemId] = useState<number | ''>('');
@@ -3412,11 +3410,12 @@ function WasteLogTab({ venueId }: { venueId: number }) {
     const name = itemName.trim();
     if (!name && !menuItemId) { setFormMsg('Enter an item name or select from menu'); return; }
     logWaste.mutate({
+      token,
       menuItemId: menuItemId !== '' ? Number(menuItemId) : undefined,
       itemName: name || (menuItems ?? []).find((m: any) => m.id === menuItemId)?.name || '',
       quantity,
       reason,
-      costEstimate: costEstimate !== '' ? Number(costEstimate) : undefined,
+      costEstimate: costEstimate !== '' ? Number(costEstimate).toFixed(2) : undefined,
     });
   }
 
@@ -3570,7 +3569,7 @@ function WasteLogTab({ venueId }: { venueId: number }) {
                 </td>
                 <td style={{ padding: '12px 16px' }}>
                   <button
-                    onClick={() => deleteWaste.mutate({ id: entry.id })}
+                    onClick={() => deleteWaste.mutate({ token, id: entry.id })}
                     disabled={deleteWaste.isPending}
                     style={{
                       background: 'none',
@@ -3756,10 +3755,11 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
               onClick={() => {
                 setWalkInMsg('');
                 if (!walkIn.customerName) { setWalkInMsg('Name is required'); return; }
+                if (!walkIn.customerPhone) { setWalkInMsg('Phone is required'); return; }
                 createReservation.mutate({
                   venueId,
                   customerName: walkIn.customerName,
-                  customerPhone: walkIn.customerPhone || undefined,
+                  customerPhone: walkIn.customerPhone,
                   partySize: walkIn.partySize,
                   reservationDate: selectedDate,
                   reservationTime: walkIn.reservationTime,
@@ -3874,7 +3874,7 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
                 <button
                   onClick={() => {
                     if (!newTable.tableNumber || !newTable.capacity) return;
-                    saveTable.mutate({ token, tableNumber: newTable.tableNumber, capacity: Number(newTable.capacity), shape: newTable.shape, section: newTable.section || undefined });
+                    saveTable.mutate({ token, tableNumber: newTable.tableNumber, capacity: Number(newTable.capacity), shape: newTable.shape as 'round' | 'rect', section: newTable.section || undefined });
                   }}
                   disabled={saveTable.isPending}
                   style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', background: '#1c1917', color: '#fafaf9', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
@@ -3902,7 +3902,7 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
                         <td style={{ padding: '6px 8px', color: '#78716c' }}>{t.section ?? '—'}</td>
                         <td style={{ padding: '6px 8px' }}>
                           <button
-                            onClick={() => deleteTable.mutate({ token, tableId: t.id })}
+                            onClick={() => deleteTable.mutate({ token, id: t.id })}
                             disabled={deleteTable.isPending}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '12px', fontWeight: 600 }}
                           >
@@ -3927,7 +3927,6 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                 {tables.map((t: any) => {
                   const color = getTableColor(t);
-                  const resv = tableReservationMap[t.id];
                   const isSelected = selectedFloorTable === t.id;
                   const isCircle = t.shape === 'circle';
                   return (
@@ -4108,6 +4107,7 @@ function ReservationsTab({ venueId, token }: { venueId: number; token: string })
 
 // ─── Waitlist Tab ───
 function WaitlistTab({ venueId }: { venueId: number }) {
+  const token = localStorage.getItem('b1-staff-token') || '';
   const utils = trpc.useUtils();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -4115,8 +4115,8 @@ function WaitlistTab({ venueId }: { venueId: number }) {
   const [formMsg, setFormMsg] = useState('');
 
   const { data: queue, isLoading: queueLoading } = trpc.waitlist.getQueue.useQuery(
-    undefined,
-    { refetchInterval: 30_000 }
+    { token },
+    { refetchInterval: 30_000, enabled: !!token }
   );
 
   const joinMut = trpc.waitlist.join.useMutation({
@@ -4297,7 +4297,7 @@ function WaitlistTab({ venueId }: { venueId: number }) {
                     <div style={{ display: 'flex', gap: '6px' }}>
                       {entry.status === 'waiting' && (
                         <button
-                          onClick={() => notifyMut.mutate({ id: entry.id })}
+                          onClick={() => notifyMut.mutate({ token, id: entry.id })}
                           disabled={notifyMut.isPending}
                           style={{
                             padding: '4px 10px',
@@ -4315,7 +4315,7 @@ function WaitlistTab({ venueId }: { venueId: number }) {
                       )}
                       {entry.status === 'notified' && (
                         <button
-                          onClick={() => seatMut.mutate({ id: entry.id })}
+                          onClick={() => seatMut.mutate({ token, id: entry.id })}
                           disabled={seatMut.isPending}
                           style={{
                             padding: '4px 10px',
@@ -4333,7 +4333,7 @@ function WaitlistTab({ venueId }: { venueId: number }) {
                       )}
                       {(entry.status === 'waiting' || entry.status === 'notified') && (
                         <button
-                          onClick={() => cancelMut.mutate({ id: entry.id })}
+                          onClick={() => cancelMut.mutate({ token, id: entry.id })}
                           disabled={cancelMut.isPending}
                           style={{
                             padding: '4px 10px',
@@ -4476,7 +4476,8 @@ function DeliveryTab({ venueId: _venueId }: { venueId: number }) {
   const [logMsg, setLogMsg] = useState('');
 
   const { data: orders, isLoading } = trpc.delivery.list.useQuery(
-    { token: localStorage.getItem('b1-staff-token') || '', platform: platformFilter || undefined, days: 30 }
+    { token, platform: (platformFilter || 'all') as 'all' | 'uber_eats' | 'doordash' | 'menulog' | 'manual', days: 30 },
+    { enabled: !!token }
   );
 
   const updateStatus = trpc.delivery.updateStatus.useMutation({
@@ -4571,7 +4572,7 @@ function DeliveryTab({ venueId: _venueId }: { venueId: number }) {
               onClick={() => {
                 setLogMsg('');
                 if (!logForm.customerName || !logForm.subtotal) { setLogMsg('Customer name and subtotal required'); return; }
-                createOrder.mutate({ token, platform: logForm.platform, customerName: logForm.customerName, items: logForm.items, subtotal: Number(logForm.subtotal), fee: logForm.fee ? Number(logForm.fee) : 0 });
+                createOrder.mutate({ token, platform: logForm.platform as 'uber_eats' | 'doordash' | 'menulog' | 'manual', customerName: logForm.customerName, itemsJson: logForm.items, subtotal: (Number(logForm.subtotal) || 0).toFixed(2), platformFee: (Number(logForm.fee) || 0).toFixed(2) });
               }}
               disabled={createOrder.isPending}
               style={{ padding: '8px 20px', background: '#1c1917', color: '#fafaf9', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
@@ -4634,11 +4635,11 @@ function DeliveryTab({ venueId: _venueId }: { venueId: number }) {
                   <td style={{ padding: '12px 16px', color: '#1c1917', fontWeight: 500 }}>{o.customerName}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <select
-                      value={o.status ?? 'pending'}
-                      onChange={e => updateStatus.mutate({ token, orderId: o.id, status: e.target.value })}
+                      value={o.status ?? 'received'}
+                      onChange={e => updateStatus.mutate({ token, id: o.id, status: e.target.value as 'received' | 'preparing' | 'ready' | 'picked_up' | 'cancelled' })}
                       style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #e7e5e4', fontSize: '12px', background: '#fafaf9', cursor: 'pointer' }}
                     >
-                      {['pending', 'confirmed', 'picked_up', 'delivered', 'cancelled'].map(s => (
+                      {['received', 'preparing', 'ready', 'picked_up', 'cancelled'].map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
@@ -4660,7 +4661,7 @@ function DeliveryTab({ venueId: _venueId }: { venueId: number }) {
 }
 
 // ─── Training Tab ───
-function TrainingTab({ venueId, token, role }: { venueId: number; token: string; role: string }) {
+function TrainingTab({ venueId: _venueId, token, role }: { venueId: number; token: string; role: string }) {
   const isManagerOrAdmin = role === 'admin' || role === 'manager';
   const [teamView, setTeamView] = useState<'my' | 'team'>('my');
   const [showAddTask, setShowAddTask] = useState(false);
@@ -4787,7 +4788,7 @@ function TrainingTab({ venueId, token, role }: { venueId: number; token: string;
                 disabled={!newTaskTitle.trim() || createTask.isPending}
                 onClick={() => {
                   if (!newTaskTitle.trim()) return;
-                  createTask.mutate({ token, venueId, title: newTaskTitle.trim(), description: newTaskDesc.trim() || undefined, requiredRole: newTaskRole });
+                  createTask.mutate({ token, title: newTaskTitle.trim(), description: newTaskDesc.trim() || undefined, requiredRole: newTaskRole === 'all' ? undefined : newTaskRole as 'manager' | 'admin' | 'staff' });
                 }}
                 style={{
                   padding: '8px 20px', borderRadius: '8px', border: 'none',
@@ -5153,7 +5154,7 @@ function MyScheduleTab({ token }: { token: string }) {
                 }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#78716c', marginBottom: '8px' }}>{day}</div>
                   <button
-                    onClick={() => setAvailability.mutate({ token, dayOfWeek: idx, isAvailable: !avail.isAvailable })}
+                    onClick={() => setAvailability.mutate({ token, dayOfWeek: idx, available: !avail.isAvailable })}
                     style={{
                       width: '100%',
                       padding: '5px 0',
@@ -5173,13 +5174,13 @@ function MyScheduleTab({ token }: { token: string }) {
                       <input
                         type="time"
                         defaultValue={avail.preferredStart ?? ''}
-                        onBlur={e => setAvailability.mutate({ token, dayOfWeek: idx, isAvailable: true, preferredStart: e.target.value || undefined })}
+                        onBlur={e => setAvailability.mutate({ token, dayOfWeek: idx, available: true, preferredStartTime: e.target.value || undefined })}
                         style={{ width: '100%', padding: '3px 4px', fontSize: '10px', borderRadius: '4px', border: '1px solid #e7e5e4', boxSizing: 'border-box' }}
                       />
                       <input
                         type="time"
                         defaultValue={avail.preferredEnd ?? ''}
-                        onBlur={e => setAvailability.mutate({ token, dayOfWeek: idx, isAvailable: true, preferredEnd: e.target.value || undefined })}
+                        onBlur={e => setAvailability.mutate({ token, dayOfWeek: idx, available: true, preferredEndTime: e.target.value || undefined })}
                         style={{ width: '100%', padding: '3px 4px', fontSize: '10px', borderRadius: '4px', border: '1px solid #e7e5e4', boxSizing: 'border-box' }}
                       />
                     </div>
@@ -5245,7 +5246,7 @@ function MyScheduleTab({ token }: { token: string }) {
               onClick={() => {
                 setToError('');
                 if (!toStart || !toEnd) { setToError('Start and end date are required'); return; }
-                requestTimeOff.mutate({ token, startDate: toStart, endDate: toEnd, type: toType, reason: toReason || undefined });
+                requestTimeOff.mutate({ token, startDate: toStart, endDate: toEnd, leaveType: toType as 'annual' | 'sick' | 'unpaid' | 'other', reason: toReason || undefined });
               }}
               disabled={requestTimeOff.isPending}
               style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#1c1917', color: '#fafaf9', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
@@ -5384,14 +5385,14 @@ function TimeOffTab({ token }: { token: string }) {
                       {r.status === 'pending' && (
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button
-                            onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, decision: 'approved' })}
+                            onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, status: 'approved' })}
                             disabled={reviewTimeOff.isPending}
                             style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#dcfce7', color: '#16a34a', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                           >
                             Approve
                           </button>
                           <button
-                            onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, decision: 'denied' })}
+                            onClick={() => reviewTimeOff.mutate({ token, requestId: r.id, status: 'denied' })}
                             disabled={reviewTimeOff.isPending}
                             style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                           >
@@ -5834,7 +5835,7 @@ function StatusBadge({ status }: { status: string }) {
 function AvailabilityTab({ venueId, token }: { venueId: number; token: string }) {
   const utils = trpc.useUtils();
 
-  const { data: menuItemsData, isLoading: menuLoading } = trpc.venue.listMenuItems.useQuery({ venueId });
+  const { data: menuItemsData, isLoading: menuLoading } = trpc.venue.listMenu.useQuery({ venueId });
   const { data: inventoryRows, isLoading: invLoading } = trpc.venue.getInventory.useQuery({ venueId });
 
   const toggleItem = trpc.venue.toggleInventoryItem.useMutation({
@@ -5961,7 +5962,7 @@ function AvailabilityTab({ venueId, token }: { venueId: number; token: string })
               <button
                 disabled={isPending}
                 onClick={() => {
-                  toggleItem.mutate({ venueId, menuItemId: item.id, isAvailable: !isAvailable });
+                  toggleItem.mutate({ token, venueId, menuItemId: item.id, isAvailable: !isAvailable });
                 }}
                 style={{
                   position: 'relative', width: 52, height: 28, borderRadius: 14,
