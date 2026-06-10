@@ -58,7 +58,7 @@ export function AnalyticsTab() {
     }
   }, [ordersExportData]);
 
-  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const statCardStyle = { borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' };
   const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
   const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
@@ -107,7 +107,7 @@ export function AnalyticsTab() {
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setSelectedDays(d)}
             className="px-3 py-1 font-data"
-            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: selectedDays === d ? '#181818' : 'transparent', color: selectedDays === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: selectedDays === d ? '#181818' : 'transparent', color: selectedDays === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
             {d}D
           </button>
         ))}
@@ -115,7 +115,7 @@ export function AnalyticsTab() {
         <button
           onClick={() => setTriggerExport(true)}
           disabled={exporting}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', border: '1px solid rgba(24,24,24,0.15)', background: '#181818', color: '#F3F2EE', fontSize: 12, fontWeight: 500, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.6 : 1, borderRadius: 4 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', border: '1px solid var(--op-border-strong)', background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: 12, fontWeight: 500, cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.6 : 1, borderRadius: 4 }}
         >
           {exporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
           Export CSV (30d)
@@ -141,7 +141,7 @@ export function AnalyticsTab() {
       )}
 
       {/* Daily revenue chart */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Daily Revenue</h2>
         {dailyLoading && <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!dailyLoading && dailyRevenue && dailyRevenue.length > 0 && (
@@ -162,7 +162,7 @@ export function AnalyticsTab() {
 
       {/* Top items */}
       {topItems && topItems.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Top Selling Items</h2>
           <div className="space-y-2">
             {(topItems as { name: string; quantity: number; revenue: string }[]).map((item, idx) => {
@@ -178,7 +178,7 @@ export function AnalyticsTab() {
                         <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>${item.revenue}</span>
                       </div>
                     </div>
-                    <div style={{ height: 4, background: 'rgba(24,24,24,0.08)', borderRadius: 2 }}>
+                    <div style={{ height: 4, background: 'var(--op-border-soft)', borderRadius: 2 }}>
                       <div style={{ height: 4, background: '#5E8B8B', borderRadius: 2, width: `${(item.quantity / maxQty) * 100}%` }} />
                     </div>
                   </div>
@@ -191,7 +191,7 @@ export function AnalyticsTab() {
 
       {/* Hourly distribution */}
       {hourlyDist && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Orders by Hour</h2>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={hourlyDist as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -207,7 +207,7 @@ export function AnalyticsTab() {
 
       {/* Order type breakdown */}
       {pieData.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Order Type Breakdown</h2>
           <div className="flex items-center gap-8">
             <ResponsiveContainer width={200} height={200}>
@@ -233,7 +233,7 @@ export function AnalyticsTab() {
 
       {/* Item-by-hour heatmap */}
       {heatmapTopItems.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Item Popularity by Hour</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', fontSize: 11, whiteSpace: 'nowrap' }}>
@@ -272,7 +272,7 @@ export function AnalyticsTab() {
       )}
 
       {/* Sellout events */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Sellout Events (Last 30 Days)</h2>
         {!selloutEvents || (selloutEvents as any[]).length === 0 ? (
           <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No sellout events recorded in the last 30 days.</p>
@@ -320,7 +320,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
     { enabled: showGST && !!gstFromDate && !!gstToDate }
   );
 
-  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const statCardStyle = { borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' };
   const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
   const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
@@ -339,7 +339,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
     <>
       {/* Period Comparison */}
       {pc && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Period Comparison</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
@@ -376,7 +376,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
 
       {/* Revenue Forecast */}
       {revenueForecast && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Predicted Revenue — Next 7 Days</h2>
           {(revenueForecast as any).days && (revenueForecast as any).days.length > 0 && (
             <ResponsiveContainer width="100%" height={180}>
@@ -399,7 +399,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
 
       {/* Menu Scorecard */}
       {menuScorecard && (menuScorecard as any[]).length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Menu Scorecard</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -437,26 +437,26 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
       )}
 
       {/* GST Summary */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>GST Summary</h2>
         <div className="flex flex-wrap items-end gap-3 mb-4">
           <div>
             <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>From</label>
             <input type="date" value={gstFromDate} onChange={e => { setGstFromDate(e.target.value); setShowGST(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' }} />
           </div>
           <div>
             <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>To</label>
             <input type="date" value={gstToDate} onChange={e => { setGstToDate(e.target.value); setShowGST(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' }} />
           </div>
           <button
             disabled={!gstFromDate || !gstToDate || gstFetching}
             onClick={() => setShowGST(true)}
             className="px-4 py-2 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!gstFromDate || !gstToDate) ? 0.5 : 1 }}
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem', opacity: (!gstFromDate || !gstToDate) ? 0.5 : 1 }}
           >
             {gstFetching ? <Loader2 size={14} className="animate-spin" /> : <PieChartIcon size={14} />}
             Generate
@@ -500,7 +500,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
             <button
               onClick={downloadGSTCsv}
               className="px-4 py-2 font-button flex items-center gap-2"
-              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+              style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}
             >
               <Download size={14} /> Download GST Report
             </button>

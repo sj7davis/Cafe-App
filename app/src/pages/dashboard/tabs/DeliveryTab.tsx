@@ -40,7 +40,7 @@ export function DeliveryTab() {
     if (p === 'uber_eats') return { bg: 'rgba(255,102,0,0.12)', color: '#FF6600' };
     if (p === 'doordash') return { bg: 'rgba(255,59,48,0.12)', color: '#FF3B30' };
     if (p === 'menulog') return { bg: 'rgba(94,139,94,0.12)', color: '#5E8B5E' };
-    return { bg: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)' };
+    return { bg: 'var(--op-border-soft)', color: 'var(--op-text-secondary)' };
   };
   const platformLabel = (p: string) => ({ uber_eats: 'Uber Eats', doordash: 'DoorDash', menulog: 'Menulog', manual: 'Manual' } as Record<string, string>)[p] ?? p;
 
@@ -51,7 +51,7 @@ export function DeliveryTab() {
   const totalFees = summary?.totalFees ?? orders.reduce((s: number, o: any) => s + Number(o.platformFee ?? 0), 0);
 
   const inputCls = "w-full bg-transparent border px-3 py-2 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' };
   const labelStyle = { fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.375rem' };
 
   return (
@@ -72,7 +72,7 @@ export function DeliveryTab() {
           {(['all', 'uber_eats', 'doordash', 'menulog', 'manual'] as DeliveryPlatform[]).map((p) => (
             <button key={p} onClick={() => setPlatformFilter(p)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: platformFilter === p ? '#181818' : 'transparent', color: platformFilter === p ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: platformFilter === p ? '#181818' : 'transparent', color: platformFilter === p ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
               {platformLabel(p)}
             </button>
           ))}
@@ -82,7 +82,7 @@ export function DeliveryTab() {
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
               {d}D
             </button>
           ))}
@@ -90,7 +90,7 @@ export function DeliveryTab() {
         <div className="ml-auto">
           <button onClick={() => { setShowLogForm(!showLogForm); setLogMsg(''); }}
             className="px-4 py-2 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}>
             <Plus size={14} /> Log Manual Order
           </button>
         </div>
@@ -103,7 +103,7 @@ export function DeliveryTab() {
           { label: 'Net Revenue', value: `$${Number(totalNet).toFixed(2)}` },
           { label: 'Platform Fees', value: `$${Number(totalFees).toFixed(2)}` },
         ].map(s => (
-          <div key={s.label} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+          <div key={s.label} className="border p-5" style={{ borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' }}>
             <span style={{ fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' }}>{s.label}</span>
             <span style={{ fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' }}>{s.value}</span>
           </div>
@@ -112,7 +112,7 @@ export function DeliveryTab() {
 
       {/* Log Manual Order form */}
       {showLogForm && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Log Manual Order</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
@@ -168,13 +168,13 @@ export function DeliveryTab() {
                 });
               }}
               className="px-6 py-3 font-button flex items-center gap-2"
-              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+              style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}>
               {logManual.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
               Save Order
             </button>
             <button onClick={() => setShowLogForm(false)}
               className="px-4 py-2 font-data border"
-              style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
+              style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent' }}>
               Cancel
             </button>
           </div>
@@ -182,7 +182,7 @@ export function DeliveryTab() {
       )}
 
       {/* Orders table */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Orders</h2>
         {orders.length === 0 ? (
           <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No delivery orders for this period.</p>

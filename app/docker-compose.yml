@@ -1,17 +1,17 @@
 version: "3.8"
 
 services:
-  mysql:
-    image: mysql:8.0
+  postgres:
+    image: postgres:16
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: b1_platform
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: b1_platform
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 10s
       retries: 10
@@ -21,14 +21,14 @@ services:
     ports:
       - "3001:3001"
     environment:
-      DATABASE_URL: mysql://root:password@mysql:3306/b1_platform
+      DATABASE_URL: postgres://postgres:password@postgres:5432/b1_platform
       JWT_SECRET: change-me-in-production
       PLATFORM_ADMIN_SECRET: change-me-in-production
       NODE_ENV: production
       PORT: 3001
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
 
 volumes:
-  mysql_data:
+  pg_data:

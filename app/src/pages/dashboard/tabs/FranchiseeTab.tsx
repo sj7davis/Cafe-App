@@ -55,10 +55,10 @@ export function FranchiseeTab() {
 
   const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
   const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
-  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const statCardStyle = { borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' };
 
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' };
 
   return (
     <div>
@@ -81,7 +81,7 @@ export function FranchiseeTab() {
       )}
 
       {/* Config section */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Platform Configuration</h3>
         {configLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!configLoading && (
@@ -123,7 +123,7 @@ export function FranchiseeTab() {
               setupMutation.mutate({ token, platformFeePercent: Number(feeInput), payoutSchedule: scheduleInput as 'monthly' | 'weekly' | 'fortnightly' });
             }}
             className="px-6 py-3 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (setupMutation.isPending || configLoading) ? 0.6 : 1 }}
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem', opacity: (setupMutation.isPending || configLoading) ? 0.6 : 1 }}
           >
             {setupMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Check size={14} /> Save Config</>}
           </button>
@@ -134,7 +134,7 @@ export function FranchiseeTab() {
       </div>
 
       {/* Current month revenue split */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>
           Current Month Revenue Split
           <span className="font-data ml-2" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em' }}>
@@ -163,7 +163,7 @@ export function FranchiseeTab() {
         )}
 
         {/* Process payout */}
-        <div className="mt-5 pt-5" style={{ borderTop: '1px solid rgba(24,24,24,0.08)' }}>
+        <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
           {!confirmPayout ? (
             <button
               onClick={() => setConfirmPayout(true)}
@@ -181,7 +181,7 @@ export function FranchiseeTab() {
                 onClick={() => { setPayoutMsg(''); payoutMutation.mutate({ token }); setConfirmPayout(false); }}
                 disabled={payoutMutation.isPending}
                 className="px-4 py-2 font-button flex items-center gap-2"
-                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', opacity: payoutMutation.isPending ? 0.6 : 1 }}
+                style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.625rem', opacity: payoutMutation.isPending ? 0.6 : 1 }}
               >
                 {payoutMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 Confirm
@@ -189,7 +189,7 @@ export function FranchiseeTab() {
               <button
                 onClick={() => setConfirmPayout(false)}
                 className="px-4 py-2 font-data border"
-                style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
+                style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
               >
                 Cancel
               </button>
@@ -202,7 +202,7 @@ export function FranchiseeTab() {
       </div>
 
       {/* Payout history */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Payout History</h3>
         {payoutsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!payoutsLoading && payouts.length === 0 && (

@@ -61,7 +61,7 @@ export function CateringTab({ venueId: _venueId }: { venueId: number }) {
                 padding: '6px 12px',
                 background: statusFilter === s ? '#181818' : 'transparent',
                 color: statusFilter === s ? '#F3F2EE' : '#5E5E5E',
-                border: '1px solid rgba(24,24,24,0.15)',
+                border: '1px solid var(--op-border-strong)',
                 cursor: 'pointer',
                 fontFamily: 'Geist Mono',
                 fontSize: '0.5rem',
@@ -76,7 +76,7 @@ export function CateringTab({ venueId: _venueId }: { venueId: number }) {
       </div>
 
       {requestsList && requestsList.length === 0 && (
-        <div className="border p-8 text-center" style={{ borderColor: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)' }}>
+        <div className="border p-8 text-center" style={{ borderColor: 'var(--op-border-soft)', color: 'var(--op-text-secondary)' }}>
           <Briefcase size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
           <p style={{ fontSize: '0.875rem' }}>No catering requests yet.</p>
         </div>
@@ -84,7 +84,7 @@ export function CateringTab({ venueId: _venueId }: { venueId: number }) {
 
       <div className="flex flex-col gap-4">
         {requestsList?.map((req) => (
-          <div key={req.id} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.08)', background: editingId === req.id ? '#E8E4DD' : '#fff' }}>
+          <div key={req.id} className="border p-5" style={{ borderColor: 'var(--op-border-soft)', background: editingId === req.id ? '#E8E4DD' : '#fff' }}>
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
                 <div style={{ fontWeight: 500, fontSize: '0.9375rem', color: 'var(--op-text)', marginBottom: 2 }}>{req.name}</div>
@@ -122,14 +122,14 @@ export function CateringTab({ venueId: _venueId }: { venueId: number }) {
                       onClick={() => updateStatus.mutate({ token, requestId: req.id, status: pendingStatus as any })}
                       disabled={updateStatus.isPending}
                       className="px-4 py-2 font-button"
-                      style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: 'pointer' }}
+                      style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.625rem', border: 'none', cursor: 'pointer' }}
                     >
                       CONFIRM
                     </button>
                     <button
                       onClick={() => { setEditingId(null); setPendingStatus(''); }}
                       className="px-4 py-2 font-button border"
-                      style={{ background: 'none', color: 'var(--op-text)', fontSize: '0.625rem', borderColor: 'rgba(24,24,24,0.15)', cursor: 'pointer' }}
+                      style={{ background: 'none', color: 'var(--op-text)', fontSize: '0.625rem', borderColor: 'var(--op-border-strong)', cursor: 'pointer' }}
                     >
                       CANCEL
                     </button>
@@ -138,7 +138,7 @@ export function CateringTab({ venueId: _venueId }: { venueId: number }) {
                   <select
                     value=""
                     onChange={(e) => { if (e.target.value) { setEditingId(req.id); setPendingStatus(e.target.value); } }}
-                    style={{ padding: '6px 10px', border: '1px solid rgba(24,24,24,0.15)', background: '#F3F2EE', fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}
+                    style={{ padding: '6px 10px', border: '1px solid var(--op-border-strong)', background: '#F3F2EE', fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}
                   >
                     <option value="">Update status…</option>
                     {CATERING_STATUS_NEXT[req.status]?.map((s) => (

@@ -26,7 +26,7 @@ export function PLTab({ venue: _venue }: { venue: any }) {
     { token, days: selectedDays }, { enabled: !!token }
   );
 
-  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const statCardStyle = { borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' };
   const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
   const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
@@ -65,7 +65,7 @@ export function PLTab({ venue: _venue }: { venue: any }) {
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setSelectedDays(d)}
             className="px-3 py-1 font-data"
-            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: selectedDays === d ? '#181818' : 'transparent', color: selectedDays === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: selectedDays === d ? '#181818' : 'transparent', color: selectedDays === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
             {d}D
           </button>
         ))}
@@ -91,7 +91,7 @@ export function PLTab({ venue: _venue }: { venue: any }) {
 
       {/* Revenue by category — horizontal bar chart */}
       {catData.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Revenue by Category</h2>
           <ResponsiveContainer width="100%" height={Math.max(120, catData.length * 48)}>
             <BarChart data={catData} layout="vertical" margin={{ top: 4, right: 40, left: 60, bottom: 4 }}>
@@ -109,7 +109,7 @@ export function PLTab({ venue: _venue }: { venue: any }) {
 
       {/* Revenue by order type — pie chart */}
       {typeData.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Revenue by Order Type</h2>
           <div className="flex items-center gap-8">
             <ResponsiveContainer width={200} height={200}>
@@ -135,7 +135,7 @@ export function PLTab({ venue: _venue }: { venue: any }) {
 
       {/* Estimated margins table */}
       {catData.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.5rem' }}>Estimated Margins</h2>
           <p className="font-data mb-4" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)', letterSpacing: '0.06em' }}>
             Cost estimates are based on typical cafe margins. Set actual costs per item in Menu settings.
@@ -169,7 +169,7 @@ export function PLTab({ venue: _venue }: { venue: any }) {
                   );
                 })}
                 {totalRevenue > 0 && (
-                  <tr style={{ borderTop: '2px solid rgba(24,24,24,0.1)', background: '#E8E4DD' }}>
+                  <tr style={{ borderTop: '2px solid rgba(24,24,24,0.1)', background: 'var(--op-stat-bg)' }}>
                     <td style={{ padding: '10px 10px', fontWeight: 700, color: 'var(--op-text)' }}>Total</td>
                     <td style={{ padding: '10px 10px', fontWeight: 700 }}>${totalRevenue.toFixed(2)}</td>
                     <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)' }}>${(totalRevenue * 0.4).toFixed(2)}</td>
@@ -187,7 +187,7 @@ export function PLTab({ venue: _venue }: { venue: any }) {
 
       {/* Repeat customers */}
       {repeatRate && (
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Repeat Customers</h2>
           <div className="flex items-center gap-6">
             <div className="border p-5" style={{ ...statCardStyle, minWidth: 120 }}>

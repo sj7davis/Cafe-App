@@ -52,7 +52,7 @@ export function BillingTab() {
           Manage your subscription and payment method.
         </p>
       </div>
-      <div className="border p-6 mb-6" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+      <div className="border p-6 mb-6" style={{ borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' }}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <span className="font-data block mb-1" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Current Plan</span>
@@ -88,7 +88,7 @@ export function BillingTab() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {tiers && Object.entries(tiers).map(([key, tier]: [string, any]) => (
-          <div key={key} className="border p-5 flex flex-col" style={{ borderColor: status?.tier === key ? '#181818' : 'rgba(24,24,24,0.15)' }}>
+          <div key={key} className="border p-5 flex flex-col" style={{ borderColor: status?.tier === key ? '#181818' : 'var(--op-border-strong)' }}>
             <h3 className="font-data mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{tier.name}</h3>
             <div className="flex items-baseline gap-1 mb-4">
               <span style={{ fontWeight: 500, fontSize: '1.5rem', color: 'var(--op-text)' }}>${tier.monthlyPrice}</span>

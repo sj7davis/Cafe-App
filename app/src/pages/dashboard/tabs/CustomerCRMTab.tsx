@@ -65,7 +65,7 @@ export function CustomerCRMTab() {
     letterSpacing: '0.1em',
     textTransform: 'uppercase' as const,
     color: 'var(--op-text-secondary)',
-    borderBottom: '1px solid rgba(24,24,24,0.08)',
+    borderBottom: '1px solid var(--op-border-soft)',
     whiteSpace: 'nowrap' as const,
   };
   const tdStyle = {
@@ -87,7 +87,7 @@ export function CustomerCRMTab() {
         </p>
       </div>
 
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <h2 style={{ ...DS.sectionTitle, margin: 0, flex: 1 }}>Customer List</h2>
           <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -97,13 +97,13 @@ export function CustomerCRMTab() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search name, phone, email…"
-              style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1px solid rgba(24,24,24,0.15)', borderRadius: 6, fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: 220 }}
+              style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1px solid var(--op-border-strong)', borderRadius: 6, fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: 220 }}
             />
           </div>
           {rows.length > 0 && (
             <button
               onClick={() => exportToCSV(rows)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1px solid rgba(24,24,24,0.15)', borderRadius: 6, background: 'none', color: 'var(--op-text)', fontSize: 12, cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.05em', textTransform: 'uppercase' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1px solid var(--op-border-strong)', borderRadius: 6, background: 'none', color: 'var(--op-text)', fontSize: 12, cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.05em', textTransform: 'uppercase' }}
             >
               <Download size={13} /> Export CSV
             </button>

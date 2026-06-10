@@ -51,7 +51,7 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Loyalty Accounts */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={DS.sectionTitle}>Loyalty Accounts</h2>
         {/* Tier legend card with multipliers */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -122,10 +122,10 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
       </div>
 
       {/* Rewards Catalogue */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <div className="flex justify-between items-center mb-4">
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Rewards Catalogue</h2>
-          <button onClick={() => { setShowRewardForm(true); resetRewardForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+          <button onClick={() => { setShowRewardForm(true); resetRewardForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}>
             <Plus size={14} /> New Reward
           </button>
         </div>
@@ -133,7 +133,7 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
         {msg && <p style={{ fontSize: 13, marginBottom: 8, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
 
         {showRewardForm && (
-          <div className="border p-4 mb-4" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+          <div className="border p-4 mb-4" style={{ borderColor: 'var(--op-border-mid)', background: 'var(--op-card-hover)' }}>
             <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 12 }}>New Reward</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div><label style={labelStyle}>Name *</label><input value={rewardForm.name} onChange={e => setRewardForm({ ...rewardForm, name: e.target.value })} style={inputStyle} placeholder="e.g. Free Coffee" /></div>
@@ -157,9 +157,9 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                   setMsg('');
                   createReward.mutate({ token: loyaltyToken, name: rewardForm.name, description: rewardForm.description || undefined, pointsCost: Number(rewardForm.pointsCost), rewardType: rewardForm.rewardType as 'free_item' | 'discount_percent' | 'discount_fixed' | 'custom', rewardValue: rewardForm.rewardValue || undefined, menuItemSlug: rewardForm.menuItemSlug || undefined, sortOrder: rewardForm.sortOrder ? Number(rewardForm.sortOrder) : undefined });
                 }}
-                style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
+                style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
               >{createReward.isPending ? 'Saving…' : 'Create Reward'}</button>
-              <button onClick={() => { setShowRewardForm(false); resetRewardForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
+              <button onClick={() => { setShowRewardForm(false); resetRewardForm(); }} style={{ background: 'none', border: '1px solid var(--op-border-strong)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
             </div>
           </div>
         )}
@@ -169,7 +169,7 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(rewards as any[] | undefined)?.map((r) => (
-            <div key={r.id} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+            <div key={r.id} className="border p-4" style={{ borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' }}>
               {editRewardId === r.id ? (
                 <div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -186,8 +186,8 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                     <div><label style={labelStyle}>Sort Order</label><input type="number" min="0" value={editRewardForm.sortOrder} onChange={e => setEditRewardForm({ ...editRewardForm, sortOrder: e.target.value })} style={inputStyle} /></div>
                   </div>
                   <div className="flex gap-2">
-                    <button disabled={updateReward.isPending} onClick={() => { updateReward.mutate({ token: loyaltyToken, id: r.id, name: editRewardForm.name, pointsCost: Number(editRewardForm.pointsCost), rewardType: editRewardForm.rewardType as 'free_item' | 'discount_percent' | 'discount_fixed' | 'custom', rewardValue: editRewardForm.rewardValue || undefined, menuItemSlug: editRewardForm.menuItemSlug || undefined, sortOrder: editRewardForm.sortOrder ? Number(editRewardForm.sortOrder) : undefined }); }} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
-                    <button onClick={() => setEditRewardId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
+                    <button disabled={updateReward.isPending} onClick={() => { updateReward.mutate({ token: loyaltyToken, id: r.id, name: editRewardForm.name, pointsCost: Number(editRewardForm.pointsCost), rewardType: editRewardForm.rewardType as 'free_item' | 'discount_percent' | 'discount_fixed' | 'custom', rewardValue: editRewardForm.rewardValue || undefined, menuItemSlug: editRewardForm.menuItemSlug || undefined, sortOrder: editRewardForm.sortOrder ? Number(editRewardForm.sortOrder) : undefined }); }} style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                    <button onClick={() => setEditRewardId(null)} style={{ background: 'none', border: '1px solid var(--op-border-strong)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
                   </div>
                 </div>
               ) : (
@@ -205,14 +205,14 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
                     {r.sortOrder != null && <p style={{ fontSize: 11, color: 'var(--op-text-secondary)' }}>Sort: {r.sortOrder}</p>}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => { setEditRewardId(r.id); setEditRewardForm({ name: r.name, description: r.description || '', pointsCost: String(r.pointsCost), rewardType: r.rewardType || 'free_item', rewardValue: r.rewardValue || '', menuItemSlug: r.menuItemSlug || '', sortOrder: r.sortOrder != null ? String(r.sortOrder) : '' }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
+                    <button onClick={() => { setEditRewardId(r.id); setEditRewardForm({ name: r.name, description: r.description || '', pointsCost: String(r.pointsCost), rewardType: r.rewardType || 'free_item', rewardValue: r.rewardValue || '', menuItemSlug: r.menuItemSlug || '', sortOrder: r.sortOrder != null ? String(r.sortOrder) : '' }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
                     {deleteConfirm === r.id ? (
                       <div className="flex gap-1 items-center">
                         <button onClick={() => { deleteReward.mutate({ token: loyaltyToken, id: r.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
-                        <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                        <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid var(--op-border-strong)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                       </div>
                     ) : (
-                      <button onClick={() => setDeleteConfirm(r.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F85450] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Trash2 size={14} /></button>
+                      <button onClick={() => setDeleteConfirm(r.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F85450] hover:border-[#B85450] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}><Trash2 size={14} /></button>
                     )}
                   </div>
                 </div>

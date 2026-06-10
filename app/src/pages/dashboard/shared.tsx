@@ -458,7 +458,7 @@ export function TabletPinSection({ venue, token, inputCls, inputStyle }: { venue
   }
 
   return (
-    <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+    <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
       <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.5rem' }}>Tablet / iPad POS</h2>
       <p style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
         Open <span style={{ fontFamily: 'Geist Mono', fontSize: 12, background: 'rgba(24,24,24,0.06)', padding: '2px 6px', borderRadius: 3 }}>{tabletUrl}</span> on any iPad or tablet. Staff enter this PIN to access the counter view.
@@ -481,7 +481,7 @@ export function TabletPinSection({ venue, token, inputCls, inputStyle }: { venue
           onClick={() => { setMsg(''); mutation.mutate({ token, data: { tabletPin: tabletPin || null } }); }}
           disabled={mutation.isPending}
           className="px-6 py-3 font-button flex items-center gap-2"
-          style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+          style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}
         >
           {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save PIN
         </button>
@@ -540,7 +540,7 @@ export function SortableMenuRow({
         {item.image ? (
           <img src={item.image} alt={item.name} style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
         ) : (
-          <div style={{ width: 52, height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.04)', borderRadius: 6, border: '1px dashed rgba(24,24,24,0.12)' }}>
+          <div style={{ width: 52, height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(24,24,24,0.04)', borderRadius: 6, border: '1px dashed var(--op-border-mid)' }}>
             <Coffee size={18} style={{ color: 'var(--op-text-muted)' }} />
           </div>
         )}
@@ -576,24 +576,24 @@ export function SortableMenuRow({
               <input type="number" min={0} placeholder="Qty" value={stockForm.quantity} onChange={e => setStockForm({ ...stockForm, quantity: e.target.value })} style={{ border: '1px solid var(--op-card-border)', padding: '3px 6px', fontSize: 12, background: 'var(--op-card-bg)', color: 'var(--op-text)', width: '100%' }} />
               <input type="number" min={0} placeholder="Alert at" value={stockForm.quantityAlert} onChange={e => setStockForm({ ...stockForm, quantityAlert: e.target.value })} style={{ border: '1px solid var(--op-card-border)', padding: '3px 6px', fontSize: 12, background: 'var(--op-card-bg)', color: 'var(--op-text)', width: '100%' }} />
               <div className="flex gap-1">
-                <button onClick={() => { setInventoryQty.mutate({ menuItemId: item.id, quantity: Number(stockForm.quantity), quantityAlert: stockForm.quantityAlert ? Number(stockForm.quantityAlert) : undefined }, { onSuccess: () => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); } }); }} style={{ flex: 1, background: '#181818', color: '#F3F2EE', border: 'none', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}>Save</button>
-                <button onClick={() => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', fontSize: 11, padding: '3px 6px', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>✕</button>
+                <button onClick={() => { setInventoryQty.mutate({ menuItemId: item.id, quantity: Number(stockForm.quantity), quantityAlert: stockForm.quantityAlert ? Number(stockForm.quantityAlert) : undefined }, { onSuccess: () => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); } }); }} style={{ flex: 1, background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}>Save</button>
+                <button onClick={() => { setStockFormOpen(null); setStockForm({ quantity: '', quantityAlert: '' }); }} style={{ background: 'none', border: '1px solid var(--op-border-strong)', fontSize: 11, padding: '3px 6px', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>✕</button>
               </div>
             </div>
           ) : (
-            <button onClick={() => { setStockFormOpen(item.id); setStockForm({ quantity: qty !== null ? String(qty) : '', quantityAlert: alert !== null ? String(alert) : '' }); }} style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '2px 7px', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>Set Stock</button>
+            <button onClick={() => { setStockFormOpen(item.id); setStockForm({ quantity: qty !== null ? String(qty) : '', quantityAlert: alert !== null ? String(alert) : '' }); }} style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: 'none', border: '1px solid var(--op-border-mid)', padding: '2px 7px', cursor: 'pointer', color: 'var(--op-text-secondary)' }}>Set Stock</button>
           )}
         </div>
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={() => setOpenModifiers(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })} title="Manage Modifiers" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}>
+          <button onClick={() => setOpenModifiers(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })} title="Manage Modifiers" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}>
             {openModifiers.has(item.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-          <button onClick={() => startEdit(item)} title="Edit" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}>
+          <button onClick={() => startEdit(item)} title="Edit" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}>
             <Edit2 size={14} />
           </button>
-          <button onClick={() => setDeleteConfirm(item.id)} title="Delete" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}>
+          <button onClick={() => setDeleteConfirm(item.id)} title="Delete" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}>
             <Trash2 size={14} />
           </button>
         </div>
@@ -602,13 +602,13 @@ export function SortableMenuRow({
       {openModifiers.has(item.id) && <ModifiersPanel menuItemId={item.id} venueId={venue.id} token={token} />}
 
       {deleteConfirm === item.id && (
-        <div className="p-4 border-x border-b" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#F3F2EE' }}>
+        <div className="p-4 border-x border-b" style={{ borderColor: 'var(--op-border-mid)', background: '#F3F2EE' }}>
           <p style={{ fontSize: '0.8125rem', color: 'var(--op-text)', marginBottom: 12 }}>Delete this item? Orders referencing it will be preserved.</p>
           <div className="flex items-center gap-3">
             <button onClick={() => deleteMutation.mutate({ token, menuItemId: item.id })} disabled={deleteMutation.isPending} className="px-4 py-2 font-button flex items-center gap-2" style={{ background: '#B85450', color: '#F3F2EE', fontSize: '0.75rem' }}>
               {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Yes, Delete
             </button>
-            <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 font-button" style={{ background: 'transparent', color: 'var(--op-text)', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}>
+            <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 font-button" style={{ background: 'transparent', color: 'var(--op-text)', fontSize: '0.75rem', border: '1px solid var(--op-border-strong)' }}>
               Keep Item
             </button>
           </div>
@@ -642,7 +642,7 @@ function ModifiersPanel({ menuItemId, venueId, token }: { menuItemId: number; ve
     .filter(o => o.name);
 
   return (
-    <div className="p-4 border-x border-b" style={{ borderColor: 'rgba(24,24,24,0.12)', background: '#F3F2EE' }}>
+    <div className="p-4 border-x border-b" style={{ borderColor: 'var(--op-border-mid)', background: '#F3F2EE' }}>
       <p className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', marginBottom: 10 }}>Modifier Groups</p>
 
       {isLoading ? (
@@ -656,12 +656,12 @@ function ModifiersPanel({ menuItemId, venueId, token }: { menuItemId: number; ve
             <div key={g.id} className="flex items-center justify-between gap-3" style={{ background: 'var(--op-card-bg)', border: '1px solid var(--op-card-border)', padding: '8px 12px' }}>
               <div style={{ minWidth: 0 }}>
                 <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--op-text)' }}>{g.name}</span>
-                {g.required && <span className="font-data" style={{ fontSize: '0.5625rem', marginLeft: 8, padding: '1px 5px', background: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Required</span>}
+                {g.required && <span className="font-data" style={{ fontSize: '0.5625rem', marginLeft: 8, padding: '1px 5px', background: 'var(--op-border-soft)', color: 'var(--op-text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Required</span>}
                 <div style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)', marginTop: 2 }}>
                   {(g.options ?? []).map(o => o.priceAdj ? `${o.name} +$${o.priceAdj.toFixed(2)}` : o.name).join(' · ')}
                 </div>
               </div>
-              <button onClick={() => deleteMutation.mutate({ token, modifierId: g.id })} disabled={deleteMutation.isPending} title="Delete group" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent', flexShrink: 0 }}>
+              <button onClick={() => deleteMutation.mutate({ token, modifierId: g.id })} disabled={deleteMutation.isPending} title="Delete group" className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent', flexShrink: 0 }}>
                 <Trash2 size={13} />
               </button>
             </div>
@@ -679,7 +679,7 @@ function ModifiersPanel({ menuItemId, venueId, token }: { menuItemId: number; ve
           onClick={() => addMutation.mutate({ token, menuItemId, name: name.trim(), options: parsedOptions, required })}
           disabled={addMutation.isPending || !name.trim() || parsedOptions.length === 0}
           className="px-4 py-2 font-button flex items-center gap-2"
-          style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!name.trim() || parsedOptions.length === 0) ? 0.5 : 1 }}
+          style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem', opacity: (!name.trim() || parsedOptions.length === 0) ? 0.5 : 1 }}
         >
           {addMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add Group
         </button>

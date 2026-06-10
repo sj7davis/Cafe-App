@@ -43,7 +43,7 @@ export function BundlesTab({ venueId }: { venueId: number }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="flex justify-between items-center">
         <h2 style={DS.sectionTitle}>Bundles</h2>
-        <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+        <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}>
           <Plus size={14} /> New Bundle
         </button>
       </div>
@@ -51,7 +51,7 @@ export function BundlesTab({ venueId }: { venueId: number }) {
       {msg && <p style={{ fontSize: 13, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
 
       {showForm && (
-        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+        <div className="border p-5" style={{ borderColor: 'var(--op-border-mid)', background: 'var(--op-card-hover)' }}>
           <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 12 }}>New Bundle</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div><label style={labelStyle}>Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder="e.g. Breakfast Combo" /></div>
@@ -64,10 +64,10 @@ export function BundlesTab({ venueId }: { venueId: number }) {
             <label htmlFor="bundle-active-new" style={{ fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}>Active</label>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => { if (!form.name || !form.bundlePrice) { setMsg('Error: Name and price required'); return; } setMsg(''); createBundle.mutate({ token, name: form.name, description: form.description || undefined, itemSlugs: form.itemSlugs.split(',').map(s => s.trim()).filter(Boolean).join(','), bundlePrice: form.bundlePrice }); }} disabled={createBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
+            <button onClick={() => { if (!form.name || !form.bundlePrice) { setMsg('Error: Name and price required'); return; } setMsg(''); createBundle.mutate({ token, name: form.name, description: form.description || undefined, itemSlugs: form.itemSlugs.split(',').map(s => s.trim()).filter(Boolean).join(','), bundlePrice: form.bundlePrice }); }} disabled={createBundle.isPending} style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
               {createBundle.isPending ? 'Saving…' : 'Create Bundle'}
             </button>
-            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid var(--op-border-strong)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -77,7 +77,7 @@ export function BundlesTab({ venueId }: { venueId: number }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {(bundles as any[] | undefined)?.map((b) => (
-          <div key={b.id} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+          <div key={b.id} className="border p-4" style={{ borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' }}>
             {editId === b.id ? (
               <div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -91,8 +91,8 @@ export function BundlesTab({ venueId }: { venueId: number }) {
                   <label htmlFor={`bundle-active-${b.id}`} style={{ fontSize: '0.8125rem', color: 'var(--op-text)', cursor: 'pointer' }}>Active</label>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { updateBundle.mutate({ token, id: b.id, name: editForm.name, description: editForm.description || undefined, itemSlugs: editForm.itemSlugs.split(',').map((s: string) => s.trim()).filter(Boolean).join(','), bundlePrice: editForm.bundlePrice, isActive: editForm.isActive }); }} disabled={updateBundle.isPending} style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setEditId(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
+                  <button onClick={() => { updateBundle.mutate({ token, id: b.id, name: editForm.name, description: editForm.description || undefined, itemSlugs: editForm.itemSlugs.split(',').map((s: string) => s.trim()).filter(Boolean).join(','), bundlePrice: editForm.bundlePrice, isActive: editForm.isActive }); }} disabled={updateBundle.isPending} style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>Save</button>
+                  <button onClick={() => setEditId(null)} style={{ background: 'none', border: '1px solid var(--op-border-strong)', padding: '6px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
                 </div>
               </div>
             ) : (
@@ -107,14 +107,14 @@ export function BundlesTab({ venueId }: { venueId: number }) {
                   <p style={{ fontSize: 11, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' }}>Items: {Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || '').slice(0, 60)}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
+                  <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
                   {deleteConfirm === b.id ? (
                     <div className="flex gap-1 items-center">
                       <button onClick={() => { deleteBundle.mutate({ token, id: b.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>
-                      <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+                      <button onClick={() => setDeleteConfirm(null)} style={{ background: 'none', border: '1px solid var(--op-border-strong)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
                     </div>
                   ) : (
-                    <button onClick={() => setDeleteConfirm(b.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}><Trash2 size={14} /></button>
+                    <button onClick={() => setDeleteConfirm(b.id)} className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}><Trash2 size={14} /></button>
                   )}
                 </div>
               </div>

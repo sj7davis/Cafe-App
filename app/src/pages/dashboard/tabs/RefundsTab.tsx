@@ -70,7 +70,7 @@ export function RefundsTab() {
         </div>
       )}
 
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
         {!isLoading && orderList.length === 0 && (
           <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No refundable orders found.</p>
@@ -122,7 +122,7 @@ export function RefundsTab() {
                             <button
                               disabled={createRefund.isPending}
                               onClick={() => submitRefund(order)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', background: '#181818', color: '#F3F2EE', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', borderRadius: 5, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
                             >
                               {createRefund.isPending ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />} Confirm
                             </button>

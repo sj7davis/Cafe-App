@@ -150,7 +150,7 @@ export default function OwnerDashboard() {
           <Shield size={40} style={{ color: '#B85450' }} className="mx-auto mb-4" />
           <h1 style={{ fontWeight: 400, fontSize: '1.25rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '0.5rem' }}>Login Required</h1>
           <p style={{ fontSize: '0.875rem', color: 'var(--op-text-secondary)', marginBottom: '1.5rem' }}>Please log in to access your dashboard.</p>
-          <button onClick={() => navigate('/login')} className="px-6 py-3 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>GO TO LOGIN</button>
+          <button onClick={() => navigate('/login')} className="px-6 py-3 font-button" style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}>GO TO LOGIN</button>
         </div>
       </div>
     );

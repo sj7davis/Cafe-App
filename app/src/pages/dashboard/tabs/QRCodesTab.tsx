@@ -96,9 +96,9 @@ export function QRCodesTab({ venue }: { venue: any }) {
     a.click();
   };
 
-  const qrSectionStyle = { borderColor: 'rgba(24,24,24,0.08)' };
-  const qrBtnPrimary = { background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' };
-  const qrBtnSecondary = { borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', fontSize: '0.75rem' };
+  const qrSectionStyle = { borderColor: 'var(--op-border-soft)' };
+  const qrBtnPrimary = { background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' };
+  const qrBtnSecondary = { borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', fontSize: '0.75rem' };
 
   return (
     <div>
@@ -126,7 +126,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
               value={tableCount}
               onChange={(e) => setTableCount(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
               className="w-full bg-transparent border px-4 py-3 focus:outline-none"
-              style={{ borderColor: 'rgba(24,24,24,0.15)', fontSize: '0.875rem', color: 'var(--op-text)' }}
+              style={{ borderColor: 'var(--op-border-strong)', fontSize: '0.875rem', color: 'var(--op-text)' }}
             />
           </div>
           <button
@@ -152,7 +152,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
                   <button
                     onClick={() => downloadQR(q.dataUrl, `table-${q.table}-qr.png`)}
                     className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                    style={{ background: '#181818', color: '#F3F2EE' }}
+                    style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)' }}
                     title="Download"
                   >
                     <Download size={10} />

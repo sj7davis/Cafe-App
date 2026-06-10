@@ -90,7 +90,7 @@ export function ReviewsTab({ venueId }: { venueId: number }) {
             <p style={{ fontSize: 14, color: 'var(--op-text-secondary)', margin: 0 }}>{r.comment}</p>
           )}
           {(r as any).ownerReply ? (
-            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(24,24,24,0.04)', border: '1px solid rgba(24,24,24,0.08)', borderRadius: 6 }}>
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(24,24,24,0.04)', border: '1px solid var(--op-border-soft)', borderRadius: 6 }}>
               <span style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: 4 }}>Owner reply:</span>
               <p style={{ fontSize: 13, color: 'var(--op-text)', margin: 0 }}>{(r as any).ownerReply}</p>
             </div>
@@ -123,7 +123,7 @@ function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess:
     return (
       <button
         onClick={() => setOpen(true)}
-        style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--op-text-secondary)', background: 'none', border: '1px solid rgba(24,24,24,0.12)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+        style={{ marginTop: 8, fontSize: '0.75rem', color: 'var(--op-text-secondary)', background: 'none', border: '1px solid var(--op-border-mid)', padding: '4px 10px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
       >
         Reply to this review
       </button>
@@ -131,25 +131,25 @@ function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess:
   }
 
   return (
-    <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(24,24,24,0.03)', border: '1px solid rgba(24,24,24,0.08)' }}>
+    <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(24,24,24,0.03)', border: '1px solid var(--op-border-soft)' }}>
       <textarea
         value={reply}
         onChange={(e) => setReply(e.target.value)}
         rows={3}
         placeholder="Write your reply…"
-        style={{ width: '100%', fontSize: 13, color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 10px', resize: 'vertical', fontFamily: 'Inter', boxSizing: 'border-box' as const }}
+        style={{ width: '100%', fontSize: 13, color: 'var(--op-text)', background: 'transparent', border: '1px solid var(--op-border-strong)', padding: '8px 10px', resize: 'vertical', fontFamily: 'Inter', boxSizing: 'border-box' as const }}
       />
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <button
           onClick={() => replyMutation.mutate({ token, reviewId, reply })}
           disabled={replyMutation.isPending || !reply.trim()}
-          style={{ fontSize: '0.625rem', background: '#181818', color: '#F3F2EE', border: 'none', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, opacity: replyMutation.isPending || !reply.trim() ? 0.6 : 1 }}
+          style={{ fontSize: '0.625rem', background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const, opacity: replyMutation.isPending || !reply.trim() ? 0.6 : 1 }}
         >
           {replyMutation.isPending ? 'Submitting…' : 'Submit'}
         </button>
         <button
           onClick={() => { setOpen(false); setReply(''); }}
-          style={{ fontSize: '0.625rem', background: 'none', color: 'var(--op-text-secondary)', border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
+          style={{ fontSize: '0.625rem', background: 'none', color: 'var(--op-text-secondary)', border: '1px solid var(--op-border-strong)', padding: '6px 14px', cursor: 'pointer', fontFamily: 'Geist Mono', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}
         >
           Cancel
         </button>

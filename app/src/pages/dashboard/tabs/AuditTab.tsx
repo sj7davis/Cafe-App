@@ -69,26 +69,26 @@ export function AuditTab() {
       </div>
       <div className="space-y-6">
       {/* Export buttons */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={DS.sectionTitle}>Exports</h2>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Orders From</label>
             <input type="date" value={exportFromDate} onChange={e => { setExportFromDate(e.target.value); setTriggerOrderExport(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' }} />
           </div>
           <div>
             <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>To</label>
             <input type="date" value={exportToDate} onChange={e => { setExportToDate(e.target.value); setTriggerOrderExport(false); }}
               className="border px-3 py-2 focus:outline-none bg-transparent"
-              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' }} />
+              style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' }} />
           </div>
           <button
             disabled={!exportFromDate || !exportToDate}
             onClick={() => setTriggerOrderExport(true)}
             className="px-4 py-2 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!exportFromDate || !exportToDate) ? 0.5 : 1 }}
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem', opacity: (!exportFromDate || !exportToDate) ? 0.5 : 1 }}
           >
             <Download size={14} /> Export Orders CSV
           </button>
@@ -109,7 +109,7 @@ export function AuditTab() {
           {entityTypes.map((e) => (
             <button key={e} onClick={() => setEntityFilter(e)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: entityFilter === e ? '#181818' : 'transparent', color: entityFilter === e ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: entityFilter === e ? '#181818' : 'transparent', color: entityFilter === e ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
               {e}
             </button>
           ))}
@@ -119,7 +119,7 @@ export function AuditTab() {
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
               {d}D
             </button>
           ))}
@@ -127,7 +127,7 @@ export function AuditTab() {
       </div>
 
       {/* Audit log table */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Audit Log</h2>
         {auditLoading && (
           <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>

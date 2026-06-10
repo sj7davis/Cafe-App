@@ -96,7 +96,7 @@ export function PassesTab({ venueId }: { venueId: number }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* Pass Configuration */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={DS.sectionTitle}>
           Pass Configuration
         </h2>
@@ -131,13 +131,13 @@ export function PassesTab({ venueId }: { venueId: number }) {
           </p>
         )}
         <button onClick={handleSaveConfig} disabled={upsertConfig.isPending}
-          style={{ padding: '10px 20px', background: '#181818', color: '#F3F2EE', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', opacity: upsertConfig.isPending ? 0.7 : 1 }}>
+          style={{ padding: '10px 20px', background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', opacity: upsertConfig.isPending ? 0.7 : 1 }}>
           {upsertConfig.isPending ? 'Saving...' : passConfig ? 'Update Pass Config' : 'Save Pass Config'}
         </button>
       </div>
 
       {/* Issue Pass to Customer */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 4 }}>
           Issue Pass to Customer
         </h2>
@@ -169,7 +169,7 @@ export function PassesTab({ venueId }: { venueId: number }) {
           </p>
         )}
         <button onClick={handlePurchase} disabled={purchasePass.isPending || !passConfig}
-          style={{ padding: '10px 20px', background: '#181818', color: '#F3F2EE', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', opacity: purchasePass.isPending || !passConfig ? 0.6 : 1 }}>
+          style={{ padding: '10px 20px', background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', opacity: purchasePass.isPending || !passConfig ? 0.6 : 1 }}>
           {purchasePass.isPending ? 'Issuing...' : 'Issue Pass'}
         </button>
       </div>

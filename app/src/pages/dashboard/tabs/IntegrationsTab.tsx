@@ -192,14 +192,14 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
     padding: '2px 8px', borderRadius: 99,
   };
   const primaryBtn: CSSProperties = {
-    background: '#181818', color: '#F3F2EE', fontSize: '0.75rem',
+    background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem',
     border: 'none', padding: '6px 14px', cursor: 'pointer',
     fontFamily: 'Geist Mono, monospace', letterSpacing: '0.06em', textTransform: 'uppercase',
     display: 'inline-flex', alignItems: 'center', gap: 6,
   };
   const ghostBtn: CSSProperties = {
     background: 'transparent', color: '#B85450', fontSize: '0.625rem',
-    border: '1px solid rgba(24,24,24,0.15)', padding: '6px 14px', cursor: 'pointer',
+    border: '1px solid var(--op-border-strong)', padding: '6px 14px', cursor: 'pointer',
     fontFamily: 'Geist Mono, monospace', letterSpacing: '0.06em', textTransform: 'uppercase',
     display: 'inline-flex', alignItems: 'center', gap: 6,
   };
@@ -406,7 +406,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                     <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{f.label}</label>
                     <input type="text" placeholder={f.placeholder} value={(tyroForm as any)[f.key]}
                       onChange={e => setTyroForm({ ...tyroForm, [f.key]: e.target.value })}
-                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
+                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid var(--op-border-strong)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
                   </div>
                 ))}
                 {tyroMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{tyroMsg}</p>}
@@ -457,7 +457,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                     <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{f.label}</label>
                     <input type="text" placeholder={f.placeholder} value={(imposForm as any)[f.key]}
                       onChange={e => setImposForm({ ...imposForm, [f.key]: e.target.value })}
-                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
+                      style={{ width: '100%', fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid var(--op-border-strong)', padding: '5px 10px', boxSizing: 'border-box' as const }} />
                   </div>
                 ))}
                 {imposConnMsg && <p className="font-data" style={{ fontSize: '0.5625rem', color: '#B85450' }}>{imposConnMsg}</p>}
@@ -502,12 +502,12 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                   <div>
                     <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>From</label>
                     <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)}
-                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid var(--op-border-strong)', padding: '5px 10px' }} />
                   </div>
                   <div>
                     <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>To</label>
                     <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)}
-                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid rgba(24,24,24,0.15)', padding: '5px 10px' }} />
+                      style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', background: 'transparent', border: '1px solid var(--op-border-strong)', padding: '5px 10px' }} />
                   </div>
                   <button style={{ ...primaryBtn, opacity: (!xeroSyncFrom || !xeroSyncTo || xeroSync.isPending) ? 0.5 : 1 }}
                     disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
@@ -732,7 +732,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                   disabled={updateAutomation.isPending}
                   style={{
                     width: 40, height: 22, borderRadius: 99, border: 'none', cursor: 'pointer',
-                    background: automationValues[key] ? '#5E8B5E' : 'rgba(24,24,24,0.15)',
+                    background: automationValues[key] ? '#5E8B5E' : 'var(--op-border-strong)',
                     position: 'relative', flexShrink: 0, transition: 'background 0.2s',
                   }}
                   aria-label={`Toggle ${label}`}
@@ -768,7 +768,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
           <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
             {qrDataUrl ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <img src={qrDataUrl} alt="QR code" style={{ width: 160, height: 160, border: '1px solid rgba(24,24,24,0.08)' }} />
+                <img src={qrDataUrl} alt="QR code" style={{ width: 160, height: 160, border: '1px solid var(--op-border-soft)' }} />
                 <p className="font-data" style={{ fontSize: '0.5rem', color: 'var(--op-text-secondary)' }}>{origin}/v/{venue?.slug}</p>
                 <button style={primaryBtn} onClick={() => { if (!qrDataUrl || !venue?.slug) return; const a = document.createElement('a'); a.href = qrDataUrl; a.download = `${venue.slug}-qr.png`; a.click(); }}>
                   <Download size={12} /> Download PNG

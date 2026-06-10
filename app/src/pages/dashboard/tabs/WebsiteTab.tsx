@@ -276,7 +276,7 @@ export function WebsiteTab({ venue }: { venue: any }) {
             🔗 Open Live
           </a>
           {saveMsg && <span style={{ fontSize: 12, color: '#059669', fontWeight: 600 }}>{saveMsg}</span>}
-          <button onClick={handleSave} disabled={updateMutation.isPending} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 7, background: '#181818', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: updateMutation.isPending ? 'not-allowed' : 'pointer', opacity: updateMutation.isPending ? 0.7 : 1 }}>
+          <button onClick={handleSave} disabled={updateMutation.isPending} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 7, background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', fontSize: 13, fontWeight: 600, cursor: updateMutation.isPending ? 'not-allowed' : 'pointer', opacity: updateMutation.isPending ? 0.7 : 1 }}>
             {updateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             Publish
           </button>

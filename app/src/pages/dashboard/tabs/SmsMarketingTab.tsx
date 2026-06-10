@@ -65,7 +65,7 @@ export function SmsMarketingTab() {
       <div className="space-y-6">
 
       {/* Segment selector */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Select Audience</h3>
         {segmentsLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -79,7 +79,7 @@ export function SmsMarketingTab() {
                 onClick={() => { setSelectedSegment(seg.id); setSendResult(null); }}
                 style={{
                   background: isSelected ? '#181818' : '#E8E4DD',
-                  border: `1px solid ${isSelected ? '#181818' : 'rgba(24,24,24,0.12)'}`,
+                  border: `1px solid ${isSelected ? '#181818' : 'var(--op-border-mid)'}`,
                   color: isSelected ? '#F3F2EE' : '#181818',
                   padding: '12px 16px',
                   textAlign: 'left' as const,
@@ -104,7 +104,7 @@ export function SmsMarketingTab() {
       </div>
 
       {/* Message composer */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Compose Message</h3>
         <div className="relative">
           <textarea
@@ -118,7 +118,7 @@ export function SmsMarketingTab() {
               fontSize: '0.9375rem',
               color: 'var(--op-text)',
               background: 'transparent',
-              border: '1px solid rgba(24,24,24,0.15)',
+              border: '1px solid var(--op-border-strong)',
               padding: '12px 14px',
               resize: 'vertical' as const,
               boxSizing: 'border-box' as const,
@@ -161,8 +161,8 @@ export function SmsMarketingTab() {
               onClick={() => setConfirmVisible(true)}
               className="px-6 py-3 font-button flex items-center gap-2"
               style={{
-                background: '#181818',
-                color: '#F3F2EE',
+                background: 'var(--op-btn-bg)',
+                color: 'var(--op-btn-text)',
                 fontSize: '0.75rem',
                 opacity: (!message.trim() || customerCount === 0) ? 0.5 : 1,
                 cursor: (!message.trim() || customerCount === 0) ? 'not-allowed' : 'pointer',
@@ -179,7 +179,7 @@ export function SmsMarketingTab() {
                 onClick={() => sendBulk.mutate({ token, segment: selectedSegment, message })}
                 disabled={sendBulk.isPending}
                 className="px-4 py-2 font-button flex items-center gap-2"
-                style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', opacity: sendBulk.isPending ? 0.6 : 1 }}
+                style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.625rem', opacity: sendBulk.isPending ? 0.6 : 1 }}
               >
                 {sendBulk.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 Confirm
@@ -188,7 +188,7 @@ export function SmsMarketingTab() {
                 onClick={() => setConfirmVisible(false)}
                 disabled={sendBulk.isPending}
                 className="px-4 py-2 font-data border"
-                style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
+                style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text-secondary)', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: 'transparent', cursor: 'pointer' }}
               >
                 Cancel
               </button>
@@ -198,7 +198,7 @@ export function SmsMarketingTab() {
       </div>
 
       {/* Campaign history */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Campaign History</h3>
         {historyLoading && <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!historyLoading && history.length === 0 && (

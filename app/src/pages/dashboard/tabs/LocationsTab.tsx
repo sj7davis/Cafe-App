@@ -47,7 +47,7 @@ export function LocationsTab({ venue }: { venue: any }) {
   };
 
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' };
 
   if (mode === 'create' || (typeof mode === 'object' && mode.type === 'edit')) {
     const isEdit = typeof mode === 'object';
@@ -57,7 +57,7 @@ export function LocationsTab({ venue }: { venue: any }) {
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.04em', fontFamily: 'Inter, sans-serif' }}>Locations</h1>
           <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', margin: '5px 0 0', lineHeight: 1.5 }}>Manage your physical locations and hours.</p>
         </div>
-        <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <div className="flex items-center justify-between mb-6">
           <h2 style={DS.sectionTitle}>
             {isEdit ? 'Edit Location' : 'Add Location'}
@@ -103,11 +103,11 @@ export function LocationsTab({ venue }: { venue: any }) {
             onClick={handleSubmit}
             disabled={!form.name || !form.address || addMutation.isPending || updateMutation.isPending}
             className="px-6 py-3 font-button"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!form.name || !form.address) ? 0.5 : 1 }}
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem', opacity: (!form.name || !form.address) ? 0.5 : 1 }}
           >
             {isEdit ? 'SAVE CHANGES' : 'ADD LOCATION'}
           </button>
-          <button onClick={() => setMode('list')} className="px-6 py-3 font-button border" style={{ background: 'none', color: 'var(--op-text)', fontSize: '0.75rem', borderColor: 'rgba(24,24,24,0.15)' }}>
+          <button onClick={() => setMode('list')} className="px-6 py-3 font-button border" style={{ background: 'none', color: 'var(--op-text)', fontSize: '0.75rem', borderColor: 'var(--op-border-strong)' }}>
             CANCEL
           </button>
         </div>
@@ -128,7 +128,7 @@ export function LocationsTab({ venue }: { venue: any }) {
       </div>
       <div className="flex justify-between items-center mb-6">
         <h2 style={DS.sectionTitle}>Locations</h2>
-        <button onClick={() => { setMode('create'); setForm({ name: '', address: '', phone: '', hoursWeekday: '', hoursSaturday: '', hoursSunday: '', isDefault: false }); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.625rem', border: 'none', cursor: 'pointer' }}>
+        <button onClick={() => { setMode('create'); setForm({ name: '', address: '', phone: '', hoursWeekday: '', hoursSaturday: '', hoursSunday: '', isDefault: false }); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.625rem', border: 'none', cursor: 'pointer' }}>
           <Plus size={14} /> ADD LOCATION
         </button>
       </div>
@@ -139,14 +139,14 @@ export function LocationsTab({ venue }: { venue: any }) {
         </div>
       )}
       {locationsList && locationsList.length === 0 && (
-        <div className="border p-8 text-center" style={{ borderColor: 'rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)' }}>
+        <div className="border p-8 text-center" style={{ borderColor: 'var(--op-border-soft)', color: 'var(--op-text-secondary)' }}>
           <MapPin size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
           <p style={{ fontSize: '0.875rem' }}>No locations added yet. Add your first location to enable location-based ordering.</p>
         </div>
       )}
       <div className="flex flex-col gap-3">
         {locationsList?.map((loc) => (
-          <div key={loc.id} className="border p-5 flex items-start justify-between" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+          <div key={loc.id} className="border p-5 flex items-start justify-between" style={{ borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' }}>
             <div>
               <div style={{ fontWeight: 500, fontSize: '0.9375rem', color: 'var(--op-text)', marginBottom: 4 }}>{loc.name}</div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)', marginBottom: 2 }}>{loc.address}</div>
@@ -156,14 +156,14 @@ export function LocationsTab({ venue }: { venue: any }) {
               {loc.hoursSunday && <div className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>Sun: {loc.hoursSunday}</div>}
             </div>
             <div className="flex gap-2 ml-4 shrink-0">
-              <button onClick={() => handleEdit(loc)} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)' }}>
+              <button onClick={() => handleEdit(loc)} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)' }}>
                 <Edit2 size={14} />
               </button>
               <button
                 onClick={() => { setDeleteError(''); deleteMutation.mutate({ token, locationId: loc.id }); }}
                 disabled={deleteMutation.isPending}
                 className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
-                style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)' }}
+                style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)' }}
               >
                 <Trash2 size={14} />
               </button>

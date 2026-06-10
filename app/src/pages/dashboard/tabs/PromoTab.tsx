@@ -72,7 +72,7 @@ export function PromoTab({ venueId: _venueId }: { venueId: number }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Create form */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={DS.sectionTitle}>
           New Discount Code
         </h2>
@@ -118,13 +118,13 @@ export function PromoTab({ venueId: _venueId }: { venueId: number }) {
         </div>
         {msg && <p style={{ fontSize: 13, marginBottom: 8, color: msg.startsWith('✅') ? '#16a34a' : '#B85450' }}>{msg}</p>}
         <button onClick={handleCreate} disabled={createMut.isPending}
-          style={{ padding: '10px 20px', background: '#181818', color: '#F3F2EE', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+          style={{ padding: '10px 20px', background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
           {createMut.isPending ? 'Creating…' : 'Create Code'}
         </button>
       </div>
 
       {/* Codes list */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 16 }}>
           All Codes ({codes.length})
         </h2>
@@ -133,7 +133,7 @@ export function PromoTab({ venueId: _venueId }: { venueId: number }) {
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.08)', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <tr style={{ borderBottom: '1px solid var(--op-border-soft)', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 <th style={{ textAlign: 'left', padding: '8px 4px' }}>Code</th>
                 <th style={{ textAlign: 'left', padding: '8px 4px' }}>Discount</th>
                 <th style={{ textAlign: 'right', padding: '8px 4px' }}>Used</th>
@@ -167,7 +167,7 @@ export function PromoTab({ venueId: _venueId }: { venueId: number }) {
                   <td style={{ padding: '10px 4px', textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => toggleMut.mutate({ token, id: c.id, isActive: !c.isActive })}
-                      style={{ fontSize: 12, background: 'none', border: '1px solid rgba(24,24,24,0.15)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', color: 'var(--op-text)' }}>
+                      style={{ fontSize: 12, background: 'none', border: '1px solid var(--op-border-strong)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', color: 'var(--op-text)' }}>
                       {c.isActive ? 'Disable' : 'Enable'}
                     </button>
                     <button

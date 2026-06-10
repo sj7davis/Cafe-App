@@ -16,7 +16,7 @@ export function SettingsTab({ venue }: { venue: any }) {
   const [saveMessage, setSaveMessage] = useState('');
   const updateMutation = trpc.venue.update.useMutation({ onSuccess: () => setSaveMessage('Settings saved!') });
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' };
 
   // Booking Deposit state
   const setBookingDeposit = trpc.venue.setBookingDepositConfig.useMutation();
@@ -61,7 +61,7 @@ export function SettingsTab({ venue }: { venue: any }) {
         </p>
       </div>
       <div className="space-y-6">
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={DS.sectionTitle}>Venue Settings</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {[
@@ -86,7 +86,7 @@ export function SettingsTab({ venue }: { venue: any }) {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => { setSaveMessage(''); updateMutation.mutate({ token, data: form }); }} disabled={updateMutation.isPending} className="px-6 py-3 font-button flex items-center gap-2" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+          <button onClick={() => { setSaveMessage(''); updateMutation.mutate({ token, data: form }); }} disabled={updateMutation.isPending} className="px-6 py-3 font-button flex items-center gap-2" style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}>
             {updateMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Changes</>}
           </button>
           {saveMessage && <span className="font-data" style={{ fontSize: '0.625rem', color: '#5E8B5E' }}>{saveMessage}</span>}
@@ -97,7 +97,7 @@ export function SettingsTab({ venue }: { venue: any }) {
       <TabletPinSection venue={venue} token={token} inputCls={inputCls} inputStyle={inputStyle} />
 
       {/* Happy Hour */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Happy Hour</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="md:col-span-2 flex items-center gap-3">
@@ -132,7 +132,7 @@ export function SettingsTab({ venue }: { venue: any }) {
               });
             }}
             className="px-6 py-3 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}
           >
             {setHappyHour.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Happy Hour</>}
           </button>
@@ -141,7 +141,7 @@ export function SettingsTab({ venue }: { venue: any }) {
       </div>
 
       {/* Booking Deposits */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Booking Deposits</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="md:col-span-2 flex items-center gap-3">
@@ -164,7 +164,7 @@ export function SettingsTab({ venue }: { venue: any }) {
               });
             }}
             className="px-6 py-3 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}
           >
             {setBookingDeposit.isPending ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><Check size={14} /> Save Deposit Settings</>}
           </button>
@@ -173,7 +173,7 @@ export function SettingsTab({ venue }: { venue: any }) {
       </div>
 
       {/* Xero Integration */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: '#13B5EA' }}>
             <Link2 size={20} style={{ color: '#fff' }} />
@@ -190,9 +190,9 @@ export function SettingsTab({ venue }: { venue: any }) {
                   {(xeroConn as any).lastSyncAt && <span style={{ color: 'var(--op-text-secondary)', marginLeft: 8 }}>Last sync: {new Date((xeroConn as any).lastSyncAt).toLocaleDateString()}</span>}
                 </p>
                 <div className="flex flex-wrap gap-2 items-center mb-3">
-                  <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
+                  <input type="date" value={xeroSyncFrom} onChange={e => setXeroSyncFrom(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)', background: 'transparent' }} />
                   <span style={{ fontSize: '0.8125rem', color: 'var(--op-text-secondary)' }}>to</span>
-                  <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)', background: 'transparent' }} />
+                  <input type="date" value={xeroSyncTo} onChange={e => setXeroSyncTo(e.target.value)} className="border px-3 py-2 focus:outline-none" style={{ fontFamily: 'Inter', fontSize: '0.8125rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)', background: 'transparent' }} />
                   <button
                     disabled={xeroSync.isPending || !xeroSyncFrom || !xeroSyncTo}
                     onClick={() => {
@@ -203,7 +203,7 @@ export function SettingsTab({ venue }: { venue: any }) {
                       });
                     }}
                     className="px-4 py-2 font-button flex items-center gap-2"
-                    style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem', opacity: (!xeroSyncFrom || !xeroSyncTo) ? 0.5 : 1 }}
+                    style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem', opacity: (!xeroSyncFrom || !xeroSyncTo) ? 0.5 : 1 }}
                   >
                     {xeroSync.isPending ? <Loader2 size={12} className="animate-spin" /> : <TrendingUp size={12} />}
                     Sync Revenue
@@ -212,7 +212,7 @@ export function SettingsTab({ venue }: { venue: any }) {
                     disabled={xeroDisconnect.isPending}
                     onClick={() => { if (window.confirm('Disconnect Xero?')) xeroDisconnect.mutate({ token }); }}
                     className="px-4 py-2 font-data border"
-                    style={{ borderColor: 'rgba(24,24,24,0.15)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent', cursor: 'pointer' }}
+                    style={{ borderColor: 'var(--op-border-strong)', color: '#B85450', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'transparent', cursor: 'pointer' }}
                   >
                     Disconnect
                   </button>

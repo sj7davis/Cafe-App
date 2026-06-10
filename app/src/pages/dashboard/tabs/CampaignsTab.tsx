@@ -43,7 +43,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="flex justify-between items-center">
         <h2 style={DS.sectionTitle}>Campaigns</h2>
-        <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}>
+        <button onClick={() => { setShowForm(true); resetForm(); setMsg(''); }} className="flex items-center gap-2 px-4 py-2 font-button" style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}>
           <Plus size={14} /> New Campaign
         </button>
       </div>
@@ -51,7 +51,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
       {msg && <p style={{ fontSize: 13, color: msg.startsWith('Error') ? '#B85450' : '#5E8B5E' }}>{msg}</p>}
 
       {showForm && (
-        <div className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+        <div className="border p-5" style={{ borderColor: 'var(--op-border-mid)', background: 'var(--op-card-hover)' }}>
           <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: 12 }}>New Campaign</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div><label style={labelStyle}>Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder="e.g. Summer Promo" /></div>
@@ -87,9 +87,9 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
                 setMsg('');
                 createCampaign.mutate({ token, name: form.name, type: form.type, segment: form.segment as 'all' | 'active_30d' | 'high_value', subject: form.subject || undefined, body: form.body });
               }}
-              style={{ background: '#181818', color: '#F3F2EE', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
+              style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
             >{createCampaign.isPending ? 'Saving…' : 'Save Draft'}</button>
-            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid rgba(24,24,24,0.15)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
+            <button onClick={() => { setShowForm(false); resetForm(); }} style={{ background: 'none', border: '1px solid var(--op-border-strong)', padding: '8px 20px', fontSize: 13, cursor: 'pointer', color: 'var(--op-text)' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -99,7 +99,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {(campaigns as any[] | undefined)?.map((c) => (
-          <div key={c.id} className="border p-4" style={{ borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' }}>
+          <div key={c.id} className="border p-4" style={{ borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' }}>
             <div className="flex items-start justify-between gap-4">
               <div style={{ flex: 1 }}>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -129,7 +129,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
                     <button
                       onClick={() => { if (window.confirm('Delete this campaign?')) deleteCampaign.mutate({ token, id: c.id }); }}
                       className="p-2 border hover:bg-[#B85450] hover:text-[#F3F2EE] hover:border-[#B85450] transition-all"
-                      style={{ borderColor: 'rgba(24,24,24,0.15)', color: 'var(--op-text)', background: 'transparent' }}
+                      style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}
                     ><Trash2 size={14} /></button>
                   </>
                 )}
@@ -140,7 +140,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
       </div>
 
       {/* Birthday Vouchers Section */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         <h2 style={DS.sectionTitle}>Birthday Vouchers</h2>
         <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 16 }}>
           Auto-generated $10 discount codes sent with birthday greetings.
@@ -151,7 +151,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.08)' }}>
+                <tr style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                   {['Code', 'Value', 'Uses', 'Expires', 'Created'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{h}</th>
                   ))}

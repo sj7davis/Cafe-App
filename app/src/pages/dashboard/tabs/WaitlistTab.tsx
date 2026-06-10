@@ -96,7 +96,7 @@ export function WaitlistTab({ venueId: _venueId }: { venueId: number }) {
       </div>
 
       {/* Table */}
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
         {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
         {!isLoading && waiting.length === 0 && (
           <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--op-text-secondary)' }}>
@@ -138,7 +138,7 @@ export function WaitlistTab({ venueId: _venueId }: { venueId: number }) {
                             disabled={notifyMut.isPending}
                             onClick={() => notifyMut.mutate({ token, id: e.id })}
                             title="Notify customer"
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: '#181818', color: '#F3F2EE', border: 'none', borderRadius: 5, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', border: 'none', borderRadius: 5, fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
                           >
                             <Bell size={11} /> Notify
                           </button>

@@ -28,7 +28,7 @@ export function AllVenuesTab() {
   const consolidatedData = consolidated as any;
   const comparisonData: any[] = comparison?.venues ?? [];
 
-  const statCardStyle = { borderColor: 'rgba(24,24,24,0.08)', background: '#E8E4DD' };
+  const statCardStyle = { borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' };
   const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
   const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
@@ -49,7 +49,7 @@ export function AllVenuesTab() {
         {([7, 30, 90] as const).map((d) => (
           <button key={d} onClick={() => setPeriod(d)}
             className="px-3 py-1 font-data"
-            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(24,24,24,0.15)', background: period === d ? '#181818' : 'transparent', color: period === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: period === d ? '#181818' : 'transparent', color: period === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
             {d}D
           </button>
         ))}
@@ -106,7 +106,7 @@ export function AllVenuesTab() {
               const change = stats?.revenueChange ?? null;
               const isPositive = change !== null && change >= 0;
               return (
-                <div key={v.id} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.1)', background: '#E8E4DD' }}>
+                <div key={v.id} className="border p-5" style={{ borderColor: 'rgba(24,24,24,0.1)', background: 'var(--op-stat-bg)' }}>
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <span style={{ fontWeight: 500, fontSize: '1rem', color: 'var(--op-text)', display: 'block' }}>{v.name}</span>

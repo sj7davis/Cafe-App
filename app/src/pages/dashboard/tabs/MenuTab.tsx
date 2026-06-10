@@ -41,7 +41,7 @@ export function MenuTab({ venue }: { venue: any }) {
   const [deleteError, setDeleteError] = useState('');
 
   const inputCls = "w-full bg-transparent border px-4 py-3 focus:outline-none";
-  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'rgba(24,24,24,0.15)' };
+  const inputStyle = { fontFamily: 'Inter', fontSize: '0.875rem', color: 'var(--op-text)', borderColor: 'var(--op-border-strong)' };
   const labelStyle = { fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)' };
 
   const slugify = (s: string) =>
@@ -193,7 +193,7 @@ export function MenuTab({ venue }: { venue: any }) {
           Create and manage your menu items.
         </p>
       </div>
-      <div className="border p-6" style={{ borderColor: 'rgba(24,24,24,0.08)' }}>
+      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-6">
         <h2 style={DS.sectionTitle}>Menu Management</h2>
@@ -201,7 +201,7 @@ export function MenuTab({ venue }: { venue: any }) {
           <button
             onClick={startCreate}
             className="px-6 py-3 font-button flex items-center gap-2"
-            style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+            style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}
           >
             <Plus size={14} /> Add Item
           </button>
@@ -278,7 +278,7 @@ export function MenuTab({ venue }: { venue: any }) {
                       {categoryLabel(cat)}
                     </span>
                     <span style={{ fontFamily: 'Geist Mono', fontSize: '0.625rem', color: 'var(--op-text-muted)' }}>({catItems.length})</span>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(24,24,24,0.08)' }} />
+                    <div style={{ flex: 1, height: 1, background: 'var(--op-border-soft)' }} />
                   </div>
                   <SortableContext items={catItems.map((i: any) => i.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-2">
@@ -314,7 +314,7 @@ export function MenuTab({ venue }: { venue: any }) {
 
       {/* Create / Edit Form */}
       {isFormMode && (
-        <div className="border p-6 mt-2" style={{ borderColor: 'rgba(24,24,24,0.12)', background: 'var(--op-card-hover)' }}>
+        <div className="border p-6 mt-2" style={{ borderColor: 'var(--op-border-mid)', background: 'var(--op-card-hover)' }}>
           <h3 style={{ fontWeight: 400, fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1.25rem' }}>
             {isEditMode ? 'Edit Item' : 'New Menu Item'}
           </h3>
@@ -456,7 +456,7 @@ export function MenuTab({ venue }: { venue: any }) {
               onClick={handleSubmit}
               disabled={isPending || !form.name.trim() || !form.price.trim()}
               className="px-6 py-3 font-button flex items-center gap-2"
-              style={{ background: '#181818', color: '#F3F2EE', fontSize: '0.75rem' }}
+              style={{ background: 'var(--op-btn-bg)', color: 'var(--op-btn-text)', fontSize: '0.75rem' }}
             >
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
               Save Changes
@@ -464,7 +464,7 @@ export function MenuTab({ venue }: { venue: any }) {
             <button
               onClick={handleDiscard}
               className="px-6 py-3 font-button flex items-center gap-2"
-              style={{ background: 'transparent', color: 'var(--op-text)', fontSize: '0.75rem', border: '1px solid rgba(24,24,24,0.15)' }}
+              style={{ background: 'transparent', color: 'var(--op-text)', fontSize: '0.75rem', border: '1px solid var(--op-border-strong)' }}
             >
               <X size={14} /> Discard Changes
             </button>
