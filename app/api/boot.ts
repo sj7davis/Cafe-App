@@ -9,7 +9,7 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
+import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, customerPreferences, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
 import { eq, and, gte, isNull, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
@@ -746,6 +746,60 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
                   });
                 }
               } catch { /* non-blocking — loyalty failure must not abort order confirmation */ }
+            }
+
+            // ── Post-purchase touches (restored from the pre-Stripe order flow).
+            // All driven by checkout-session metadata; each is non-blocking.
+
+            // Save drink preferences (milk/sugar) against the customer's phone
+            if (meta.customerPhone && (meta.prefMilk || meta.prefSugar)) {
+              try {
+                const existing = await db.select({ id: customerPreferences.id }).from(customerPreferences)
+                  .where(and(eq(customerPreferences.venueId, venueId), eq(customerPreferences.phone, meta.customerPhone)))
+                  .limit(1);
+                const prefs = {
+                  ...(meta.prefMilk ? { milk: meta.prefMilk } : {}),
+                  ...(meta.prefSugar ? { sugar: meta.prefSugar } : {}),
+                };
+                if (existing[0]) {
+                  await db.update(customerPreferences).set(prefs).where(eq(customerPreferences.id, existing[0].id));
+                } else {
+                  await db.insert(customerPreferences).values({ venueId, phone: meta.customerPhone, ...prefs });
+                }
+              } catch { /* non-blocking */ }
+            }
+
+            // Deduct a subscription-pass credit if the customer paid with a pass
+            if (meta.passId) {
+              try {
+                const passRows = await db.select().from(subscriptionPasses)
+                  .where(and(
+                    eq(subscriptionPasses.id, Number(meta.passId)),
+                    eq(subscriptionPasses.venueId, venueId),
+                    eq(subscriptionPasses.isActive, true),
+                  ))
+                  .limit(1);
+                const pass = passRows[0];
+                if (pass && pass.remainingCredits > 0) {
+                  await db.update(subscriptionPasses)
+                    .set({
+                      remainingCredits: sql`remaining_credits - 1`,
+                      isActive: pass.remainingCredits - 1 > 0,
+                    })
+                    .where(eq(subscriptionPasses.id, pass.id));
+                }
+              } catch { /* non-blocking */ }
+            }
+
+            // Mark any abandoned cart for this phone as recovered
+            if (meta.customerPhone) {
+              try {
+                await db.update(abandonedCarts).set({ isRecovered: true })
+                  .where(and(
+                    eq(abandonedCarts.venueId, venueId),
+                    eq(abandonedCarts.phone, meta.customerPhone),
+                  ));
+              } catch { /* non-blocking */ }
             }
           }
         }

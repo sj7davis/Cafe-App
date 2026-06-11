@@ -760,11 +760,38 @@ export default function VenuePublic() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stripeGiftcardParam, stripePassParam]);
 
-  // Stripe order confirmed — clear cart when verifySession reports paid
+  // Stripe order confirmed — clear cart and run post-purchase touches stashed
+  // before the redirect (save-favourite prompt, push notification opt-in).
   useEffect(() => {
     if (verifySessionQuery.data?.paid && !stripeConfirmed) {
       setStripeConfirmed(true);
       setCart([]);
+
+      try {
+        const raw = localStorage.getItem('b1-post-order');
+        if (raw) {
+          localStorage.removeItem('b1-post-order');
+          const stash = JSON.parse(raw) as { venueId: number; phone: string; firstItemName: string; itemCount: number; wantsPush: boolean };
+          if (stash.venueId === venue?.id) {
+            if (stash.phone) setCheckoutPhone(stash.phone);
+
+            // Offer to save this order as a favourite
+            if (stash.phone && stash.firstItemName) {
+              setFavLabel(stash.firstItemName + (stash.itemCount > 1 ? ` + ${stash.itemCount - 1} more` : ''));
+              setShowSaveFav(true);
+              if (saveFavTimer.current) clearTimeout(saveFavTimer.current);
+              saveFavTimer.current = setTimeout(() => setShowSaveFav(false), 10000);
+            }
+
+            // Subscribe to order-status push notifications if opted in
+            if (stash.wantsPush && stash.phone && 'serviceWorker' in navigator && 'PushManager' in window) {
+              import('@/hooks/usePushSubscription').then(({ subscribePush }) => {
+                subscribePush(stash.phone).catch(() => {});
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch { /* stash unreadable — skip post-purchase prompts */ }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verifySessionQuery.data?.paid]);
@@ -1057,8 +1084,26 @@ export default function VenuePublic() {
         locationId: selectedLocationId ?? undefined,
         loyaltyPhone: redeemPoints > 0 ? checkoutPhone : undefined,
         loyaltyPointsRedeemed: redeemPoints,
+        // Post-purchase metadata — consumed by the Stripe webhook (preferences,
+        // pass credit, abandoned-cart recovery). Values must be strings.
+        metadata: {
+          ...(checkoutMilk ? { prefMilk: checkoutMilk } : {}),
+          ...(checkoutSugar ? { prefSugar: checkoutSugar } : {}),
+          ...(checkoutUsePass && passInfo?.id ? { passId: String(passInfo.id) } : {}),
+        },
       });
       if (result.url) {
+        // Stash client-side post-purchase state — the Stripe redirect reloads the
+        // page, so this is how the success handler knows what was ordered.
+        try {
+          localStorage.setItem('b1-post-order', JSON.stringify({
+            venueId: venue.id,
+            phone: checkoutPhone || '',
+            firstItemName: stripeItems[0]?.name ?? '',
+            itemCount: stripeItems.length,
+            wantsPush: wantsPushNotify,
+          }));
+        } catch { /* storage full/blocked — post-purchase prompts just won't show */ }
         window.location.href = result.url;
       }
     } catch (e: unknown) {
