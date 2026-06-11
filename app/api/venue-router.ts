@@ -3351,7 +3351,7 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
 
     // Join with loyaltyAccounts for points/tier
     const phones = customerRows.map(r => r.customerPhone).filter(Boolean);
-    let loyaltyMap: Record<string, { pointsBalance: number; tier?: string }> = {};
+    const loyaltyMap: Record<string, { pointsBalance: number; tier?: string }> = {};
     if (phones.length > 0) {
       const loyaltyRows = await db.select({
         phone: loyaltyAccounts.phone,

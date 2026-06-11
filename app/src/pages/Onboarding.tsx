@@ -160,7 +160,7 @@ export default function Onboarding() {
     <h2 style="text-align:center;padding:20px">${venueSlug} — Table QR Codes</h2>
     <div class="grid">${qrCodes.map((q) => `<div class="card"><img src="${q.dataUrl}" width="150"/><p>Table ${q.table}</p></div>`).join('')}</div>
     <button class="no-print" onclick="window.print()">Print</button>
-    <script>window.onload = () => window.print();<\/script>
+    <script>window.onload = () => window.print();</script>
     </body></html>`;
     printWindow.document.write(html);
     printWindow.document.close();

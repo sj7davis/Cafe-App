@@ -990,7 +990,7 @@ cron.schedule("0 9 * * *", async () => {
       try {
         // Award 50 loyalty points
         if (customer.phone) {
-          let loyaltyAcc = await db.select().from(loyaltyAccounts)
+          const loyaltyAcc = await db.select().from(loyaltyAccounts)
             .where(and(eq(loyaltyAccounts.venueId, customer.venueId), eq(loyaltyAccounts.phone, customer.phone)))
             .limit(1);
 

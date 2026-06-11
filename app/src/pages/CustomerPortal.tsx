@@ -161,7 +161,7 @@ function printCustomerReceipt(order: any, venueName: string) {
   <div class="center" style="font-size:10px">${order.paymentMethod === 'online' ? 'Paid online' : 'Pay at pickup'}</div>
   <div class="center bold" style="margin-top:8px">Thank you!</div>
   <div style="margin-top:24px"></div>
-  <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
+  <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
   </body></html>`
   const w = window.open('', '_blank', 'width=400,height=600')
   if (w) { w.document.write(html); w.document.close() }

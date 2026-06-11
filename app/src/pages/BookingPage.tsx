@@ -9,7 +9,7 @@ const TIME_SLOTS: string[] = (() => {
   const slots: string[] = []
   for (let h = 8; h <= 15; h++) {
     slots.push(`${String(h).padStart(2, '0')}:00`)
-    if (h < 15 || true) slots.push(`${String(h).padStart(2, '0')}:30`)
+    slots.push(`${String(h).padStart(2, '0')}:30`)
   }
   return slots.filter(s => s <= '15:30')
 })()

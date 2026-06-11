@@ -67,7 +67,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
     <h2 style="text-align:center;padding:20px">${slug} — Table QR Codes</h2>
     <div class="grid">${tableQRs.map((q) => `<div class="card"><img src="${q.dataUrl}" width="150"/><p>Table ${q.table}</p></div>`).join('')}</div>
     <button class="no-print" onclick="window.print()">Print</button>
-    <script>window.onload = () => window.print();<\/script>
+    <script>window.onload = () => window.print();</script>
     </body></html>`;
     printWindow.document.write(html);
     printWindow.document.close();
@@ -83,7 +83,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
     <h2>${title}</h2>
     <img src="${dataUrl}" width="250" style="display:block;margin:20px auto"/>
     <button class="no-print" onclick="window.print()">Print</button>
-    <script>window.onload = () => window.print();<\/script>
+    <script>window.onload = () => window.print();</script>
     </body></html>`;
     printWindow.document.write(html);
     printWindow.document.close();

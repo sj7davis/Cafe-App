@@ -25,7 +25,7 @@ export function playNewOrderChime() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.6);
-  } catch {}
+  } catch { /* browser may block audio without a user gesture */ }
 }
 
 export function SidebarItem({ icon, label, tab, activeTab, setActiveTab, badge }: {
@@ -138,7 +138,7 @@ export function printReceipt(order: any, venue: any, printerSize: '80mm' | '58mm
   <div class="center" style="font-size:10px">${order.paymentMethod === 'online' ? 'Paid online' : 'Pay at pickup'}</div>
   <div class="center bold" style="margin-top:8px">Thank you!</div>
   <div style="margin-top:24px"></div>
-  <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
+  <script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
   </body></html>`;
 
   const w = window.open('', '_blank', 'width=400,height=600');

@@ -587,7 +587,7 @@ export function SortableMenuRow({
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={() => setOpenModifiers(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n; })} title="Manage Modifiers" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}>
+          <button onClick={() => setOpenModifiers(prev => { const n = new Set(prev); if (n.has(item.id)) n.delete(item.id); else n.add(item.id); return n; })} title="Manage Modifiers" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}>
             {openModifiers.has(item.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
           <button onClick={() => startEdit(item)} title="Edit" className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}>
