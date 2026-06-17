@@ -94,8 +94,20 @@ const validCalls: [string, Record<string, unknown>][] = [
 
   // ── xero ───────────────────────────────────────────────────────────────────
   ["xero.getConnection", { token: T }],
+  ["xero.getAuthUrl", { token: T }],
   ["xero.syncRevenue", { token: T, fromDate: "2026-06-01", toDate: "2026-06-30" }],
   ["xero.disconnect", { token: T }],
+
+  // ── integrations (OAuth auth-url + status; signed state built server-side) ──
+  ["square.getOAuthUrl", { token: T }],
+  ["square.status", { token: T }],
+  ["lightspeed.getAuthUrl", { token: T }],
+  ["lightspeed.getConnection", { token: T }],
+  ["venue.gmbGetAuthUrl", { token: T }],
+  ["venue.gmbGetConnection", { token: T }],
+  // API-key providers (vendor has no OAuth server) — keys never leave the server
+  ["impos.connect", { token: T, apiKey: "k_123", siteId: "site_9" }],
+  ["tyro.connect", { token: T, apiKey: "k_123", merchantId: "m_9" }],
 
   // ── franchisee / reservations / nps ────────────────────────────────────────
   ["franchisee.setup", { token: T, platformFeePercent: 3, payoutSchedule: "monthly" }],

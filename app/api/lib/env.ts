@@ -35,4 +35,11 @@ export const env = {
   xeroClientSecret: process.env.XERO_CLIENT_SECRET ?? "",
   lightspeedClientId: process.env.LIGHTSPEED_CLIENT_ID ?? "",
   lightspeedClientSecret: process.env.LIGHTSPEED_CLIENT_SECRET ?? "",
+  // Square OAuth app (one platform app; per-venue tokens granted via OAuth)
+  squareAppId: process.env.SQUARE_APP_ID ?? "",
+  squareAppSecret: process.env.SQUARE_APP_SECRET ?? "",
+  squareEnv: process.env.SQUARE_ENV ?? "sandbox", // "sandbox" | "production"
+  // Google OAuth app (used for Google My Business "business.manage" scope)
+  googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
 };

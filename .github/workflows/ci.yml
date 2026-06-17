@@ -42,4 +42,4 @@ jobs:
       # Blocking. Zero errors allowed; the warning ceiling is a ratchet —
       # lower it as the `no-explicit-any` backlog is paid down, never raise it.
       - name: Lint
-        run: npx eslint . --max-warnings 537
+        run: npx eslint . --max-warnings 534

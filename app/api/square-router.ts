@@ -6,34 +6,40 @@ import { venues, menuItems, inventory, orders } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
+import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh, squareApiBase as SQUARE_API_BASE } from "./lib/oauth";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
-const SQUARE_APP_ID = process.env.SQUARE_APP_ID || "";
-const SQUARE_ENV = process.env.SQUARE_ENV || "sandbox"; // sandbox or production
 
-// Square API base URL
-const SQUARE_API_BASE = SQUARE_ENV === "production"
-  ? "https://connect.squareup.com"
-  : "https://connect.squareupsandbox.com";
+// Return a non-expired Square access token (refreshing in place if needed)
+// plus the venue row, or throw if Square isn't connected for this venue.
+async function getValidSquare(venueId: number) {
+  const db = getDb();
+  const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
+  if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
+  if (!needsRefresh(venue.squareTokenExpiresAt ?? null) || !venue.squareRefreshToken) {
+    return { accessToken: venue.squareAccessToken, venue };
+  }
+  const tokens = await refreshAccessToken("square", venue.squareRefreshToken);
+  // Square returns an absolute expires_at; fall back to expires_in if not present.
+  const expiresAt = typeof tokens.raw.expires_at === "string" ? new Date(tokens.raw.expires_at) : expiryDate(tokens.expiresInSec);
+  await db.update(venues).set({
+    squareAccessToken: tokens.accessToken,
+    squareRefreshToken: tokens.refreshToken ?? venue.squareRefreshToken,
+    squareTokenExpiresAt: expiresAt,
+    updatedAt: new Date(),
+  }).where(eq(venues.id, venueId));
+  return { accessToken: tokens.accessToken, venue };
+}
 
 export const squareRouter = createRouter({
-  // Get Square OAuth URL for connecting a venue
+  // Get Square OAuth URL for connecting a venue (signed state via shared module)
   getOAuthUrl: publicQuery.input(z.object({
     token: z.string(),
   })).query(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-
-    if (!SQUARE_APP_ID) throw new TRPCError({ code: "NOT_FOUND", message: "Square not configured" });
-
-    const scopes = "ITEMS_READ ORDERS_READ INVENTORY_READ PAYMENTS_READ ORDERS_WRITE";
-    const state = Buffer.from(JSON.stringify({ venueId })).toString("base64");
-    // Must match EXACTLY what's registered in Square Developer Portal
-    // and what boot.ts uses in the token exchange.
-    const redirectUri = `${env.appUrl}/api/square/callback`;
-
-    const url = `${SQUARE_API_BASE}/oauth2/authorize?client_id=${SQUARE_APP_ID}&scope=${encodeURIComponent(scopes)}&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
+    const url = await buildAuthUrl("square", venueId);
+    if (!url) throw new TRPCError({ code: "NOT_FOUND", message: "Square not configured" });
     return { url };
   }),
 
@@ -60,14 +66,13 @@ export const squareRouter = createRouter({
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
 
-    const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
-    if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
+    const { accessToken } = await getValidSquare(venueId);
 
     try {
       // Fetch both ITEM and IMAGE objects in one request
       const res = await fetch(`${SQUARE_API_BASE}/v2/catalog/list?types=ITEM,IMAGE`, {
         headers: {
-          "Authorization": `Bearer ${venue.squareAccessToken}`,
+          "Authorization": `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
       });
@@ -156,8 +161,7 @@ export const squareRouter = createRouter({
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
 
-    const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
-    if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
+    const { accessToken, venue } = await getValidSquare(venueId);
 
     // Load menu items that have a Square catalog ID
     const items = await db.select().from(menuItems).where(eq(menuItems.venueId, venueId));
@@ -175,7 +179,7 @@ export const squareRouter = createRouter({
     const countsRes = await fetch(`${SQUARE_API_BASE}/v2/inventory/counts/batch-retrieve`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${venue.squareAccessToken}`,
+        "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -263,11 +267,10 @@ export const squareRouter = createRouter({
     const db = getDb();
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
-    if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
+    const { accessToken } = await getValidSquare(venueId);
 
     const res = await fetch(`${SQUARE_API_BASE}/v2/orders/${input.squareOrderId}`, {
-      headers: { "Authorization": `Bearer ${venue.squareAccessToken}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
     });
     if (!res.ok) throw new TRPCError({ code: "BAD_REQUEST", message: "Square order not found" });
     const data = await res.json() as any;
@@ -301,11 +304,11 @@ export const squareRouter = createRouter({
     token: z.string(),
     limit: z.number().default(20),
   })).query(async ({ input }) => {
-    const db = getDb();
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
-    if (!venue?.squareAccessToken || !venue?.squareLocationId) return { orders: [] };
+    const valid = await getValidSquare(venueId).catch(() => null);
+    if (!valid || !valid.venue.squareLocationId) return { orders: [] };
+    const { accessToken, venue } = valid;
 
     const body = {
       location_ids: [venue.squareLocationId],
@@ -315,7 +318,7 @@ export const squareRouter = createRouter({
 
     const res = await fetch(`${SQUARE_API_BASE}/v2/orders/search`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${venue.squareAccessToken}`, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) return { orders: [] };

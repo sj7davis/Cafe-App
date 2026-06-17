@@ -8,6 +8,7 @@ import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
 import { env } from "./lib/env";
+import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh } from "./lib/oauth";
 import { sendEmail, sendOrderConfirmation, sendNewOrderAlert, sendOrderReady, sendReviewRequest } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import { broadcastToVenue } from "./lib/sse-store";
@@ -16,6 +17,30 @@ const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 function generateGiftCardCode(): string {
   return randomBytes(8).toString('base64url').toUpperCase().slice(0, 12);
+}
+
+// Return a non-expired Google My Business access token (refreshing + persisting
+// into venues.settingsJson if needed) plus the current settings object.
+async function getValidGmbToken(venueId: number): Promise<{ accessToken: string; settings: Record<string, any> }> {
+  const db = getDb();
+  const rows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+  const settings = (rows[0]?.settingsJson as Record<string, any>) ?? {};
+  if (!settings.gmbAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB not connected" });
+
+  const expiresAt = settings.gmbTokenExpiresAt ? new Date(settings.gmbTokenExpiresAt) : null;
+  if (!needsRefresh(expiresAt) || !settings.gmbRefreshToken) {
+    return { accessToken: settings.gmbAccessToken, settings };
+  }
+
+  const tokens = await refreshAccessToken("gmb", settings.gmbRefreshToken);
+  const newSettings = {
+    ...settings,
+    gmbAccessToken: tokens.accessToken,
+    gmbRefreshToken: tokens.refreshToken ?? settings.gmbRefreshToken,
+    gmbTokenExpiresAt: expiryDate(tokens.expiresInSec)?.toISOString() ?? null,
+  };
+  await db.update(venues).set({ settingsJson: newSettings, updatedAt: new Date() }).where(eq(venues.id, venueId));
+  return { accessToken: tokens.accessToken, settings: newSettings };
 }
 
 // ─── AU Public Holidays ───────────────────────────────────────────────────────
@@ -2768,18 +2793,9 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   })).query(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) return { url: null, configured: false };
-    const state = Buffer.from(JSON.stringify({ venueId })).toString("base64");
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: `${env.appUrl}/api/gmb/callback`,
-      scope: "https://www.googleapis.com/auth/business.manage",
-      response_type: "code",
-      access_type: "offline",
-      state,
-    });
-    return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`, configured: true };
+    // Signed state + offline access via the shared OAuth module.
+    const url = await buildAuthUrl("gmb", venueId);
+    return { url, configured: !!url };
   }),
 
   gmbGetConnection: publicQuery.input(z.object({
@@ -2802,13 +2818,10 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   gmbSyncHours: publicQuery.input(z.object({
     token: z.string(),
   })).mutation(async ({ input }) => {
-    const db = getDb();
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
-    const settings = venueRows[0]?.settingsJson as any;
-    if (!settings?.gmbAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB not connected" });
-    if (!settings?.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB location ID not set" });
+    const { accessToken, settings } = await getValidGmbToken(venueId);
+    if (!settings.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB location ID not set" });
 
     // Build GMB regularHours periods from settingsJson.hours (Mon-Sun open/close)
     const dayMap: Record<string, string> = {
@@ -2830,7 +2843,7 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
       {
         method: "PATCH",
         headers: {
-          "Authorization": `Bearer ${settings.gmbAccessToken}`,
+          "Authorization": `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ regularHours: { periods } }),
@@ -2849,10 +2862,8 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     const db = getDb();
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
-    const settings = venueRows[0]?.settingsJson as any;
-    if (!settings?.gmbAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB not connected" });
-    if (!settings?.gmbAccountId || !settings?.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB account/location ID not set" });
+    const { accessToken, settings } = await getValidGmbToken(venueId);
+    if (!settings.gmbAccountId || !settings.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB account/location ID not set" });
 
     // Availability is tracked per-venue in the inventory table; exclude items marked unavailable.
     const unavailableIds = db.select({ id: inventory.menuItemId }).from(inventory)
@@ -2885,7 +2896,7 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
       {
         method: "PATCH",
         headers: {
-          "Authorization": `Bearer ${settings.gmbAccessToken}`,
+          "Authorization": `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

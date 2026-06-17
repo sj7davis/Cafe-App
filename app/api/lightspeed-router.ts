@@ -6,20 +6,37 @@ import { posIntegrations, menuItems } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
+import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh } from "./lib/oauth";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 const LIGHTSPEED_BASE = "https://api.kounta.com/v1";
 
+// Return a non-expired Lightspeed access token, refreshing + persisting if needed.
+async function getValidLightspeedToken(venueId: number): Promise<string> {
+  const db = getDb();
+  const rows = await db.select().from(posIntegrations)
+    .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "lightspeed")))
+    .limit(1);
+  const conn = rows[0];
+  if (!conn?.accessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Lightspeed not connected" });
+  if (!needsRefresh(conn.tokenExpiresAt ?? null) || !conn.refreshToken) return conn.accessToken;
+
+  const tokens = await refreshAccessToken("lightspeed", conn.refreshToken);
+  await db.update(posIntegrations).set({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken ?? conn.refreshToken,
+    tokenExpiresAt: expiryDate(tokens.expiresInSec),
+  }).where(eq(posIntegrations.id, conn.id));
+  return tokens.accessToken;
+}
+
 export const lightspeedRouter = createRouter({
-  // Get OAuth authorization URL
+  // Get OAuth authorization URL (signed state via shared module)
   getAuthUrl: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const clientId = process.env.LIGHTSPEED_CLIENT_ID;
-    if (!clientId) return { url: null, configured: false };
-    const state = Buffer.from(JSON.stringify({ venueId })).toString("base64");
-    const url = `https://my.kounta.com/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(env.appUrl + "/api/lightspeed/callback")}&state=${state}&scope=read:catalog+read:sales+read:stock`;
-    return { url, configured: true };
+    const url = await buildAuthUrl("lightspeed", venueId);
+    return { url, configured: !!url };
   }),
 
   // Get current connection status
@@ -40,14 +57,11 @@ export const lightspeedRouter = createRouter({
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
     const db = getDb();
-    const conn = await db.select().from(posIntegrations)
-      .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "lightspeed")))
-      .limit(1);
-    if (!conn[0]?.accessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Lightspeed not connected" });
+    const accessToken = await getValidLightspeedToken(venueId);
 
     // Fetch products from Lightspeed API
     const res = await fetch(`${LIGHTSPEED_BASE}/companies/me/products.json`, {
-      headers: { Authorization: `Bearer ${conn[0].accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Lightspeed API error" });
     const data = await res.json() as any;

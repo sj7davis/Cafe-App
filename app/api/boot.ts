@@ -7,6 +7,7 @@ import { nodeHTTPRequestHandler } from "@trpc/server/adapters/node-http";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { verifyState, exchangeCode, expiryDate, OAuthError } from "./lib/oauth";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, customerPreferences, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
@@ -19,9 +20,6 @@ import { join, extname } from "path";
 import { randomBytes } from "crypto";
 import { jwtVerify } from "jose";
 
-const SQUARE_API_BASE = process.env.SQUARE_ENV === "production"
-  ? "https://connect.squareup.com"
-  : "https://connect.squareupsandbox.com";
 
 // ─── Image uploads ────────────────────────────────────────────────────────────
 const UPLOAD_JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
@@ -43,116 +41,64 @@ if (!env.isProduction) {
 // Square OAuth callback
 app.get("/api/square/callback", async (c) => {
   const code = c.req.query("code");
-  const state = c.req.query("state");
-
-  if (!code || !state) {
-    return c.json({ error: "Missing code or state" }, 400);
-  }
-
-  let venueId: number;
-  try {
-    const decoded = JSON.parse(Buffer.from(state, "base64").toString("utf8"));
-    venueId = decoded.venueId;
-  } catch {
-    return c.json({ error: "Invalid state" }, 400);
-  }
+  const stateRaw = c.req.query("state");
+  if (!code || !stateRaw) return c.redirect("/dashboard?square=error");
 
   try {
-    const tokenRes = await fetch(`${SQUARE_API_BASE}/oauth2/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: process.env.SQUARE_APP_ID,
-        client_secret: process.env.SQUARE_APP_SECRET,
-        code,
-        grant_type: "authorization_code",
-        redirect_uri: `${env.appUrl}/api/square/callback`,
-      }),
-    });
+    const venueId = await verifyState(stateRaw, "square");
+    const tokens = await exchangeCode("square", code);
 
-    if (!tokenRes.ok) {
-      console.error("Square token exchange failed", await tokenRes.text());
-      return c.redirect("/dashboard?square=error");
-    }
-
-    const tokenData = await tokenRes.json() as any;
+    // Square returns merchant_id and an absolute expires_at (RFC3339), not expires_in.
+    const expiresAt = typeof tokens.raw.expires_at === "string" ? new Date(tokens.raw.expires_at) : null;
 
     const db = getDb();
     await db.update(venues).set({
-      squareAccessToken: tokenData.access_token,
-      squareRefreshToken: tokenData.refresh_token || null,
-      squareMerchantId: tokenData.merchant_id || null,
+      squareAccessToken: tokens.accessToken,
+      squareRefreshToken: tokens.refreshToken,
+      squareMerchantId: (tokens.raw.merchant_id as string) || null,
       squareEnabled: true,
-      squareTokenExpiresAt: tokenData.expires_at ? new Date(tokenData.expires_at) : null,
+      squareTokenExpiresAt: expiresAt,
       updatedAt: new Date(),
     }).where(eq(venues.id, venueId));
 
     return c.redirect("/dashboard?square=connected");
   } catch (err) {
     console.error("Square OAuth callback error", err);
-    return c.redirect("/dashboard?square=error");
+    return c.redirect(err instanceof OAuthError ? "/dashboard?square=invalid_state" : "/dashboard?square=error");
   }
 });
 
 // Xero OAuth callback
 app.get("/api/xero/callback", async (c) => {
   const code = c.req.query("code");
-  const state = c.req.query("state");
-  if (!code || !state) return c.redirect("/dashboard?xero=error");
-
-  let venueId: number;
-  try {
-    venueId = JSON.parse(Buffer.from(state, "base64").toString("utf8")).venueId;
-  } catch {
-    return c.redirect("/dashboard?xero=error");
-  }
-
-  const xeroClientId = env.xeroClientId;
-  const xeroClientSecret = env.xeroClientSecret;
-  if (!xeroClientId || !xeroClientSecret) return c.redirect("/dashboard?xero=error");
+  const stateRaw = c.req.query("state");
+  if (!code || !stateRaw) return c.redirect("/dashboard?xero=error");
 
   try {
-    // Exchange code for tokens
-    const tokenRes = await fetch("https://identity.xero.com/connect/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": "Basic " + Buffer.from(`${xeroClientId}:${xeroClientSecret}`).toString("base64"),
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: `${env.appUrl}/api/xero/callback`,
-      }).toString(),
-    });
+    const venueId = await verifyState(stateRaw, "xero");
+    const tokens = await exchangeCode("xero", code);
 
-    if (!tokenRes.ok) {
-      console.error("Xero token exchange failed:", await tokenRes.text());
-      return c.redirect("/dashboard?xero=error");
-    }
-
-    const tokenData = await tokenRes.json() as {
-      access_token: string;
-      refresh_token: string;
-      expires_in: number;
-    };
-
-    // Get tenant ID (connected org)
+    // Get tenant ID (the connected Xero org)
     const connectionsRes = await fetch("https://api.xero.com/connections", {
-      headers: { "Authorization": `Bearer ${tokenData.access_token}` },
+      headers: { "Authorization": `Bearer ${tokens.accessToken}` },
     });
     const xeroConnsList = await connectionsRes.json() as Array<{ tenantId: string }>;
     const tenantId = xeroConnsList[0]?.tenantId;
-
     if (!tenantId) {
       console.error("Xero connections returned no tenant:", xeroConnsList);
       return c.redirect("/dashboard?xero=error");
     }
 
     const db = getDb();
-    const expiresAt = new Date(Date.now() + (tokenData.expires_in ?? 1800) * 1000);
+    const expiresAt = expiryDate(tokens.expiresInSec) ?? new Date(Date.now() + 1800 * 1000);
+    const values = {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tenantId,
+      tokenExpiresAt: expiresAt,
+      isConnected: true,
+    };
 
-    // Upsert xeroConnections
     const existing = await db
       .select({ id: xeroConnections.id })
       .from(xeroConnections)
@@ -160,28 +106,15 @@ app.get("/api/xero/callback", async (c) => {
       .limit(1);
 
     if (existing[0]) {
-      await db.update(xeroConnections).set({
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        tenantId,
-        tokenExpiresAt: expiresAt,
-        isConnected: true,
-      }).where(eq(xeroConnections.venueId, venueId));
+      await db.update(xeroConnections).set(values).where(eq(xeroConnections.venueId, venueId));
     } else {
-      await db.insert(xeroConnections).values({
-        venueId,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        tenantId,
-        tokenExpiresAt: expiresAt,
-        isConnected: true,
-      });
+      await db.insert(xeroConnections).values({ venueId, ...values });
     }
 
     return c.redirect("/dashboard?xero=connected");
   } catch (err) {
     console.error("Xero OAuth callback error:", err);
-    return c.redirect("/dashboard?xero=error");
+    return c.redirect(err instanceof OAuthError ? "/dashboard?xero=invalid_state" : "/dashboard?xero=error");
   }
 });
 
@@ -191,25 +124,14 @@ app.get("/api/lightspeed/callback", async (c) => {
   const stateRaw = c.req.query("state");
   if (!code || !stateRaw) return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_denied`);
   try {
-    const { venueId } = JSON.parse(Buffer.from(stateRaw, "base64").toString());
-    const clientId = process.env.LIGHTSPEED_CLIENT_ID;
-    const clientSecret = process.env.LIGHTSPEED_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_not_configured`);
+    const venueId = await verifyState(stateRaw, "lightspeed");
+    const tokens = await exchangeCode("lightspeed", code);
 
-    const redirectUri = `${env.appUrl}/api/lightspeed/callback`;
-    const tokenRes = await fetch("https://my.kounta.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ grant_type: "authorization_code", client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri }),
-    });
-    if (!tokenRes.ok) return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_auth_failed`);
-    const tokenData = await tokenRes.json() as any;
-
-    // Fetch company info
+    // Fetch company info to record the account id
     const companyRes = await fetch("https://api.kounta.com/v1/companies/me.json", {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      headers: { Authorization: `Bearer ${tokens.accessToken}` },
     });
-    const companyData = await companyRes.json() as any;
+    const companyData = await companyRes.json() as { id?: string | number };
 
     const db = getDb();
     const { posIntegrations } = await import("@db/schema");
@@ -219,12 +141,11 @@ app.get("/api/lightspeed/callback", async (c) => {
       .where(andDrizzle(eqDrizzle(posIntegrations.venueId, venueId), eqDrizzle(posIntegrations.provider, "lightspeed")))
       .limit(1);
 
-    const expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null;
     const values = {
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || null,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       accountId: String(companyData.id || ""),
-      tokenExpiresAt: expiresAt,
+      tokenExpiresAt: expiryDate(tokens.expiresInSec),
       isActive: true,
       lastSyncAt: new Date(),
     };
@@ -238,7 +159,42 @@ app.get("/api/lightspeed/callback", async (c) => {
     return c.redirect(`${env.appUrl}/dashboard?connected=lightspeed`);
   } catch (e) {
     console.error("Lightspeed OAuth callback error:", e);
-    return c.redirect(`${env.appUrl}/dashboard?error=lightspeed_error`);
+    return c.redirect(e instanceof OAuthError ? `${env.appUrl}/dashboard?error=lightspeed_invalid_state` : `${env.appUrl}/dashboard?error=lightspeed_error`);
+  }
+});
+
+// Google My Business OAuth callback
+app.get("/api/gmb/callback", async (c) => {
+  const code = c.req.query("code");
+  const stateRaw = c.req.query("state");
+  if (!code || !stateRaw) return c.redirect("/dashboard?gmb=error");
+
+  try {
+    const venueId = await verifyState(stateRaw, "gmb");
+    const tokens = await exchangeCode("gmb", code);
+
+    // GMB tokens live in venues.settingsJson alongside the account/location ids
+    // the owner selects later. Merge so we don't clobber other settings.
+    const db = getDb();
+    const rows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const settings = (rows[0]?.settingsJson as Record<string, unknown>) ?? {};
+
+    await db.update(venues).set({
+      settingsJson: {
+        ...settings,
+        gmbAccessToken: tokens.accessToken,
+        // Google only returns a refresh token on first consent; keep the old one if absent.
+        gmbRefreshToken: tokens.refreshToken ?? settings.gmbRefreshToken ?? null,
+        gmbTokenExpiresAt: expiryDate(tokens.expiresInSec)?.toISOString() ?? null,
+        gmbConnectedAt: new Date().toISOString(),
+      },
+      updatedAt: new Date(),
+    }).where(eq(venues.id, venueId));
+
+    return c.redirect("/dashboard?gmb=connected");
+  } catch (err) {
+    console.error("GMB OAuth callback error:", err);
+    return c.redirect(err instanceof OAuthError ? "/dashboard?gmb=invalid_state" : "/dashboard?gmb=error");
   }
 });
 

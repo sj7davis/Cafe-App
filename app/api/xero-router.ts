@@ -8,6 +8,7 @@ import { xeroConnections, orders, venues } from "@db/schema";
 import { eq, and, gte, lte, ne } from "drizzle-orm";
 import { jwtVerify } from "jose";
 import { env } from "./lib/env";
+import { buildAuthUrl } from "./lib/oauth";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -145,23 +146,9 @@ export const xeroRouter = createRouter({
     .query(async ({ input }) => {
       const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
       const venueId = payload.payload.venueId as number;
-
-      if (!env.xeroClientId) {
-        return { url: null, configured: false };
-      }
-
-      const state = Buffer.from(JSON.stringify({ venueId })).toString("base64");
-      const redirectUri = `${env.appUrl}/api/xero/callback`;
-
-      const url =
-        `https://login.xero.com/identity/connect/authorize` +
-        `?response_type=code` +
-        `&client_id=${encodeURIComponent(env.xeroClientId)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&scope=${encodeURIComponent("openid profile email accounting.transactions accounting.settings offline_access")}` +
-        `&state=${encodeURIComponent(state)}`;
-
-      return { url, configured: true };
+      // Signed state + centralized scopes/redirect via the shared OAuth module.
+      const url = await buildAuthUrl("xero", venueId);
+      return { url, configured: !!url };
     }),
 
   // Owner: sync revenue to Xero as daily manual journal entries
