@@ -1,24 +1,19 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { posIntegrations } from "@db/schema";
 import { eq, and } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const tyroRouter = createRouter({
   // Save Tyro API key (Tyro uses API key auth, not OAuth)
-  connect: publicQuery.input(z.object({
+  connect: protectedProcedure.input(z.object({
     token: z.string(),
     apiKey: z.string().min(1),
     merchantId: z.string().min(1),
     terminalId: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const existing = await db.select({ id: posIntegrations.id }).from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "tyro"))).limit(1);
@@ -32,9 +27,8 @@ export const tyroRouter = createRouter({
     return { ok: true };
   }),
 
-  getConnection: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getConnection: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const rows = await db.select().from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "tyro"))).limit(1);
@@ -44,12 +38,11 @@ export const tyroRouter = createRouter({
   }),
 
   // Fetch settlement report from Tyro API
-  getSettlement: publicQuery.input(z.object({
+  getSettlement: protectedProcedure.input(z.object({
     token: z.string(),
     date: z.string(), // YYYY-MM-DD
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const conn = await db.select().from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "tyro"))).limit(1);
@@ -70,9 +63,8 @@ export const tyroRouter = createRouter({
     };
   }),
 
-  disconnect: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  disconnect: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     await db.update(posIntegrations).set({ isActive: false, accessToken: null })
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "tyro")));

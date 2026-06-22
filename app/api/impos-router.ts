@@ -1,23 +1,19 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { posIntegrations, menuItems } from "@db/schema";
 import { eq, and } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 const IMPOS_BASE = "https://api.impos.com.au/v1";
 
 export const imposRouter = createRouter({
-  connect: publicQuery.input(z.object({
+  connect: protectedProcedure.input(z.object({
     token: z.string(),
     apiKey: z.string().min(1),
     siteId: z.string().min(1),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const existing = await db.select({ id: posIntegrations.id }).from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "impos"))).limit(1);
@@ -30,9 +26,8 @@ export const imposRouter = createRouter({
     return { ok: true };
   }),
 
-  getConnection: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getConnection: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const rows = await db.select().from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "impos"))).limit(1);
@@ -41,9 +36,8 @@ export const imposRouter = createRouter({
     return safe;
   }),
 
-  syncMenu: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  syncMenu: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const conn = await db.select().from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "impos"))).limit(1);
@@ -74,9 +68,8 @@ export const imposRouter = createRouter({
     return { synced };
   }),
 
-  disconnect: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  disconnect: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     await db.update(posIntegrations).set({ isActive: false, accessToken: null })
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "impos")));
