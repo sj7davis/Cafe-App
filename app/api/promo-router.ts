@@ -1,14 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { discountCodes, referralCodes, loyaltyAccounts } from "@db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { jwtVerify } from "jose";
 import { randomBytes } from "crypto";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 function generateReferralCode(): string {
   return randomBytes(4).toString("hex").toUpperCase(); // e.g. "A1B2C3D4"
@@ -87,19 +83,18 @@ export const promoRouter = createRouter({
   }),
 
   // Owner: list all discount codes
-  listDiscountCodes: publicQuery.input(z.object({
+  listDiscountCodes: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(discountCodes)
       .where(eq(discountCodes.venueId, venueId))
       .orderBy(desc(discountCodes.createdAt));
   }),
 
   // Owner: create discount code
-  createDiscountCode: publicQuery.input(z.object({
+  createDiscountCode: protectedProcedure.input(z.object({
     token: z.string(),
     code: z.string().min(3).max(32).transform(s => s.toUpperCase()),
     type: z.enum(["percentage", "fixed"]),
@@ -107,10 +102,9 @@ export const promoRouter = createRouter({
     minOrderAmount: z.number().positive().optional(),
     maxUses: z.number().int().positive().optional(),
     expiresAt: z.string().optional(), // ISO string
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // Check uniqueness
     const existing = await db.select().from(discountCodes)
@@ -133,14 +127,13 @@ export const promoRouter = createRouter({
   }),
 
   // Owner: toggle active/inactive
-  toggleDiscountCode: publicQuery.input(z.object({
+  toggleDiscountCode: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive(),
     isActive: z.boolean(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     await db.update(discountCodes)
       .set({ isActive: input.isActive })
@@ -149,13 +142,12 @@ export const promoRouter = createRouter({
   }),
 
   // Owner: delete discount code
-  deleteDiscountCode: publicQuery.input(z.object({
+  deleteDiscountCode: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     await db.delete(discountCodes)
       .where(and(eq(discountCodes.id, input.id), eq(discountCodes.venueId, venueId)));
@@ -258,12 +250,11 @@ export const promoRouter = createRouter({
   }),
 
   // Owner: list referral codes
-  listReferralCodes: publicQuery.input(z.object({
+  listReferralCodes: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(referralCodes)
       .where(eq(referralCodes.venueId, venueId))
       .orderBy(desc(referralCodes.uses));

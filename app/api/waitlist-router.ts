@@ -1,22 +1,17 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { waitlistEntries, venues } from "@db/schema";
 import { eq, and, inArray, max } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { sendSms } from "./lib/sms";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const waitlistRouter = createRouter({
   // Staff: get current queue (waiting + notified)
-  getQueue: publicQuery
+  getQueue: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       return db
         .select()
@@ -71,11 +66,10 @@ export const waitlistRouter = createRouter({
     }),
 
   // Staff: notify customer their table is ready
-  notify: publicQuery
+  notify: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
 
       const entryResults = await db
@@ -106,11 +100,10 @@ export const waitlistRouter = createRouter({
     }),
 
   // Staff: mark customer as seated
-  seat: publicQuery
+  seat: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       const [updated] = await db
         .update(waitlistEntries)
@@ -122,11 +115,10 @@ export const waitlistRouter = createRouter({
     }),
 
   // Staff: cancel a waitlist entry
-  cancel: publicQuery
+  cancel: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       const [updated] = await db
         .update(waitlistEntries)

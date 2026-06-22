@@ -1,14 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { reservations, venues } from "@db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { sendSms } from "./lib/sms";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const reservationsRouter = createRouter({
   // Public: customers create a reservation
@@ -64,7 +60,7 @@ export const reservationsRouter = createRouter({
     }),
 
   // Staff: list reservations, optionally filtered by date and/or status
-  list: publicQuery
+  list: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -72,10 +68,9 @@ export const reservationsRouter = createRouter({
         status: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = getDb();
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+      const venueId = ctx.auth.venueId;
 
       const conditions = [eq(reservations.venueId, venueId)];
       if (input.date) conditions.push(eq(reservations.reservationDate, input.date));
@@ -91,7 +86,7 @@ export const reservationsRouter = createRouter({
     }),
 
   // Staff: update reservation status
-  updateStatus: publicQuery
+  updateStatus: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -99,10 +94,9 @@ export const reservationsRouter = createRouter({
         status: z.enum(["confirmed", "seated", "cancelled", "no_show"]),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = getDb();
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+      const venueId = ctx.auth.venueId;
 
       const existing = await db
         .select()
