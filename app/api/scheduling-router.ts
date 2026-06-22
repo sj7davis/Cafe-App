@@ -1,22 +1,18 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { staffShifts, staffAccounts } from "@db/schema";
 import { eq, and, gte, lte, asc } from "drizzle-orm";
-import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 import { sendEmail } from "./lib/email";
 
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
-
 export const schedulingRouter = createRouter({
-  listShifts: publicQuery.input(z.object({
+  listShifts: protectedProcedure.input(z.object({
     token: z.string(),
     weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     // Compute weekEnd (7 days from weekStart)
@@ -51,7 +47,7 @@ export const schedulingRouter = createRouter({
     return shifts;
   }),
 
-  addShift: publicQuery.input(z.object({
+  addShift: protectedProcedure.input(z.object({
     token: z.string(),
     staffId: z.number().int().positive(),
     shiftDate: z.string().min(1, 'Shift date is required').regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
@@ -59,9 +55,8 @@ export const schedulingRouter = createRouter({
     endTime: z.string().min(1, 'End time is required').regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM'),
     role: z.string().optional(),
     notes: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     // Verify the staff member belongs to this venue
@@ -86,7 +81,7 @@ export const schedulingRouter = createRouter({
     return { success: true, shiftId: row.id };
   }),
 
-  updateShift: publicQuery.input(z.object({
+  updateShift: protectedProcedure.input(z.object({
     token: z.string(),
     shiftId: z.number().int().positive(),
     shiftDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -94,9 +89,8 @@ export const schedulingRouter = createRouter({
     endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     role: z.string().optional(),
     notes: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const existing = await db.select({ id: staffShifts.id, venueId: staffShifts.venueId })
@@ -120,12 +114,11 @@ export const schedulingRouter = createRouter({
     return { success: true };
   }),
 
-  deleteShift: publicQuery.input(z.object({
+  deleteShift: protectedProcedure.input(z.object({
     token: z.string(),
     shiftId: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const existing = await db.select({ id: staffShifts.id, venueId: staffShifts.venueId })
@@ -139,11 +132,10 @@ export const schedulingRouter = createRouter({
     return { success: true };
   }),
 
-  listStaff: publicQuery.input(z.object({
+  listStaff: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const staff = await db.select({
@@ -159,13 +151,12 @@ export const schedulingRouter = createRouter({
     return staff;
   }),
 
-  getMyShifts: publicQuery.input(z.object({
+  getMyShifts: protectedProcedure.input(z.object({
     token: z.string(),
     weeksAhead: z.number().default(2),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const staffId = ctx.auth.staffId as number;
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const today = new Date().toISOString().slice(0, 10);
     const future = new Date(Date.now() + input.weeksAhead * 7 * 86400000).toISOString().slice(0, 10);
@@ -179,13 +170,12 @@ export const schedulingRouter = createRouter({
       .orderBy(asc(staffShifts.shiftDate));
   }),
 
-  publishRoster: publicQuery.input(z.object({
+  publishRoster: protectedProcedure.input(z.object({
     token: z.string(),
     weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const role = payload.payload.role as string;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
+    const role = ctx.auth.role;
     if (role === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Managers only" });
     const db = getDb();
 

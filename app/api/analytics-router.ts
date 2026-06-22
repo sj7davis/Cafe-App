@@ -1,22 +1,17 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { orders, orderItems, menuItems, loyaltyAccounts, inventory, staffClockEvents, staffAccounts } from "@db/schema";
 import { eq, and, gte, lte, desc, sql, count, isNotNull } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const analyticsRouter = createRouter({
   // Overview stats: total revenue, order count, avg order, loyalty members
-  getOverview: publicQuery.input(z.object({
+  getOverview: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -47,13 +42,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Daily revenue chart data (last N days)
-  getDailyRevenue: publicQuery.input(z.object({
+  getDailyRevenue: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(7).max(90).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -80,14 +74,13 @@ export const analyticsRouter = createRouter({
   }),
 
   // Top selling items
-  getTopItems: publicQuery.input(z.object({
+  getTopItems: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
     limit: z.number().int().min(1).max(20).default(10),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -116,13 +109,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Hourly order distribution (heat map data)
-  getHourlyDistribution: publicQuery.input(z.object({
+  getHourlyDistribution: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(7).max(90).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -151,13 +143,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Revenue by category
-  getRevenueByCategory: publicQuery.input(z.object({
+  getRevenueByCategory: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -185,13 +176,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Heatmap: quantity ordered per item per hour of day
-  getItemsByHour: publicQuery.input(z.object({
+  getItemsByHour: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -215,13 +205,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // When items went sold out, grouped by item
-  getSelloutEvents: publicQuery.input(z.object({
+  getSelloutEvents: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -244,13 +233,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Item popularity broken down by day of week (top 10 items)
-  getItemPopularityByDayOfWeek: publicQuery.input(z.object({
+  getItemPopularityByDayOfWeek: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(60),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -293,13 +281,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Repeat customer rate
-  getRepeatCustomerRate: publicQuery.input(z.object({
+  getRepeatCustomerRate: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -327,13 +314,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Revenue and count broken down by order type
-  getOrderTypeBreakdown: publicQuery.input(z.object({
+  getOrderTypeBreakdown: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
 
@@ -359,13 +345,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Period comparison: current N days vs previous N days
-  getPeriodComparison: publicQuery.input(z.object({
+  getPeriodComparison: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const now = Date.now();
     const currentStart = new Date(now - input.days * 86400000);
@@ -414,12 +399,11 @@ export const analyticsRouter = createRouter({
   }),
 
   // Revenue forecast for the next 7 days based on 8-week DOW averages
-  getRevenueForecast: publicQuery.input(z.object({
+  getRevenueForecast: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - 56 * 86400000); // 8 weeks
 
@@ -462,13 +446,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Menu scorecard: performance of each item over the period
-  getMenuScorecard: publicQuery.input(z.object({
+  getMenuScorecard: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 86400000);
     const midpoint = new Date(Date.now() - (input.days / 2) * 86400000);
@@ -529,14 +512,13 @@ export const analyticsRouter = createRouter({
   }),
 
   // GST summary for Australian tax reporting
-  getGSTSummary: publicQuery.input(z.object({
+  getGSTSummary: protectedProcedure.input(z.object({
     token: z.string(),
     fromDate: z.string(),
     toDate: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const rows = await db
       .select({
@@ -574,13 +556,12 @@ export const analyticsRouter = createRouter({
   }),
 
   // Staff hours summary (from clock events)
-  getStaffHoursSummary: publicQuery.input(z.object({
+  getStaffHoursSummary: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(90).default(14),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const since = new Date(Date.now() - input.days * 86400000);
 
