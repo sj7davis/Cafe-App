@@ -1,33 +1,27 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { staffTrainingTasks, staffTrainingCompletions, staffAccounts } from "@db/schema";
 import { eq, and, asc } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const trainingRouter = createRouter({
   // List all training tasks for a venue (owner view)
-  listTasks: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  listTasks: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     return db.select().from(staffTrainingTasks)
       .where(and(eq(staffTrainingTasks.venueId, venueId), eq(staffTrainingTasks.isActive, true)))
       .orderBy(asc(staffTrainingTasks.sortOrder), asc(staffTrainingTasks.id));
   }),
 
-  createTask: publicQuery.input(z.object({
+  createTask: protectedProcedure.input(z.object({
     token: z.string(),
     title: z.string().min(1).max(255),
     description: z.string().optional(),
     requiredRole: z.enum(["admin", "manager", "staff"]).optional(),
     sortOrder: z.number().default(0),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const [task] = await db.insert(staffTrainingTasks).values({
       venueId,
@@ -39,15 +33,14 @@ export const trainingRouter = createRouter({
     return task;
   }),
 
-  updateTask: publicQuery.input(z.object({
+  updateTask: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number(),
     title: z.string().min(1).max(255).optional(),
     description: z.string().optional(),
     sortOrder: z.number().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const updates: Record<string, any> = {};
     if (input.title !== undefined) updates.title = input.title;
@@ -58,9 +51,8 @@ export const trainingRouter = createRouter({
     return { ok: true };
   }),
 
-  deleteTask: publicQuery.input(z.object({ token: z.string(), id: z.number() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  deleteTask: protectedProcedure.input(z.object({ token: z.string(), id: z.number() })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     await db.update(staffTrainingTasks).set({ isActive: false })
       .where(and(eq(staffTrainingTasks.id, input.id), eq(staffTrainingTasks.venueId, venueId)));
@@ -68,14 +60,13 @@ export const trainingRouter = createRouter({
   }),
 
   // Staff marks a task as completed
-  completeTask: publicQuery.input(z.object({
+  completeTask: protectedProcedure.input(z.object({
     token: z.string(),
     taskId: z.number(),
     notes: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const staffId = ctx.auth.staffId as number;
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     // Check not already completed
@@ -96,14 +87,13 @@ export const trainingRouter = createRouter({
   }),
 
   // Manager/owner signs off on a completion
-  signOff: publicQuery.input(z.object({
+  signOff: protectedProcedure.input(z.object({
     token: z.string(),
     completionId: z.number(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    // Could be staffId (manager) or ownerId — use whichever is in the token
-    const actorId = (payload.payload.staffId || payload.payload.ownerId) as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
+    // Could be a manager (staffId) or the owner (ownerId) — use whichever is present.
+    const actorId = (ctx.auth.staffId ?? ctx.auth.ownerId) as number;
     const db = getDb();
     await db.update(staffTrainingCompletions).set({
       signedOffBy: actorId,
@@ -116,10 +106,9 @@ export const trainingRouter = createRouter({
   }),
 
   // Get my training progress (staff view)
-  getMyProgress: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    const venueId = payload.payload.venueId as number;
+  getMyProgress: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const staffId = ctx.auth.staffId as number;
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const tasks = await db.select().from(staffTrainingTasks)
@@ -145,9 +134,8 @@ export const trainingRouter = createRouter({
   }),
 
   // Get all staff training progress (manager/owner view)
-  getTeamProgress: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getTeamProgress: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const tasks = await db.select().from(staffTrainingTasks)

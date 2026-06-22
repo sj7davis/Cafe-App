@@ -1,28 +1,23 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { staffAvailability, timeOffRequests, shiftSwapRequests, staffAccounts, staffShifts } from "@db/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { sendEmail } from "./lib/email";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const shiftManagementRouter = createRouter({
   // ─── AVAILABILITY ───
-  setAvailability: publicQuery.input(z.object({
+  setAvailability: protectedProcedure.input(z.object({
     token: z.string(),
     dayOfWeek: z.number().min(0).max(6),
     available: z.boolean(),
     preferredStartTime: z.string().optional(),
     preferredEndTime: z.string().optional(),
     note: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const staffId = ctx.auth.staffId as number;
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const existing = await db.select().from(staffAvailability)
       .where(and(eq(staffAvailability.staffId, staffId), eq(staffAvailability.dayOfWeek, input.dayOfWeek)))
@@ -46,9 +41,8 @@ export const shiftManagementRouter = createRouter({
     return { ok: true };
   }),
 
-  getMyAvailability: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
+  getMyAvailability: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const staffId = ctx.auth.staffId as number;
     const db = getDb();
     const rows = await db.select().from(staffAvailability)
       .where(eq(staffAvailability.staffId, staffId))
@@ -60,10 +54,9 @@ export const shiftManagementRouter = createRouter({
     });
   }),
 
-  getTeamAvailability: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const role = payload.payload.role as string;
+  getTeamAvailability: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
+    const role = ctx.auth.role;
     if (role === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Managers only" });
     const db = getDb();
     const staff = await db.select({ id: staffAccounts.id, name: staffAccounts.name, role: staffAccounts.role })
@@ -79,16 +72,15 @@ export const shiftManagementRouter = createRouter({
   }),
 
   // ─── TIME OFF REQUESTS ───
-  requestTimeOff: publicQuery.input(z.object({
+  requestTimeOff: protectedProcedure.input(z.object({
     token: z.string(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     leaveType: z.enum(["annual", "sick", "unpaid", "other"]).default("annual"),
     reason: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const staffId = ctx.auth.staffId as number;
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const [req] = await db.insert(timeOffRequests).values({
       staffId, venueId, startDate: input.startDate, endDate: input.endDate,
@@ -97,21 +89,19 @@ export const shiftManagementRouter = createRouter({
     return { id: req.id };
   }),
 
-  getMyTimeOffRequests: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
+  getMyTimeOffRequests: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const staffId = ctx.auth.staffId as number;
     const db = getDb();
     return db.select().from(timeOffRequests).where(eq(timeOffRequests.staffId, staffId))
       .orderBy(desc(timeOffRequests.createdAt));
   }),
 
-  listTimeOffRequests: publicQuery.input(z.object({
+  listTimeOffRequests: protectedProcedure.input(z.object({
     token: z.string(),
     status: z.enum(["pending", "approved", "denied", "all"]).default("pending"),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const role = payload.payload.role as string;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
+    const role = ctx.auth.role;
     if (role === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Managers only" });
     const db = getDb();
     const conditions: any[] = [eq(timeOffRequests.venueId, venueId)];
@@ -134,16 +124,15 @@ export const shiftManagementRouter = createRouter({
     return requests;
   }),
 
-  reviewTimeOff: publicQuery.input(z.object({
+  reviewTimeOff: protectedProcedure.input(z.object({
     token: z.string(),
     requestId: z.number(),
     status: z.enum(["approved", "denied"]),
     notes: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const reviewerId = payload.payload.staffId as number;
-    const role = payload.payload.role as string;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
+    const reviewerId = ctx.auth.staffId as number;
+    const role = ctx.auth.role;
     if (role === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Managers only" });
     const db = getDb();
     await db.update(timeOffRequests).set({
@@ -168,16 +157,15 @@ export const shiftManagementRouter = createRouter({
   }),
 
   // ─── SHIFT SWAP REQUESTS ───
-  requestShiftSwap: publicQuery.input(z.object({
+  requestShiftSwap: protectedProcedure.input(z.object({
     token: z.string(),
     fromShiftId: z.number(),
     targetStaffId: z.number().optional(),
     targetShiftId: z.number().optional(),
     reason: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const staffId = ctx.auth.staffId as number;
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     // Verify from shift belongs to requestor
     const [shift] = await db.select().from(staffShifts)
@@ -192,13 +180,12 @@ export const shiftManagementRouter = createRouter({
     return { id: req.id };
   }),
 
-  listShiftSwapRequests: publicQuery.input(z.object({
+  listShiftSwapRequests: protectedProcedure.input(z.object({
     token: z.string(),
     status: z.enum(["pending", "approved", "denied", "all"]).default("pending"),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const role = payload.payload.role as string;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
+    const role = ctx.auth.role;
     if (role === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Managers only" });
     const db = getDb();
     const conditions: any[] = [eq(shiftSwapRequests.venueId, venueId)];
@@ -206,15 +193,14 @@ export const shiftManagementRouter = createRouter({
     return db.select().from(shiftSwapRequests).where(and(...conditions)).orderBy(desc(shiftSwapRequests.createdAt));
   }),
 
-  respondShiftSwap: publicQuery.input(z.object({
+  respondShiftSwap: protectedProcedure.input(z.object({
     token: z.string(),
     requestId: z.number(),
     status: z.enum(["approved", "denied"]),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const reviewerId = payload.payload.staffId as number;
-    const role = payload.payload.role as string;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
+    const reviewerId = ctx.auth.staffId as number;
+    const role = ctx.auth.role;
     if (role === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Managers only" });
     const db = getDb();
     await db.update(shiftSwapRequests).set({
