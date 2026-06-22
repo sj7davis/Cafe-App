@@ -1,13 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners } from "@db/schema";
 import { eq } from "drizzle-orm";
-import { jwtVerify } from "jose";
 import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 const TIERS = {
   starter: { name: "Starter", monthlyPrice: 49, features: ["Basic menu", "Online orders", "2 staff members", "Email support"] },
@@ -27,11 +24,10 @@ export const billingRouter = createRouter({
   tiers: publicQuery.query(() => TIERS),
 
   // Get venue's subscription status
-  status: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+  status: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venue = await db.query.venues?.findFirst({
-      where: eq(venues.id, payload.payload.venueId as number),
+      where: eq(venues.id, ctx.auth.venueId),
     });
     if (!venue) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
 
@@ -46,13 +42,12 @@ export const billingRouter = createRouter({
   }),
 
   // Change subscription tier — wired to Stripe
-  changeTier: publicQuery.input(z.object({
+  changeTier: protectedProcedure.input(z.object({
     token: z.string(),
     tier: z.enum(["free", "starter", "pro", "enterprise"]),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const venue = await db.query.venues?.findFirst({
       where: eq(venues.id, venueId),
@@ -138,10 +133,9 @@ export const billingRouter = createRouter({
   }),
 
   // Cancel subscription
-  cancel: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
+  cancel: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const venue = await db.query.venues?.findFirst({
       where: eq(venues.id, venueId),
@@ -160,10 +154,9 @@ export const billingRouter = createRouter({
   }),
 
   // Get Stripe billing portal URL
-  getBillingPortalUrl: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+  getBillingPortalUrl: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const venue = await db.query.venues?.findFirst({
       where: eq(venues.id, venueId),

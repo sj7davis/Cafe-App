@@ -1,18 +1,13 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders } from "@db/schema";
 import { eq, gte, and, sql } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const multiVenueRouter = createRouter({
   // Get all venues owned by this owner (cross-venue dashboard)
-  getAllVenues: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const ownerId = payload.payload.ownerId as number;
+  getAllVenues: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const ownerId = ctx.auth.ownerId as number;
     const db = getDb();
 
     const ownerVenues = await db.select({
@@ -35,12 +30,11 @@ export const multiVenueRouter = createRouter({
   }),
 
   // Consolidated revenue across all owned venues
-  getConsolidatedRevenue: publicQuery.input(z.object({
+  getConsolidatedRevenue: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().default(30),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const ownerId = payload.payload.ownerId as number;
+  })).query(async ({ input, ctx }) => {
+    const ownerId = ctx.auth.ownerId as number;
     const db = getDb();
 
     const ownerVenues = await db.select({ venueId: venueOwners.venueId })
@@ -75,12 +69,11 @@ export const multiVenueRouter = createRouter({
   }),
 
   // Side-by-side comparison across venues
-  getVenueComparison: publicQuery.input(z.object({
+  getVenueComparison: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().default(7),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const ownerId = payload.payload.ownerId as number;
+  })).query(async ({ input, ctx }) => {
+    const ownerId = ctx.auth.ownerId as number;
     const db = getDb();
 
     const ownerVenues = await db.select({ venueId: venueOwners.venueId })
