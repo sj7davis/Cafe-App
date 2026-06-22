@@ -1,20 +1,15 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { wasteLog, menuItems } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const wasteRouter = createRouter({
   // Staff: list recent waste log entries
-  list: publicQuery
+  list: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       return db
         .select({
@@ -37,7 +32,7 @@ export const wasteRouter = createRouter({
     }),
 
   // Staff: log a waste entry
-  log: publicQuery
+  log: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -48,33 +43,30 @@ export const wasteRouter = createRouter({
         costEstimate: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
-      const staffId = payload.payload.staffId as number | undefined;
-      const { token, ...data } = input;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
+      const staffId = ctx.auth.staffId ?? null;
       const db = getDb();
       const [entry] = await db
         .insert(wasteLog)
         .values({
           venueId,
-          staffId: staffId ?? null,
-          menuItemId: data.menuItemId ?? null,
-          itemName: data.itemName,
-          quantity: data.quantity,
-          reason: data.reason,
-          costEstimate: data.costEstimate ?? null,
+          staffId,
+          menuItemId: input.menuItemId ?? null,
+          itemName: input.itemName,
+          quantity: input.quantity,
+          reason: input.reason,
+          costEstimate: input.costEstimate ?? null,
         })
         .returning();
       return entry;
     }),
 
   // Owner: get waste summary
-  getSummary: publicQuery
+  getSummary: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
 
       const entries = await db
@@ -118,11 +110,10 @@ export const wasteRouter = createRouter({
     }),
 
   // Staff: delete a waste entry
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       await db
         .delete(wasteLog)
