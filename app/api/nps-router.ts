@@ -1,12 +1,8 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { npsResponses } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const npsRouter = createRouter({
   // Public: submit an NPS response
@@ -36,11 +32,10 @@ export const npsRouter = createRouter({
     }),
 
   // Owner: get NPS statistics
-  getStats: publicQuery
+  getStats: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
 
       const responses = await db
@@ -89,11 +84,10 @@ export const npsRouter = createRouter({
     }),
 
   // Owner: list recent responses
-  list: publicQuery
+  list: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       return db
         .select()

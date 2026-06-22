@@ -1,13 +1,9 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { loyaltyRewards, loyaltyAccounts, loyaltyTransactions } from "@db/schema";
 import { eq, and, asc } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const loyaltyRewardsRouter = createRouter({
   // Public: list active rewards for a venue
@@ -23,11 +19,10 @@ export const loyaltyRewardsRouter = createRouter({
     }),
 
   // Owner: list all rewards (including inactive)
-  listAll: publicQuery
+  listAll: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       return db
         .select()
@@ -37,7 +32,7 @@ export const loyaltyRewardsRouter = createRouter({
     }),
 
   // Owner: create a reward
-  create: publicQuery
+  create: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -51,10 +46,9 @@ export const loyaltyRewardsRouter = createRouter({
         sortOrder: z.number().int().default(0),
       })
     )
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
-      const { token, ...data } = input;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
+      const { token: _token, ...data } = input;
       const db = getDb();
       const [reward] = await db
         .insert(loyaltyRewards)
@@ -64,7 +58,7 @@ export const loyaltyRewardsRouter = createRouter({
     }),
 
   // Owner: update a reward
-  update: publicQuery
+  update: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -79,10 +73,9 @@ export const loyaltyRewardsRouter = createRouter({
         sortOrder: z.number().int().optional(),
       })
     )
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
-      const { token, id, ...data } = input;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
+      const { token: _token, id, ...data } = input;
       const db = getDb();
       const [reward] = await db
         .update(loyaltyRewards)
@@ -94,11 +87,10 @@ export const loyaltyRewardsRouter = createRouter({
     }),
 
   // Owner: delete a reward
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       await db
         .delete(loyaltyRewards)
