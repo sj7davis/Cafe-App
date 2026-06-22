@@ -1,28 +1,24 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import Stripe from "stripe";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchiseeAccounts, franchiseePayouts, orders, venues } from "@db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
-import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
-
 export const franchiseeRouter = createRouter({
   // Set up franchisee config for a venue
-  setup: publicQuery.input(z.object({
+  setup: protectedProcedure.input(z.object({
     token: z.string(),
     platformFeePercent: z.number().min(0).max(100).default(3),
     payoutSchedule: z.enum(["weekly", "fortnightly", "monthly"]).default("monthly"),
     notes: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const ownerId = payload.payload.ownerId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
+    const ownerId = ctx.auth.ownerId as number;
     const db = getDb();
 
     const existing = await db.select().from(franchiseeAccounts)
@@ -49,9 +45,8 @@ export const franchiseeRouter = createRouter({
   }),
 
   // Get franchisee config
-  getConfig: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getConfig: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const [config] = await db.select().from(franchiseeAccounts)
       .where(eq(franchiseeAccounts.venueId, venueId)).limit(1);
@@ -59,13 +54,12 @@ export const franchiseeRouter = createRouter({
   }),
 
   // Calculate revenue split for a period
-  getRevenueSplit: publicQuery.input(z.object({
+  getRevenueSplit: protectedProcedure.input(z.object({
     token: z.string(),
     periodStart: z.string(), // ISO date string
     periodEnd: z.string(),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const [config] = await db.select().from(franchiseeAccounts)
@@ -97,12 +91,11 @@ export const franchiseeRouter = createRouter({
   }),
 
   // List payout history
-  listPayouts: publicQuery.input(z.object({
+  listPayouts: protectedProcedure.input(z.object({
     token: z.string(),
     limit: z.number().default(24),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     return db.select().from(franchiseePayouts)
       .where(eq(franchiseePayouts.venueId, venueId))
@@ -111,11 +104,10 @@ export const franchiseeRouter = createRouter({
   }),
 
   // Process/record a payout for the current month
-  processMonthlyPayout: publicQuery.input(z.object({
+  processMonthlyPayout: protectedProcedure.input(z.object({
     token: z.string(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const [config] = await db.select().from(franchiseeAccounts)
@@ -193,9 +185,8 @@ export const franchiseeRouter = createRouter({
   }),
 
   // Create (or retrieve) a Stripe Express connected account and return an onboarding URL
-  createConnectAccountLink: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  createConnectAccountLink: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     if (!env.stripeSecretKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
@@ -232,9 +223,8 @@ export const franchiseeRouter = createRouter({
   }),
 
   // Check if the Stripe Connect account is fully onboarded and ready for transfers
-  getConnectStatus: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getConnectStatus: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const [config] = await db.select().from(franchiseeAccounts)
@@ -261,9 +251,8 @@ export const franchiseeRouter = createRouter({
   }),
 
   // Retrieve the Stripe Connect payout balance for the caller's venue
-  getPayoutBalance: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getPayoutBalance: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const [config] = await db.select().from(franchiseeAccounts)

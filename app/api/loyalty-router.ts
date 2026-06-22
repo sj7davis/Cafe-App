@@ -1,13 +1,9 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { loyaltyAccounts, loyaltyTransactions } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 function calculateTier(totalLifetimePoints: number): 'bronze' | 'silver' | 'gold' | 'platinum' {
   if (totalLifetimePoints >= 5000) return 'platinum';
@@ -47,13 +43,12 @@ export const loyaltyRouter = createRouter({
   }),
 
   // Owner/staff: list all loyalty accounts
-  listAccounts: publicQuery.input(z.object({
+  listAccounts: protectedProcedure.input(z.object({
     token: z.string(),
     limit: z.number().int().min(1).max(200).default(100),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const accounts = await db.select().from(loyaltyAccounts)
       .where(eq(loyaltyAccounts.venueId, venueId))
       .orderBy(desc(loyaltyAccounts.totalLifetimePoints))
@@ -62,15 +57,14 @@ export const loyaltyRouter = createRouter({
   }),
 
   // Owner/staff: manually adjust points
-  adjustPoints: publicQuery.input(z.object({
+  adjustPoints: protectedProcedure.input(z.object({
     token: z.string(),
     phone: z.string().min(1),
     points: z.number().int(), // positive = add, negative = deduct
     reason: z.string().min(1),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     let account = await db.select().from(loyaltyAccounts)
       .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, input.phone)))
