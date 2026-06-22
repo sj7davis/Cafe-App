@@ -1,23 +1,18 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { campaignMessages, loyaltyAccounts, customerAccounts, venues } from "@db/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
 
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
-
 export const campaignsRouter = createRouter({
   // Owner: list all campaigns for venue
-  list: publicQuery
+  list: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       return db
         .select()
@@ -27,7 +22,7 @@ export const campaignsRouter = createRouter({
     }),
 
   // Owner: create a campaign
-  create: publicQuery
+  create: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -38,10 +33,9 @@ export const campaignsRouter = createRouter({
         segment: z.enum(["all", "active_30d", "high_value"]),
       })
     )
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
-      const { token, ...data } = input;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
+      const { token: _token, ...data } = input;
       const db = getDb();
       const [campaign] = await db
         .insert(campaignMessages)
@@ -51,11 +45,10 @@ export const campaignsRouter = createRouter({
     }),
 
   // Owner: send a campaign
-  send: publicQuery
+  send: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
 
       // Fetch campaign
@@ -144,11 +137,10 @@ export const campaignsRouter = createRouter({
     }),
 
   // Owner: delete a draft campaign
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
 
       const campaignResults = await db

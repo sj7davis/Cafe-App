@@ -1,19 +1,14 @@
 import { z } from "zod";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { customerAccounts, orders, campaignMessages } from "@db/schema";
 import { eq, and, gte, desc, isNotNull, sql } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { sendSms } from "./lib/sms";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 export const smsMarketingRouter = createRouter({
   // Get customer counts for each segment
-  getSegments: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getSegments: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const now = new Date();
@@ -94,13 +89,12 @@ export const smsMarketingRouter = createRouter({
   }),
 
   // Send bulk SMS to a segment
-  sendBulkSms: publicQuery.input(z.object({
+  sendBulkSms: protectedProcedure.input(z.object({
     token: z.string(),
     segment: z.enum(["all", "lapsed_30d", "lapsed_60d", "birthday_month", "top_spenders"]),
     message: z.string().min(1).max(160),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const now = new Date();
@@ -191,12 +185,11 @@ export const smsMarketingRouter = createRouter({
   }),
 
   // Get campaign history
-  getCampaignHistory: publicQuery.input(z.object({
+  getCampaignHistory: protectedProcedure.input(z.object({
     token: z.string(),
     limit: z.number().default(20),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     return db.select().from(campaignMessages)
