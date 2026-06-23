@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery, protectedProcedure } from "./middleware";
+import { createRouter, publicQuery } from "./middleware";
+import { featureProcedure } from "./lib/plans";
 import { getDb } from "./queries/connection";
 import { loyaltyAccounts, loyaltyTransactions } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -43,7 +44,7 @@ export const loyaltyRouter = createRouter({
   }),
 
   // Owner/staff: list all loyalty accounts
-  listAccounts: protectedProcedure.input(z.object({
+  listAccounts: featureProcedure("loyalty").input(z.object({
     token: z.string(),
     limit: z.number().int().min(1).max(200).default(100),
   })).query(async ({ input, ctx }) => {
@@ -57,7 +58,7 @@ export const loyaltyRouter = createRouter({
   }),
 
   // Owner/staff: manually adjust points
-  adjustPoints: protectedProcedure.input(z.object({
+  adjustPoints: featureProcedure("loyalty").input(z.object({
     token: z.string(),
     phone: z.string().min(1),
     points: z.number().int(), // positive = add, negative = deduct

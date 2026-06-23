@@ -14,6 +14,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
 import { sendEmail } from "./lib/email";
 import { checkRateLimit } from "./lib/rate-limit";
+import { assertStaffLimit } from "./lib/plans";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -331,6 +332,9 @@ export const staffAuthRouter = createRouter({
     const existing = await db.select().from(staffAccounts)
       .where(and(eq(staffAccounts.username, input.username), eq(staffAccounts.venueId, venueId))).limit(1);
     if (existing.length > 0) throw new TRPCError({ code: "CONFLICT", message: "Username already taken" });
+
+    // Enforce the plan's staff-member limit before creating another account.
+    await assertStaffLimit(venueId);
 
     const passwordHash = await hash(input.password, 10);
     let emailVerifyToken: string | undefined;

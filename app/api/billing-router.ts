@@ -5,6 +5,7 @@ import { getDb } from "./queries/connection";
 import { venues, venueOwners } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { env } from "./lib/env";
+import { planFor, staffUsage } from "./lib/plans";
 
 const TIERS = {
   starter: { name: "Starter", monthlyPrice: 49, features: ["Basic menu", "Online orders", "2 staff members", "Email support"] },
@@ -31,6 +32,11 @@ export const billingRouter = createRouter({
     });
     if (!venue) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
 
+    // Server-enforced entitlements for this venue's effective plan, plus live
+    // usage, so the UI can show limits and disable upgrade-only actions.
+    const plan = planFor(venue.subscriptionTier, venue.subscriptionStatus);
+    const usage = await staffUsage(ctx.auth.venueId);
+
     return {
       tier: venue.subscriptionTier,
       status: venue.subscriptionStatus,
@@ -38,6 +44,12 @@ export const billingRouter = createRouter({
       isTrial: venue.subscriptionStatus === "trial",
       tierDetails: TIERS[venue.subscriptionTier as keyof typeof TIERS],
       hasStripeCustomer: !!venue.stripeCustomerId,
+      plan: {
+        label: plan.label,
+        features: plan.features,
+        maxStaff: Number.isFinite(plan.maxStaff) ? plan.maxStaff : null,
+      },
+      usage: { staff: usage },
     };
   }),
 

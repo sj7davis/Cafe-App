@@ -6,6 +6,7 @@ import { venues, menuItems, inventory, orders } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh, squareApiBase as SQUARE_API_BASE } from "./lib/oauth";
 import { seal, open } from "./lib/crypto";
+import { featureProcedure } from "./lib/plans";
 
 // Return a non-expired Square access token (refreshing in place if needed)
 // plus the venue row, or throw if Square isn't connected for this venue.
@@ -31,7 +32,7 @@ async function getValidSquare(venueId: number) {
 
 export const squareRouter = createRouter({
   // Get Square OAuth URL for connecting a venue (signed state via shared module)
-  getOAuthUrl: protectedProcedure.input(z.object({
+  getOAuthUrl: featureProcedure("pos_sync").input(z.object({
     token: z.string(),
   })).query(async ({ ctx }) => {
     const url = await buildAuthUrl("square", ctx.auth.venueId);

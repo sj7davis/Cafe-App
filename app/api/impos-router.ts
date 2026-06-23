@@ -5,11 +5,12 @@ import { getDb } from "./queries/connection";
 import { posIntegrations, menuItems } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { seal, open } from "./lib/crypto";
+import { featureProcedure } from "./lib/plans";
 
 const IMPOS_BASE = "https://api.impos.com.au/v1";
 
 export const imposRouter = createRouter({
-  connect: protectedProcedure.input(z.object({
+  connect: featureProcedure("pos_sync").input(z.object({
     token: z.string(),
     apiKey: z.string().min(1),
     siteId: z.string().min(1),

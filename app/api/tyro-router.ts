@@ -5,10 +5,11 @@ import { getDb } from "./queries/connection";
 import { posIntegrations } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { seal, open } from "./lib/crypto";
+import { featureProcedure } from "./lib/plans";
 
 export const tyroRouter = createRouter({
   // Save Tyro API key (Tyro uses API key auth, not OAuth)
-  connect: protectedProcedure.input(z.object({
+  connect: featureProcedure("pos_sync").input(z.object({
     token: z.string(),
     apiKey: z.string().min(1),
     merchantId: z.string().min(1),

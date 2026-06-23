@@ -1,12 +1,16 @@
 import { z } from "zod";
-import { createRouter, protectedProcedure } from "./middleware";
+import { createRouter } from "./middleware";
+import { featureProcedure } from "./lib/plans";
 import { getDb } from "./queries/connection";
 import { orders, orderItems, menuItems, loyaltyAccounts, inventory, staffClockEvents, staffAccounts } from "@db/schema";
 import { eq, and, gte, lte, desc, sql, count, isNotNull } from "drizzle-orm";
 
+// Every analytics endpoint requires the "analytics" feature (Pro+).
+const analyticsProcedure = featureProcedure("analytics");
+
 export const analyticsRouter = createRouter({
   // Overview stats: total revenue, order count, avg order, loyalty members
-  getOverview: protectedProcedure.input(z.object({
+  getOverview: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -42,7 +46,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Daily revenue chart data (last N days)
-  getDailyRevenue: protectedProcedure.input(z.object({
+  getDailyRevenue: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(7).max(90).default(30),
   })).query(async ({ input, ctx }) => {
@@ -74,7 +78,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Top selling items
-  getTopItems: protectedProcedure.input(z.object({
+  getTopItems: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
     limit: z.number().int().min(1).max(20).default(10),
@@ -109,7 +113,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Hourly order distribution (heat map data)
-  getHourlyDistribution: protectedProcedure.input(z.object({
+  getHourlyDistribution: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(7).max(90).default(30),
   })).query(async ({ input, ctx }) => {
@@ -143,7 +147,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Revenue by category
-  getRevenueByCategory: protectedProcedure.input(z.object({
+  getRevenueByCategory: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -176,7 +180,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Heatmap: quantity ordered per item per hour of day
-  getItemsByHour: protectedProcedure.input(z.object({
+  getItemsByHour: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -205,7 +209,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // When items went sold out, grouped by item
-  getSelloutEvents: protectedProcedure.input(z.object({
+  getSelloutEvents: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -233,7 +237,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Item popularity broken down by day of week (top 10 items)
-  getItemPopularityByDayOfWeek: protectedProcedure.input(z.object({
+  getItemPopularityByDayOfWeek: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(60),
   })).query(async ({ input, ctx }) => {
@@ -281,7 +285,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Repeat customer rate
-  getRepeatCustomerRate: protectedProcedure.input(z.object({
+  getRepeatCustomerRate: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -314,7 +318,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Revenue and count broken down by order type
-  getOrderTypeBreakdown: protectedProcedure.input(z.object({
+  getOrderTypeBreakdown: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -345,7 +349,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Period comparison: current N days vs previous N days
-  getPeriodComparison: protectedProcedure.input(z.object({
+  getPeriodComparison: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -399,7 +403,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Revenue forecast for the next 7 days based on 8-week DOW averages
-  getRevenueForecast: protectedProcedure.input(z.object({
+  getRevenueForecast: analyticsProcedure.input(z.object({
     token: z.string(),
   })).query(async ({ ctx }) => {
     const db = getDb();
@@ -446,7 +450,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Menu scorecard: performance of each item over the period
-  getMenuScorecard: protectedProcedure.input(z.object({
+  getMenuScorecard: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
   })).query(async ({ input, ctx }) => {
@@ -512,7 +516,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // GST summary for Australian tax reporting
-  getGSTSummary: protectedProcedure.input(z.object({
+  getGSTSummary: analyticsProcedure.input(z.object({
     token: z.string(),
     fromDate: z.string(),
     toDate: z.string(),
@@ -556,7 +560,7 @@ export const analyticsRouter = createRouter({
   }),
 
   // Staff hours summary (from clock events)
-  getStaffHoursSummary: protectedProcedure.input(z.object({
+  getStaffHoursSummary: analyticsProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(90).default(14),
   })).query(async ({ input, ctx }) => {

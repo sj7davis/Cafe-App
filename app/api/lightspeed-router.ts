@@ -6,6 +6,7 @@ import { posIntegrations, menuItems } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh } from "./lib/oauth";
 import { seal, open } from "./lib/crypto";
+import { featureProcedure } from "./lib/plans";
 
 const LIGHTSPEED_BASE = "https://api.kounta.com/v1";
 
@@ -31,7 +32,7 @@ async function getValidLightspeedToken(venueId: number): Promise<string> {
 
 export const lightspeedRouter = createRouter({
   // Get OAuth authorization URL (signed state via shared module)
-  getAuthUrl: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+  getAuthUrl: featureProcedure("pos_sync").input(z.object({ token: z.string() })).query(async ({ ctx }) => {
     const url = await buildAuthUrl("lightspeed", ctx.auth.venueId);
     return { url, configured: !!url };
   }),
