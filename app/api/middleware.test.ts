@@ -3,9 +3,21 @@
  * verified once and venueId is injected, and that bad/forged/unscoped tokens
  * are rejected before any resolver runs. No DB needed.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { SignJWT } from "jose";
 import { z } from "zod";
+
+// This is a unit test of the auth gate only — no database. Stub the tenant-scope
+// connection so runWithTenant just runs the resolver (the real one opens a
+// Postgres transaction to set app.venue_id, which isn't relevant here and would
+// require a live DB in CI).
+vi.mock("./queries/connection", () => ({
+  runWithTenant: (_venueId: number | null, fn: () => unknown) => fn(),
+  getDb: () => {
+    throw new Error("getDb is not available in this unit test");
+  },
+}));
+
 import { createRouter, protectedProcedure, adminProcedure } from "./middleware";
 import { env } from "./lib/env";
 
