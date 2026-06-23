@@ -120,7 +120,7 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setSelectedDays(d)}
             className="px-3 py-1 font-data"
-            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: selectedDays === d ? '#181818' : 'transparent', color: selectedDays === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: selectedDays === d ? 'var(--op-btn-bg)' : 'transparent', color: selectedDays === d ? 'var(--op-btn-text)' : 'var(--op-text-secondary)', cursor: 'pointer' }}>
             {d}D
           </button>
         ))}
@@ -160,7 +160,7 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
         {!dailyLoading && dailyRevenue && dailyRevenue.length > 0 && (
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={dailyRevenue as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--op-border-soft)" />
               <XAxis dataKey="date" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
               <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v}`} />
               <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Revenue']} labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
@@ -208,7 +208,7 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Orders by Hour</h2>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={hourlyDist as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--op-border-soft)" />
               <XAxis dataKey="label" tick={{ fontFamily: 'Geist Mono', fontSize: 9 }} interval={1} />
               <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} allowDecimals={false} />
               <Tooltip labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
@@ -266,11 +266,11 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
                       const qty = heatmapItems[itemName]?.[h] ?? 0;
                       const intensity = heatmapMax > 0 ? qty / heatmapMax : 0;
                       const bg = intensity === 0
-                        ? '#F3F2EE'
+                        ? 'var(--op-bg)'
                         : `rgba(94,139,139,${0.15 + intensity * 0.85})`;
                       return (
                         <td key={h} title={qty > 0 ? `${qty} orders` : undefined}
-                          style={{ padding: '3px 6px', textAlign: 'center', background: bg, fontSize: 11, color: intensity > 0.5 ? '#fff' : '#5E5E5E', border: '1px solid rgba(24,24,24,0.04)' }}>
+                          style={{ padding: '3px 6px', textAlign: 'center', background: bg, fontSize: 11, color: intensity > 0.5 ? '#fff' : 'var(--op-text-secondary)', border: '1px solid var(--op-border-soft)' }}>
                           {qty > 0 ? qty : ''}
                         </td>
                       );
@@ -294,7 +294,7 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
             {(selloutEvents as { itemName: string; soldOutAt: Date | string; hour: number }[]).map((ev, i) => {
               const d = new Date(ev.soldOutAt);
               return (
-                <div key={i} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'rgba(24,24,24,0.06)' }}>
+                <div key={i} className="flex items-center gap-3 py-2 border-b" style={{ borderColor: 'var(--op-border-soft)' }}>
                   <AlertCircle size={12} style={{ color: '#B85450', flexShrink: 0 }} />
                   <span style={{ fontSize: '0.875rem', color: 'var(--op-text)' }}>{ev.itemName}</span>
                   <span className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
@@ -394,7 +394,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
           {(revenueForecast as any).days && (revenueForecast as any).days.length > 0 && (
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={(revenueForecast as any).days} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,24,0.06)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--op-border-soft)" />
                 <XAxis dataKey="date" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
                 <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v}`} />
                 <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Predicted']} labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
@@ -417,7 +417,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['Rank', 'Item', 'Units Sold', 'Revenue', 'Rev Share %', 'Trend'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
@@ -426,10 +426,10 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
               <tbody>
                 {menuScorecard.map((row, idx) => {
                   const trendPct = Number(row.trend) || 0;
-                  const trendColor = trendPct > 5 ? '#5E8B5E' : trendPct < -5 ? '#B85450' : '#5E5E5E';
+                  const trendColor = trendPct > 5 ? '#5E8B5E' : trendPct < -5 ? '#B85450' : 'var(--op-text-secondary)';
                   const trendArrow = trendPct > 5 ? '↑' : trendPct < -5 ? '↓' : '→';
                   return (
-                    <tr key={row.name} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <tr key={row.name} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                       <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>{idx + 1}</td>
                       <td style={{ padding: '10px 10px', fontWeight: 500, color: 'var(--op-text)' }}>{row.name}</td>
                       <td style={{ padding: '10px 10px' }}>{row.totalQty}</td>
@@ -492,7 +492,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
             {(gstSummary as any).byPaymentMethod && (gstSummary as any).byPaymentMethod.length > 0 && (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(24,24,24,0.1)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--op-border-mid)' }}>
                     {['Payment Method', 'Revenue', 'GST', 'Net Ex-GST'].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                     ))}
@@ -500,7 +500,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
                 </thead>
                 <tbody>
                   {(gstSummary as any).byPaymentMethod.map((row: any) => (
-                    <tr key={row.method} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <tr key={row.method} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                       <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: 'var(--op-text)' }}>{row.method || 'Other'}</td>
                       <td style={{ padding: '8px 10px' }}>${Number(row.revenue).toFixed(2)}</td>
                       <td style={{ padding: '8px 10px', color: '#C4953A' }}>${Number(row.gst).toFixed(2)}</td>
