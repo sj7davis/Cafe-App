@@ -7,15 +7,16 @@ import {
 
 
 
-import { DS } from '../shared';
+import { DS, useFeatureGate, UpgradeGate } from '../shared';
 
 
-export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
+export function LoyaltyTab({ venueId: _venueId, onUpgrade }: { venueId: number; onUpgrade?: () => void }) {
   const utils = trpc.useUtils();
   const loyaltyToken = localStorage.getItem('b1-owner-token') || '';
-  const { data: accounts, isLoading: accsLoading } = trpc.loyalty.listAccounts.useQuery({ token: loyaltyToken }, { enabled: !!loyaltyToken });
+  const gate = useFeatureGate('loyalty');
+  const { data: accounts, isLoading: accsLoading } = trpc.loyalty.listAccounts.useQuery({ token: loyaltyToken }, { enabled: !!loyaltyToken && gate.allowed });
   const [loyaltySearch, setLoyaltySearch] = useState('');
-  const { data: rewards, isLoading: rewardsLoading } = trpc.loyaltyRewards.listAll.useQuery({ token: loyaltyToken }, { enabled: !!loyaltyToken });
+  const { data: rewards, isLoading: rewardsLoading } = trpc.loyaltyRewards.listAll.useQuery({ token: loyaltyToken }, { enabled: !!loyaltyToken && gate.allowed });
   const createReward = trpc.loyaltyRewards.create.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setShowRewardForm(false); resetRewardForm(); } });
   const updateReward = trpc.loyaltyRewards.update.useMutation({ onSuccess: () => { utils.loyaltyRewards.listAll.invalidate(); setEditRewardId(null); } });
   const deleteReward = trpc.loyaltyRewards.delete.useMutation({ onSuccess: () => utils.loyaltyRewards.listAll.invalidate() });
@@ -38,6 +39,16 @@ export function LoyaltyTab({ venueId: _venueId }: { venueId: number }) {
     { value: 'discount_fixed', label: 'Discount Fixed ($)' },
     { value: 'custom', label: 'Custom' },
   ];
+
+  if (gate.locked) {
+    return (
+      <UpgradeGate
+        title="Loyalty is a Pro feature"
+        description={`Your ${gate.planLabel} plan doesn't include the loyalty program. Upgrade to reward repeat customers with points and redeemable rewards.`}
+        onUpgrade={onUpgrade}
+      />
+    );
+  }
 
   return (
     <div>

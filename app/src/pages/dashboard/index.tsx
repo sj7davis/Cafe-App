@@ -255,7 +255,7 @@ export default function OwnerDashboard() {
       >
         <div style={{ padding: '28px 32px', maxWidth: 1280, margin: '0 auto' }}>
           {activeTab === 'overview' && <OverviewTab venue={venue} owner={owner} setActiveTab={setActiveTab} />}
-          {activeTab === 'analytics' && <AnalyticsTab />}
+          {activeTab === 'analytics' && <AnalyticsTab onUpgrade={() => setActiveTab('billing')} />}
           {activeTab === 'pl' && venue && <PLTab venue={venue} />}
           {activeTab === 'menu' && <MenuTab venue={venue} />}
           {activeTab === 'inventory' && <InventoryTab />}
@@ -270,7 +270,7 @@ export default function OwnerDashboard() {
           {activeTab === 'promo' && venue && <PromoTab venueId={venue.id} />}
           {activeTab === 'bundles' && venue && <BundlesTab venueId={venue.id} />}
           {activeTab === 'campaigns' && venue && <CampaignsTab venueId={venue.id} />}
-          {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} />}
+          {activeTab === 'loyalty' && venue && <LoyaltyTab venueId={venue.id} onUpgrade={() => setActiveTab('billing')} />}
           {activeTab === 'delivery' && <DeliveryTab />}
           {activeTab === 'audit' && <AuditTab />}
           {activeTab === 'allvenues' && <AllVenuesTab />}

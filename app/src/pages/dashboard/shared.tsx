@@ -5,7 +5,7 @@ import { useState, useRef, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
   Loader2, Check, Coffee, Edit2, Trash2,
-  GripVertical, ChevronDown, ChevronUp, Plus,
+  GripVertical, ChevronDown, ChevronUp, Plus, Lock,
 } from 'lucide-react';
 
 import { useSortable,
@@ -133,6 +133,42 @@ export const DS = {
   } as React.CSSProperties),
 };
 
+// ─── Plan feature gating ──────────────────────────────────────────────────────
+// Reads the venue's enforced plan from billing.status and reports whether a
+// feature is available. Gated tabs use `allowed` to suppress their queries while
+// loading or when locked, and render <UpgradeGate/> when `locked`.
+export function useFeatureGate(feature: string) {
+  const token = localStorage.getItem('b1-owner-token') || '';
+  const { data: status } = trpc.billing.status.useQuery(
+    { token },
+    { enabled: !!token, staleTime: 5 * 60 * 1000 },
+  );
+  const features = status?.plan?.features as string[] | undefined;
+  return {
+    ready: !!features,
+    allowed: !!features && features.includes(feature),
+    locked: !!features && !features.includes(feature),
+    planLabel: status?.plan?.label ?? 'current',
+  };
+}
+
+export function UpgradeGate({
+  title, description, onUpgrade,
+}: { title: string; description: string; onUpgrade?: () => void }) {
+  return (
+    <div style={{ ...DS.card, textAlign: 'center', padding: '56px 32px', maxWidth: 460, margin: '48px auto' }}>
+      <div style={{ width: 46, height: 46, borderRadius: 12, background: 'rgba(196,149,58,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+        <Lock size={19} style={{ color: '#C4953A' }} />
+      </div>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--op-text)', margin: '0 0 8px', letterSpacing: '-0.02em' }}>{title}</h2>
+      <p style={{ fontSize: 13.5, color: 'var(--op-text-secondary)', lineHeight: 1.55, margin: '0 0 22px' }}>{description}</p>
+      {onUpgrade && (
+        <button onClick={onUpgrade} style={{ ...DS.btnPrimary, padding: '11px 22px' }}>View plans &amp; upgrade</button>
+      )}
+    </div>
+  );
+}
+
 // ─── Image upload styles (used inside ImageUpload below) ──────────────────────
 const IMG_UPLOAD_INPUT: React.CSSProperties = {
   width: '100%', padding: '7px 10px', border: '1px solid var(--op-card-border)',
@@ -170,8 +206,8 @@ export function ImageUpload({
       // Prepend origin so the URL works from any page
       const fullUrl = json.url.startsWith('http') ? json.url : window.location.origin + json.url;
       onChange(fullUrl);
-    } catch (e: any) {
-      setError(e.message || 'Upload failed');
+    } catch (e) {
+      setError((e as Error).message || 'Upload failed');
     } finally {
       setUploading(false);
     }

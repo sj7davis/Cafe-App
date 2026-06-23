@@ -9,18 +9,21 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
-import { CHART_COLORS } from '../shared';
+import { CHART_COLORS, useFeatureGate, UpgradeGate } from '../shared';
 
 
-export function AnalyticsTab() {
+export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
+  const gate = useFeatureGate('analytics');
   const [selectedDays, setSelectedDays] = useState(30);
   const [triggerExport, setTriggerExport] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  // Cache for 5 minutes — analytics don't need real-time refresh
-  const analyticsOpts = { enabled: !!token, staleTime: 5 * 60 * 1000 };
+  // Cache for 5 minutes — analytics don't need real-time refresh. Queries stay
+  // disabled until the plan is confirmed to include analytics (avoids 403s on
+  // locked plans).
+  const analyticsOpts = { enabled: !!token && gate.allowed, staleTime: 5 * 60 * 1000 };
 
   const { data: overview, isLoading: overviewLoading } = trpc.analytics.getOverview.useQuery(
     { token, days: selectedDays }, analyticsOpts
@@ -48,9 +51,9 @@ export function AnalyticsTab() {
     { enabled: triggerExport && !!token }
   );
   useEffect(() => {
-    if (ordersExportData && (ordersExportData as any).csv) {
+    if (ordersExportData && ordersExportData.csv) {
       setTriggerExport(false);
-      const blob = new Blob([(ordersExportData as any).csv], { type: 'text/csv' });
+      const blob = new Blob([ordersExportData.csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = 'orders-export.csv'; a.click();
@@ -89,6 +92,16 @@ export function AnalyticsTab() {
         value: r.count,
       }))
     : [];
+
+  if (gate.locked) {
+    return (
+      <UpgradeGate
+        title="Analytics is a Pro feature"
+        description={`Your ${gate.planLabel} plan doesn't include the analytics dashboard. Upgrade to unlock revenue trends, top items, hourly heatmaps and CSV exports.`}
+        onUpgrade={onUpgrade}
+      />
+    );
+  }
 
   return (
     <div>
