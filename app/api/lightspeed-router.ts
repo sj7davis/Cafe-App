@@ -5,6 +5,7 @@ import { getDb } from "./queries/connection";
 import { posIntegrations, menuItems } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh } from "./lib/oauth";
+import { seal, open } from "./lib/crypto";
 
 const LIGHTSPEED_BASE = "https://api.kounta.com/v1";
 
@@ -16,12 +17,13 @@ async function getValidLightspeedToken(venueId: number): Promise<string> {
     .limit(1);
   const conn = rows[0];
   if (!conn?.accessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Lightspeed not connected" });
-  if (!needsRefresh(conn.tokenExpiresAt ?? null) || !conn.refreshToken) return conn.accessToken;
+  const currentRefresh = open(conn.refreshToken);
+  if (!needsRefresh(conn.tokenExpiresAt ?? null) || !currentRefresh) return open(conn.accessToken)!;
 
-  const tokens = await refreshAccessToken("lightspeed", conn.refreshToken);
+  const tokens = await refreshAccessToken("lightspeed", currentRefresh);
   await db.update(posIntegrations).set({
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken ?? conn.refreshToken,
+    accessToken: seal(tokens.accessToken),
+    refreshToken: seal(tokens.refreshToken ?? currentRefresh),
     tokenExpiresAt: expiryDate(tokens.expiresInSec),
   }).where(eq(posIntegrations.id, conn.id));
   return tokens.accessToken;

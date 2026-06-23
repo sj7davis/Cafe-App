@@ -18,6 +18,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:local": "node scripts/local-db.mjs",
+    "db:encrypt-secrets": "tsx --tsconfig tsconfig.server.json scripts/encrypt-secrets.ts",
     "seed": "tsx --tsconfig tsconfig.server.json db/seed-staff.ts",
     "seed:platform": "tsx --tsconfig tsconfig.server.json db/seed-platform.ts"
   },

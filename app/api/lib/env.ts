@@ -17,6 +17,10 @@ export const env = {
   // b1_app role's URL in production to turn enforcement on.
   appDatabaseUrl: process.env.APP_DATABASE_URL || "",
   jwtSecret: process.env.JWT_SECRET || "b1-platform-jwt-secret-dev-only",
+  // 32-byte key (base64) for encrypting stored third-party secrets at rest
+  // (OAuth tokens, POS API keys). Required in production; in dev a stable key is
+  // derived from JWT_SECRET so local connect/refresh round-trips work.
+  encryptionKey: process.env.ENCRYPTION_KEY || "",
   platformAdminSecret: process.env.PLATFORM_ADMIN_SECRET || "b1-platform-admin-secret-dev-only",
   port: parseInt(process.env.PORT || "3001"),
   resendApiKey: process.env.RESEND_API_KEY || "",

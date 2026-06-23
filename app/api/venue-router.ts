@@ -9,6 +9,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
 import { env } from "./lib/env";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh } from "./lib/oauth";
+import { seal, open } from "./lib/crypto";
 import { sendEmail, sendOrderConfirmation, sendNewOrderAlert, sendOrderReady, sendReviewRequest } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import { broadcastToVenue } from "./lib/sse-store";
@@ -28,15 +29,16 @@ async function getValidGmbToken(venueId: number): Promise<{ accessToken: string;
   if (!settings.gmbAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB not connected" });
 
   const expiresAt = settings.gmbTokenExpiresAt ? new Date(settings.gmbTokenExpiresAt) : null;
-  if (!needsRefresh(expiresAt) || !settings.gmbRefreshToken) {
-    return { accessToken: settings.gmbAccessToken, settings };
+  const currentRefresh = open(settings.gmbRefreshToken);
+  if (!needsRefresh(expiresAt) || !currentRefresh) {
+    return { accessToken: open(settings.gmbAccessToken)!, settings };
   }
 
-  const tokens = await refreshAccessToken("gmb", settings.gmbRefreshToken);
+  const tokens = await refreshAccessToken("gmb", currentRefresh);
   const newSettings = {
     ...settings,
-    gmbAccessToken: tokens.accessToken,
-    gmbRefreshToken: tokens.refreshToken ?? settings.gmbRefreshToken,
+    gmbAccessToken: seal(tokens.accessToken),
+    gmbRefreshToken: seal(tokens.refreshToken ?? currentRefresh),
     gmbTokenExpiresAt: expiryDate(tokens.expiresInSec)?.toISOString() ?? null,
   };
   await db.update(venues).set({ settingsJson: newSettings, updatedAt: new Date() }).where(eq(venues.id, venueId));

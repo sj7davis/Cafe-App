@@ -8,6 +8,7 @@ import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
 import { verifyState, exchangeCode, expiryDate, OAuthError } from "./lib/oauth";
+import { seal } from "./lib/crypto";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, customerPreferences, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
@@ -53,8 +54,8 @@ app.get("/api/square/callback", async (c) => {
 
     const db = getDb();
     await db.update(venues).set({
-      squareAccessToken: tokens.accessToken,
-      squareRefreshToken: tokens.refreshToken,
+      squareAccessToken: seal(tokens.accessToken),
+      squareRefreshToken: seal(tokens.refreshToken),
       squareMerchantId: (tokens.raw.merchant_id as string) || null,
       squareEnabled: true,
       squareTokenExpiresAt: expiresAt,
@@ -92,8 +93,8 @@ app.get("/api/xero/callback", async (c) => {
     const db = getDb();
     const expiresAt = expiryDate(tokens.expiresInSec) ?? new Date(Date.now() + 1800 * 1000);
     const values = {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      accessToken: seal(tokens.accessToken),
+      refreshToken: seal(tokens.refreshToken),
       tenantId,
       tokenExpiresAt: expiresAt,
       isConnected: true,
@@ -142,8 +143,8 @@ app.get("/api/lightspeed/callback", async (c) => {
       .limit(1);
 
     const values = {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      accessToken: seal(tokens.accessToken),
+      refreshToken: seal(tokens.refreshToken),
       accountId: String(companyData.id || ""),
       tokenExpiresAt: expiryDate(tokens.expiresInSec),
       isActive: true,
@@ -182,9 +183,9 @@ app.get("/api/gmb/callback", async (c) => {
     await db.update(venues).set({
       settingsJson: {
         ...settings,
-        gmbAccessToken: tokens.accessToken,
+        gmbAccessToken: seal(tokens.accessToken),
         // Google only returns a refresh token on first consent; keep the old one if absent.
-        gmbRefreshToken: tokens.refreshToken ?? settings.gmbRefreshToken ?? null,
+        gmbRefreshToken: seal(tokens.refreshToken) ?? (settings.gmbRefreshToken as string | null) ?? null,
         gmbTokenExpiresAt: expiryDate(tokens.expiresInSec)?.toISOString() ?? null,
         gmbConnectedAt: new Date().toISOString(),
       },

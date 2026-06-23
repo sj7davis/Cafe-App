@@ -5,6 +5,7 @@ import { getDb } from "./queries/connection";
 import { venues, menuItems, inventory, orders } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh, squareApiBase as SQUARE_API_BASE } from "./lib/oauth";
+import { seal, open } from "./lib/crypto";
 
 // Return a non-expired Square access token (refreshing in place if needed)
 // plus the venue row, or throw if Square isn't connected for this venue.
@@ -12,15 +13,16 @@ async function getValidSquare(venueId: number) {
   const db = getDb();
   const venue = await db.query.venues?.findFirst({ where: eq(venues.id, venueId) });
   if (!venue?.squareAccessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Square not connected" });
-  if (!needsRefresh(venue.squareTokenExpiresAt ?? null) || !venue.squareRefreshToken) {
-    return { accessToken: venue.squareAccessToken, venue };
+  const currentRefresh = open(venue.squareRefreshToken);
+  if (!needsRefresh(venue.squareTokenExpiresAt ?? null) || !currentRefresh) {
+    return { accessToken: open(venue.squareAccessToken)!, venue };
   }
-  const tokens = await refreshAccessToken("square", venue.squareRefreshToken);
+  const tokens = await refreshAccessToken("square", currentRefresh);
   // Square returns an absolute expires_at; fall back to expires_in if not present.
   const expiresAt = typeof tokens.raw.expires_at === "string" ? new Date(tokens.raw.expires_at) : expiryDate(tokens.expiresInSec);
   await db.update(venues).set({
-    squareAccessToken: tokens.accessToken,
-    squareRefreshToken: tokens.refreshToken ?? venue.squareRefreshToken,
+    squareAccessToken: seal(tokens.accessToken),
+    squareRefreshToken: seal(tokens.refreshToken ?? currentRefresh),
     squareTokenExpiresAt: expiresAt,
     updatedAt: new Date(),
   }).where(eq(venues.id, venueId));

@@ -4,6 +4,7 @@ import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { posIntegrations, menuItems } from "@db/schema";
 import { eq, and } from "drizzle-orm";
+import { seal, open } from "./lib/crypto";
 
 const IMPOS_BASE = "https://api.impos.com.au/v1";
 
@@ -18,10 +19,10 @@ export const imposRouter = createRouter({
     const existing = await db.select({ id: posIntegrations.id }).from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "impos"))).limit(1);
     if (existing[0]) {
-      await db.update(posIntegrations).set({ accessToken: input.apiKey, accountId: input.siteId, isActive: true })
+      await db.update(posIntegrations).set({ accessToken: seal(input.apiKey), accountId: input.siteId, isActive: true })
         .where(eq(posIntegrations.id, existing[0].id));
     } else {
-      await db.insert(posIntegrations).values({ venueId, provider: "impos", accessToken: input.apiKey, accountId: input.siteId, isActive: true });
+      await db.insert(posIntegrations).values({ venueId, provider: "impos", accessToken: seal(input.apiKey), accountId: input.siteId, isActive: true });
     }
     return { ok: true };
   }),
@@ -44,7 +45,7 @@ export const imposRouter = createRouter({
     if (!conn[0]?.accessToken) throw new TRPCError({ code: "BAD_REQUEST", message: "Impos not connected" });
 
     const res = await fetch(`${IMPOS_BASE}/sites/${conn[0].accountId}/menu-items`, {
-      headers: { "X-Api-Key": conn[0].accessToken, "Content-Type": "application/json" },
+      headers: { "X-Api-Key": open(conn[0].accessToken) ?? "", "Content-Type": "application/json" },
     });
     if (!res.ok) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Impos API error" });
     const items = await res.json() as any[];

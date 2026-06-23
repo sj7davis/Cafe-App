@@ -8,6 +8,7 @@ import { xeroConnections, orders, venues } from "@db/schema";
 import { eq, and, gte, lte, ne } from "drizzle-orm";
 import { env } from "./lib/env";
 import { buildAuthUrl } from "./lib/oauth";
+import { seal, open } from "./lib/crypto";
 
 const XERO_API_BASE = "https://api.xero.com/api.xro/2.0";
 const XERO_TOKEN_URL = "https://identity.xero.com/connect/token";
@@ -30,7 +31,7 @@ async function getValidXeroToken(venueId: number): Promise<{ accessToken: string
   const tokenExpiresSoon = !connection.tokenExpiresAt || connection.tokenExpiresAt < fiveMinutesFromNow;
 
   if (!tokenExpiresSoon) {
-    return { accessToken: connection.accessToken, tenantId: connection.tenantId };
+    return { accessToken: open(connection.accessToken)!, tenantId: connection.tenantId };
   }
 
   // Refresh the token
@@ -46,7 +47,7 @@ async function getValidXeroToken(venueId: number): Promise<{ accessToken: string
     },
     body: new URLSearchParams({
       grant_type: "refresh_token",
-      refresh_token: connection.refreshToken,
+      refresh_token: open(connection.refreshToken)!,
     }).toString(),
   });
 
@@ -65,8 +66,8 @@ async function getValidXeroToken(venueId: number): Promise<{ accessToken: string
   const expiresAt = new Date(Date.now() + (tokenData.expires_in ?? 1800) * 1000);
 
   await db.update(xeroConnections).set({
-    accessToken: tokenData.access_token,
-    refreshToken: tokenData.refresh_token,
+    accessToken: seal(tokenData.access_token),
+    refreshToken: seal(tokenData.refresh_token),
     tokenExpiresAt: expiresAt,
   }).where(eq(xeroConnections.venueId, venueId));
 
