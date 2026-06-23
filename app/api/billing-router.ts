@@ -6,6 +6,7 @@ import { venues, venueOwners } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { env } from "./lib/env";
 import { planFor, staffUsage } from "./lib/plans";
+import { exportVenue as buildVenueExport } from "./lib/tenant-lifecycle";
 
 const TIERS = {
   starter: { name: "Starter", monthlyPrice: 49, features: ["Basic menu", "Online orders", "2 staff members", "Email support"] },
@@ -51,6 +52,12 @@ export const billingRouter = createRouter({
       },
       usage: { staff: usage },
     };
+  }),
+
+  // Owner self-service data export (portability): a secret-redacted JSON
+  // snapshot of this venue's own data.
+  exportData: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    return buildVenueExport(ctx.auth.venueId);
   }),
 
   // Change subscription tier — wired to Stripe

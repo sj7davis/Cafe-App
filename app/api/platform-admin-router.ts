@@ -12,6 +12,7 @@ import { eq, count, desc, sum } from "drizzle-orm";
 import { compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
+import { exportVenue as buildVenueExport } from "./lib/tenant-lifecycle";
 
 const JWT_SECRET = new TextEncoder().encode(env.platformAdminSecret);
 
@@ -102,6 +103,37 @@ export const platformAdminRouter = createRouter({
     const db = getSystemDb();
     await db.update(venues).set(input.data).where(eq(venues.id, input.venueId));
     return { success: true };
+  }),
+
+  // ─── Tenant lifecycle ──────────────────────────────────────────────────────
+  // Suspend: block all access immediately; reversible. Reactivate: restore.
+  suspendVenue: publicQuery.input(z.object({ token: z.string(), venueId: z.number() })).mutation(async ({ input }) => {
+    await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const db = getSystemDb();
+    await db.update(venues).set({ isActive: false }).where(eq(venues.id, input.venueId));
+    return { success: true };
+  }),
+
+  reactivateVenue: publicQuery.input(z.object({ token: z.string(), venueId: z.number() })).mutation(async ({ input }) => {
+    await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const db = getSystemDb();
+    await db.update(venues).set({ isActive: true }).where(eq(venues.id, input.venueId));
+    return { success: true };
+  }),
+
+  // Soft offboard: stop access and billing but keep the data (reversible by
+  // reactivating). A hard data purge is a separate, deliberate operation.
+  offboardVenue: publicQuery.input(z.object({ token: z.string(), venueId: z.number() })).mutation(async ({ input }) => {
+    await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const db = getSystemDb();
+    await db.update(venues).set({ isActive: false, subscriptionStatus: "cancelled" }).where(eq(venues.id, input.venueId));
+    return { success: true };
+  }),
+
+  // Full secret-redacted JSON export of a venue's data (portability / archival).
+  exportVenue: publicQuery.input(z.object({ token: z.string(), venueId: z.number() })).query(async ({ input }) => {
+    await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    return buildVenueExport(input.venueId);
   }),
 
   // Aggregate platform fees collected per venue and in total (platform admin only)

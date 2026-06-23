@@ -222,15 +222,18 @@ export const venueRouter = createRouter({
     const valid = await compare(input.password, owner.passwordHash);
     if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
 
+    const venueResults = await db.select().from(venues).where(eq(venues.id, owner.venueId)).limit(1);
+    const venue = venueResults[0];
+    if (!venue || !venue.isActive) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "This venue has been suspended. Please contact support." });
+    }
+
     const token = await new SignJWT({ ownerId: owner.id, venueId: owner.venueId, role: owner.role })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("7d")
       .sign(JWT_SECRET);
 
     await db.update(venueOwners).set({ lastLoginAt: new Date() }).where(eq(venueOwners.id, owner.id));
-
-    const venueResults = await db.select().from(venues).where(eq(venues.id, owner.venueId)).limit(1);
-    const venue = venueResults[0];
 
     return { token, owner: { id: owner.id, name: owner.name, email: owner.email, role: owner.role }, venue };
   }),
@@ -631,6 +634,12 @@ export const venueRouter = createRouter({
     scheduledFor: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
+
+    // Reject orders for a suspended venue.
+    const venueRow = await db.select({ isActive: venues.isActive }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    if (!venueRow[0] || !venueRow[0].isActive) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "This venue is not currently accepting orders." });
+    }
 
     // Verify all menu items belong to the venue and calculate total
     let totalAmount = 0;
