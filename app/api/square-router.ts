@@ -1,14 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues, menuItems, inventory, orders } from "@db/schema";
 import { eq, and } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh, squareApiBase as SQUARE_API_BASE } from "./lib/oauth";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 // Return a non-expired Square access token (refreshing in place if needed)
 // plus the venue row, or throw if Square isn't connected for this venue.
@@ -33,20 +29,17 @@ async function getValidSquare(venueId: number) {
 
 export const squareRouter = createRouter({
   // Get Square OAuth URL for connecting a venue (signed state via shared module)
-  getOAuthUrl: publicQuery.input(z.object({
+  getOAuthUrl: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const url = await buildAuthUrl("square", venueId);
+  })).query(async ({ ctx }) => {
+    const url = await buildAuthUrl("square", ctx.auth.venueId);
     if (!url) throw new TRPCError({ code: "NOT_FOUND", message: "Square not configured" });
     return { url };
   }),
 
   // Disconnect Square
-  disconnect: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
+  disconnect: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     await db.update(venues).set({
       squareMerchantId: null,
       squareLocationId: null,
@@ -55,16 +48,15 @@ export const squareRouter = createRouter({
       squareTokenExpiresAt: null,
       squareEnabled: false,
       updatedAt: new Date(),
-    }).where(eq(venues.id, payload.payload.venueId as number));
+    }).where(eq(venues.id, ctx.auth.venueId));
     return { success: true };
   }),
 
   // Import menu from Square (one-way: Square → B1 only)
   // Fetches ITEM + IMAGE objects in one call so images are included.
-  syncMenu: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
+  syncMenu: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const { accessToken } = await getValidSquare(venueId);
 
@@ -156,10 +148,9 @@ export const squareRouter = createRouter({
   }),
 
   // Sync inventory counts from Square
-  syncInventory: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
+  syncInventory: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const { accessToken, venue } = await getValidSquare(venueId);
 
@@ -245,11 +236,10 @@ export const squareRouter = createRouter({
   }),
 
   // Get connection status
-  status: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+  status: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venue = await db.query.venues?.findFirst({
-      where: eq(venues.id, payload.payload.venueId as number),
+      where: eq(venues.id, ctx.auth.venueId),
     });
 
     return {
@@ -260,13 +250,12 @@ export const squareRouter = createRouter({
     };
   }),
 
-  injectOrder: publicQuery.input(z.object({
+  injectOrder: protectedProcedure.input(z.object({
     token: z.string(),
     squareOrderId: z.string(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const { accessToken } = await getValidSquare(venueId);
 
     const res = await fetch(`${SQUARE_API_BASE}/v2/orders/${input.squareOrderId}`, {
@@ -300,12 +289,11 @@ export const squareRouter = createRouter({
     return { id: order.id, total: totalMoney, items: lineItems.length };
   }),
 
-  getRecentSquareOrders: publicQuery.input(z.object({
+  getRecentSquareOrders: protectedProcedure.input(z.object({
     token: z.string(),
     limit: z.number().default(20),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const valid = await getValidSquare(venueId).catch(() => null);
     if (!valid || !valid.venue.squareLocationId) return { orders: [] };
     const { accessToken, venue } = valid;

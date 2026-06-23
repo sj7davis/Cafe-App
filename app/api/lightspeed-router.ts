@@ -1,14 +1,11 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { posIntegrations, menuItems } from "@db/schema";
 import { eq, and } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh } from "./lib/oauth";
 
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 const LIGHTSPEED_BASE = "https://api.kounta.com/v1";
 
 // Return a non-expired Lightspeed access token, refreshing + persisting if needed.
@@ -32,17 +29,14 @@ async function getValidLightspeedToken(venueId: number): Promise<string> {
 
 export const lightspeedRouter = createRouter({
   // Get OAuth authorization URL (signed state via shared module)
-  getAuthUrl: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const url = await buildAuthUrl("lightspeed", venueId);
+  getAuthUrl: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const url = await buildAuthUrl("lightspeed", ctx.auth.venueId);
     return { url, configured: !!url };
   }),
 
   // Get current connection status
-  getConnection: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  getConnection: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const rows = await db.select().from(posIntegrations)
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "lightspeed")))
@@ -53,9 +47,8 @@ export const lightspeedRouter = createRouter({
   }),
 
   // Sync menu from Lightspeed
-  syncMenu: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  syncMenu: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const accessToken = await getValidLightspeedToken(venueId);
 
@@ -95,9 +88,8 @@ export const lightspeedRouter = createRouter({
   }),
 
   // Disconnect
-  disconnect: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  disconnect: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     await db.update(posIntegrations).set({ isActive: false, accessToken: null, refreshToken: null })
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "lightspeed")));

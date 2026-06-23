@@ -401,7 +401,7 @@ export const analyticsRouter = createRouter({
   // Revenue forecast for the next 7 days based on 8-week DOW averages
   getRevenueForecast: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input, ctx }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
     const venueId = ctx.auth.venueId;
 

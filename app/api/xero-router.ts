@@ -2,15 +2,12 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { xeroConnections, orders, venues } from "@db/schema";
 import { eq, and, gte, lte, ne } from "drizzle-orm";
-import { jwtVerify } from "jose";
 import { env } from "./lib/env";
 import { buildAuthUrl } from "./lib/oauth";
-
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 const XERO_API_BASE = "https://api.xero.com/api.xro/2.0";
 const XERO_TOKEN_URL = "https://identity.xero.com/connect/token";
@@ -108,11 +105,10 @@ async function postManualJournal(
 
 export const xeroRouter = createRouter({
   // Owner: get current Xero connection for this venue
-  getConnection: publicQuery
+  getConnection: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       const results = await db
         .select()
@@ -127,11 +123,10 @@ export const xeroRouter = createRouter({
     }),
 
   // Owner: disconnect Xero
-  disconnect: publicQuery
+  disconnect: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       await db
         .update(xeroConnections)
@@ -141,18 +136,16 @@ export const xeroRouter = createRouter({
     }),
 
   // Owner: get Xero OAuth authorization URL
-  getAuthUrl: publicQuery
+  getAuthUrl: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
       // Signed state + centralized scopes/redirect via the shared OAuth module.
-      const url = await buildAuthUrl("xero", venueId);
+      const url = await buildAuthUrl("xero", ctx.auth.venueId);
       return { url, configured: !!url };
     }),
 
   // Owner: sync revenue to Xero as daily manual journal entries
-  syncRevenue: publicQuery
+  syncRevenue: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -160,9 +153,8 @@ export const xeroRouter = createRouter({
         toDate: z.string(),   // YYYY-MM-DD
       })
     )
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
 
       // Ensure connected

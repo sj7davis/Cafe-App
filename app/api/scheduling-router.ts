@@ -134,7 +134,7 @@ export const schedulingRouter = createRouter({
 
   listStaff: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input, ctx }) => {
+  })).query(async ({ ctx }) => {
     const venueId = ctx.auth.venueId;
     const db = getDb();
 
