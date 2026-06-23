@@ -12,7 +12,7 @@ import { eq, count, desc, sum } from "drizzle-orm";
 import { compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
-import { exportVenue as buildVenueExport } from "./lib/tenant-lifecycle";
+import { exportVenue as buildVenueExport, purgeVenue } from "./lib/tenant-lifecycle";
 
 const JWT_SECRET = new TextEncoder().encode(env.platformAdminSecret);
 
@@ -134,6 +134,24 @@ export const platformAdminRouter = createRouter({
   exportVenue: publicQuery.input(z.object({ token: z.string(), venueId: z.number() })).query(async ({ input }) => {
     await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     return buildVenueExport(input.venueId);
+  }),
+
+  // Hard, irreversible erasure of a venue and all its data (GDPR right to be
+  // forgotten). Requires the venue's slug as confirmation. Export first.
+  purgeVenue: publicQuery.input(z.object({
+    token: z.string(),
+    venueId: z.number(),
+    confirmSlug: z.string(),
+  })).mutation(async ({ input }) => {
+    await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const db = getSystemDb();
+    const rows = await db.select({ slug: venues.slug }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
+    if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    if (rows[0].slug !== input.confirmSlug) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Confirmation does not match the venue slug" });
+    }
+    const result = await purgeVenue(input.venueId);
+    return { success: true, ...result };
   }),
 
   // Aggregate platform fees collected per venue and in total (platform admin only)

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Loader2, Shield, Coffee, DollarSign, Users, Activity, Check, X, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, Shield, Coffee, DollarSign, Users, Activity, Check, X, Download, Trash2 } from 'lucide-react';
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -65,6 +65,18 @@ export default function SuperAdmin() {
     } finally {
       setExportingId(null);
     }
+  };
+
+  const purgeVenue = trpc.platformAdmin.purgeVenue.useMutation({
+    onSuccess: () => window.location.reload(),
+    onError: (err) => window.alert(err.message),
+  });
+
+  const handlePurge = (venueId: number, name: string, slug: string) => {
+    const entered = window.prompt(
+      `PERMANENTLY DELETE "${name}" and ALL of its data. This cannot be undone — export first if you need an archive.\n\nType the slug "${slug}" to confirm:`,
+    );
+    if (entered) purgeVenue.mutate({ token, venueId, confirmSlug: entered });
   };
 
   // ── Login form ──────────────────────────────────────────────────────────────
@@ -267,7 +279,7 @@ export default function SuperAdmin() {
             {/* Table card */}
             <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
               {/* Table header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 0, padding: '10px 20px', borderBottom: '1px solid #E4E4E7', background: '#F9F9F9' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 150px', gap: 0, padding: '10px 20px', borderBottom: '1px solid #E4E4E7', background: '#F9F9F9' }}>
                 {['Venue', 'Slug', 'Tier', 'Status', 'Actions'].map((col) => (
                   <span key={col} style={{ fontSize: 11, fontWeight: 600, color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{col}</span>
                 ))}
@@ -277,7 +289,7 @@ export default function SuperAdmin() {
                 <div
                   key={v.id}
                   style={{
-                    display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 0,
+                    display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 150px', gap: 0,
                     padding: '14px 20px',
                     borderBottom: idx < allVenues.length - 1 ? '1px solid #E4E4E7' : 'none',
                     alignItems: 'center',
@@ -339,6 +351,16 @@ export default function SuperAdmin() {
                       onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
                     >
                       {exportingId === v.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                    </button>
+                    <button
+                      onClick={() => handlePurge(v.id, v.name, v.slug)}
+                      disabled={purgeVenue.isPending}
+                      title="Permanently delete (purge all data)"
+                      style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #E4E4E7', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: purgeVenue.isPending ? 'not-allowed' : 'pointer', color: '#B85450', opacity: purgeVenue.isPending ? 0.5 : 1 }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
+                    >
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>

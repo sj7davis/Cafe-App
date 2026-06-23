@@ -82,3 +82,68 @@ export async function exportVenue(venueId: number): Promise<VenueExport> {
 
   return { exportedAt: new Date().toISOString(), venueId, tables };
 }
+
+// ─── Tenant lifecycle: hard data erasure ──────────────────────────────────────
+//
+// Permanently deletes every row belonging to a venue, then the venue itself —
+// the GDPR "right to be forgotten" path. Export first if you need an archive.
+//
+// The venue FKs are NO ACTION (no ON DELETE CASCADE), and tenant tables also
+// reference each other (e.g. loyalty_transactions -> loyalty_accounts), so a
+// naive single-pass delete hits FK violations. Rather than alter every FK (which
+// would change normal delete semantics app-wide), we delete iteratively: each
+// table delete runs in its own savepoint, and any that fail on a foreign-key
+// violation are retried on the next pass once their dependents are gone. This is
+// self-correcting against the actual FK graph and needs no schema change.
+
+// Child tables without a venue_id column, scoped through their parent.
+const CHILD_TARGETS: { table: string; where: (venueId: number) => string }[] = [
+  { table: "order_items", where: (v) => `order_id IN (SELECT id FROM orders WHERE venue_id = ${v})` },
+  { table: "group_order_participants", where: (v) => `group_order_id IN (SELECT id FROM group_orders WHERE venue_id = ${v})` },
+  { table: "staff_two_fa_tokens", where: (v) => `staff_id IN (SELECT id FROM staff_accounts WHERE venue_id = ${v})` },
+];
+
+export async function purgeVenue(venueId: number): Promise<{ clearedTables: number }> {
+  const db = getSystemDb();
+
+  const tableList = await db.execute(
+    sql`SELECT table_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND column_name = 'venue_id'`,
+  );
+  const venueTables = tableList.rows.map((r) => (r as { table_name: string }).table_name);
+
+  const targets: { name: string; where: string }[] = [
+    ...CHILD_TARGETS.map((c) => ({ name: c.table, where: c.where(venueId) })),
+    ...venueTables.map((t) => ({ name: t, where: `venue_id = ${venueId}` })),
+  ];
+
+  let clearedTables = 0;
+  await db.transaction(async (tx) => {
+    let remaining = targets;
+    let progressed = true;
+    while (remaining.length > 0 && progressed) {
+      progressed = false;
+      const blocked: { name: string; where: string }[] = [];
+      for (const t of remaining) {
+        try {
+          // Nested transaction = SAVEPOINT, so a FK violation here rolls back
+          // only this delete and leaves the outer transaction usable.
+          await tx.transaction(async (sp) => {
+            await sp.execute(sql.raw(`DELETE FROM "${t.name}" WHERE ${t.where}`));
+          });
+          clearedTables++;
+          progressed = true;
+        } catch {
+          blocked.push(t);
+        }
+      }
+      remaining = blocked;
+    }
+    if (remaining.length > 0) {
+      throw new Error(`Could not purge venue ${venueId} (FK cycle?): ${remaining.map((t) => t.name).join(", ")}`);
+    }
+    await tx.execute(sql`DELETE FROM venues WHERE id = ${venueId}`);
+  });
+
+  return { clearedTables };
+}
