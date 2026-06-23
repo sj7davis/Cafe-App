@@ -822,23 +822,64 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
 // Applies any pending SQL migrations from db/migrations/ using Drizzle's
 // migrator. This is faster than shelling out to drizzle-kit and completes
 // within the Railway healthcheck window (typically < 2s).
-async function runMigrations() {
-  try {
-    const { migrate } = await import("drizzle-orm/node-postgres/migrator");
-    const { getDb } = await import("./queries/connection");
-    const migrationsFolder = new URL("../../db/migrations", import.meta.url).pathname;
-    const { existsSync: fsExists } = await import("fs");
-    if (!fsExists(migrationsFolder)) {
-      console.log("[migrations] no migrations folder found — skipping");
-      return;
+// Mark every on-disk migration as already-applied WITHOUT running it. Used to
+// adopt versioned migrations on a database whose schema was created directly
+// via `drizzle-kit push` (so the tables already exist but the migration history
+// is empty). After baselining, only migrations newer than the baseline run.
+async function baselineMigrations(
+  db: ReturnType<typeof import("./queries/connection")["getDb"]>,
+  migrationsFolder: string,
+) {
+  const { readMigrationFiles } = await import("drizzle-orm/migrator");
+  const migrations = readMigrationFiles({ migrationsFolder });
+  await db.execute(sql`CREATE SCHEMA IF NOT EXISTS drizzle`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at bigint)`);
+  for (const m of migrations) {
+    const existing = await db.execute(sql`SELECT 1 FROM drizzle.__drizzle_migrations WHERE hash = ${m.hash}`);
+    if (existing.rows.length === 0) {
+      await db.execute(sql`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES (${m.hash}, ${m.folderMillis})`);
     }
-    await migrate(getDb() as any, { migrationsFolder });
-    console.log("[migrations] schema up to date");
-  } catch (err: any) {
-    // Migration failures are non-fatal in dev; log and continue.
-    // In production the DB schema was already pushed directly.
-    console.warn("[migrations] skipped:", err?.message ?? err);
   }
+}
+
+async function runMigrations() {
+  const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+  const { getDb } = await import("./queries/connection");
+  const migrationsFolder = join(process.cwd(), "db", "migrations");
+  if (!existsSync(migrationsFolder)) {
+    console.log("[migrations] no migrations folder found — skipping");
+    return;
+  }
+  const db = getDb();
+  try {
+    await migrate(db, { migrationsFolder });
+    console.log("[migrations] schema up to date");
+  } catch (err) {
+    // A pre-migrations (push-created) DB already has the schema, so the baseline
+    // migration collides with an existing object. Baseline it once, then re-run
+    // to apply anything newer. Detected by Postgres "duplicate object" SQLSTATEs
+    // (the message is wrapped by drizzle, so check the code on err / err.cause).
+    if (isDuplicateObjectError(err)) {
+      console.log("[migrations] existing schema detected — baselining…");
+      await baselineMigrations(db, migrationsFolder);
+      await migrate(db, { migrationsFolder });
+      console.log("[migrations] baselined; schema up to date");
+    } else {
+      // Real migration failures are fatal — don't serve on a half-migrated schema.
+      console.error("[migrations] failed:", String((err as Error)?.message ?? err));
+      throw err;
+    }
+  }
+}
+
+// Postgres "duplicate object" SQLSTATEs: table / object(enum) / schema / column.
+function isDuplicateObjectError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string; cause?: { code?: string; message?: string } };
+  const dupCodes = new Set(["42P07", "42710", "42P06", "42701"]);
+  const code = e?.code ?? e?.cause?.code;
+  if (code && dupCodes.has(String(code))) return true;
+  const msg = `${e?.message ?? ""} ${e?.cause?.message ?? ""}`;
+  return /already exists/i.test(msg);
 }
 
 await runMigrations();

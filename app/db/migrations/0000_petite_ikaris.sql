@@ -371,6 +371,8 @@ CREATE TABLE "orders" (
 	"stripe_session_id" varchar(100),
 	"table_number" varchar(16),
 	"order_type" varchar(16) DEFAULT 'pickup',
+	"refunded_at" timestamp,
+	"refund_amount" varchar(16),
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -407,6 +409,19 @@ CREATE TABLE "push_subscriptions" (
 	"p256dh" text NOT NULL,
 	"auth" text NOT NULL,
 	"phone" varchar(32),
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "recurring_orders" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"venue_id" bigint NOT NULL,
+	"customer_phone" varchar(32) NOT NULL,
+	"customer_name" varchar(128) NOT NULL,
+	"items" json NOT NULL,
+	"schedule_days" varchar(20) NOT NULL,
+	"pickup_time" varchar(8) NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"next_order_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -655,11 +670,13 @@ CREATE TABLE "venues" (
 CREATE TABLE "waitlist_entries" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"venue_id" bigint NOT NULL,
-	"name" varchar(255) NOT NULL,
+	"name" varchar(128) NOT NULL,
 	"phone" varchar(32) NOT NULL,
 	"party_size" integer DEFAULT 1 NOT NULL,
-	"position" integer NOT NULL,
+	"note" text,
 	"status" varchar(16) DEFAULT 'waiting' NOT NULL,
+	"position" integer NOT NULL,
+	"estimated_wait" integer,
 	"notified_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -737,6 +754,7 @@ ALTER TABLE "order_items" ADD CONSTRAINT "order_items_menu_item_id_menu_items_id
 ALTER TABLE "orders" ADD CONSTRAINT "orders_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pos_integrations" ADD CONSTRAINT "pos_integrations_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "recurring_orders" ADD CONSTRAINT "recurring_orders_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "referral_codes" ADD CONSTRAINT "referral_codes_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reservations" ADD CONSTRAINT "reservations_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reservations" ADD CONSTRAINT "reservations_table_id_venue_tables_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."venue_tables"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -770,4 +788,11 @@ ALTER TABLE "waste_log" ADD CONSTRAINT "waste_log_venue_id_venues_id_fk" FOREIGN
 ALTER TABLE "waste_log" ADD CONSTRAINT "waste_log_menu_item_id_menu_items_id_fk" FOREIGN KEY ("menu_item_id") REFERENCES "public"."menu_items"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "waste_log" ADD CONSTRAINT "waste_log_staff_id_staff_accounts_id_fk" FOREIGN KEY ("staff_id") REFERENCES "public"."staff_accounts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "webhook_subscriptions" ADD CONSTRAINT "webhook_subscriptions_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "xero_connections" ADD CONSTRAINT "xero_connections_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;
+ALTER TABLE "xero_connections" ADD CONSTRAINT "xero_connections_venue_id_venues_id_fk" FOREIGN KEY ("venue_id") REFERENCES "public"."venues"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "loyalty_accounts_venue_phone_idx" ON "loyalty_accounts" USING btree ("venue_id","phone");--> statement-breakpoint
+CREATE INDEX "orders_venue_id_created_at_idx" ON "orders" USING btree ("venue_id","created_at");--> statement-breakpoint
+CREATE INDEX "orders_venue_id_status_idx" ON "orders" USING btree ("venue_id","status");--> statement-breakpoint
+CREATE INDEX "orders_stripe_session_id_idx" ON "orders" USING btree ("stripe_session_id");--> statement-breakpoint
+CREATE INDEX "orders_customer_phone_idx" ON "orders" USING btree ("customer_phone");--> statement-breakpoint
+CREATE INDEX "orders_order_number_idx" ON "orders" USING btree ("order_number");--> statement-breakpoint
+CREATE INDEX "reviews_venue_id_idx" ON "reviews" USING btree ("venue_id");
