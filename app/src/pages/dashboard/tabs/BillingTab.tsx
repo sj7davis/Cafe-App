@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
-import { Check,
-} from 'lucide-react';
+import { Check, Download, Users } from 'lucide-react';
 
-
-
-
+function downloadJson(filename: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 
 export function BillingTab() {
@@ -13,6 +18,18 @@ export function BillingTab() {
   const { data: status } = trpc.billing.status.useQuery({ token }, { enabled: !!token });
   const { data: tiers } = trpc.billing.tiers.useQuery();
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const utils = trpc.useUtils();
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const data = await utils.billing.exportData.fetch({ token });
+      downloadJson(`${data.venueId}-data-export.json`, data);
+    } finally {
+      setExporting(false);
+    }
+  };
   const portalQuery = trpc.billing.getBillingPortalUrl.useQuery(
     { token },
     { enabled: false },
@@ -79,6 +96,28 @@ export function BillingTab() {
             Trial ends: {new Date(status.trialEndsAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         )}
+        {status?.usage && (
+          <div className="flex items-center gap-2 mt-3" style={{ fontSize: '0.8125rem', color: 'var(--op-text)' }}>
+            <Users size={13} style={{ color: 'var(--op-text-secondary)' }} />
+            <span>
+              Staff members: <strong>{status.usage.staff.used}</strong>
+              {status.plan?.maxStaff != null ? ` / ${status.plan.maxStaff}` : ' (unlimited)'}
+            </span>
+            {status.plan?.maxStaff != null && status.usage.staff.used >= status.plan.maxStaff && (
+              <span style={{ fontSize: '0.6875rem', color: '#C4953A' }}>— limit reached, upgrade to add more</span>
+            )}
+          </div>
+        )}
+        <div className="mt-4">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="font-button"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 12px', background: 'transparent', border: '1px solid var(--op-border-strong)', color: 'var(--op-text)', cursor: exporting ? 'not-allowed' : 'pointer' }}
+          >
+            <Download size={12} /> {exporting ? 'Exporting…' : 'Export my data'}
+          </button>
+        </div>
         {paymentMessage && (
           <p className="font-data mt-3" style={{ fontSize: '0.75rem', color: '#C4953A' }}>{paymentMessage}</p>
         )}

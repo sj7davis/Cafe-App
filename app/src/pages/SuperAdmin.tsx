@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { trpc } from '@/providers/trpc';
-import { ArrowLeft, Loader2, Shield, Coffee, DollarSign, Users, Activity, Check, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Shield, Coffee, DollarSign, Users, Activity, Check, X, Download } from 'lucide-react';
+
+function downloadJson(filename: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function SuperAdmin() {
   const navigate = useNavigate();
@@ -43,6 +53,19 @@ export default function SuperAdmin() {
   const updateVenue = trpc.platformAdmin.updateVenue.useMutation({
     onSuccess: () => window.location.reload(),
   });
+
+  const utils = trpc.useUtils();
+  const [exportingId, setExportingId] = useState<number | null>(null);
+
+  const handleExport = async (venueId: number, slug: string) => {
+    setExportingId(venueId);
+    try {
+      const data = await utils.platformAdmin.exportVenue.fetch({ token, venueId });
+      downloadJson(`${slug}-export.json`, data);
+    } finally {
+      setExportingId(null);
+    }
+  };
 
   // ── Login form ──────────────────────────────────────────────────────────────
   if (!token || !admin) {
@@ -244,7 +267,7 @@ export default function SuperAdmin() {
             {/* Table card */}
             <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
               {/* Table header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 80px', gap: 0, padding: '10px 20px', borderBottom: '1px solid #E4E4E7', background: '#F9F9F9' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 0, padding: '10px 20px', borderBottom: '1px solid #E4E4E7', background: '#F9F9F9' }}>
                 {['Venue', 'Slug', 'Tier', 'Status', 'Actions'].map((col) => (
                   <span key={col} style={{ fontSize: 11, fontWeight: 600, color: '#71717A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{col}</span>
                 ))}
@@ -254,7 +277,7 @@ export default function SuperAdmin() {
                 <div
                   key={v.id}
                   style={{
-                    display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 80px', gap: 0,
+                    display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 120px', gap: 0,
                     padding: '14px 20px',
                     borderBottom: idx < allVenues.length - 1 ? '1px solid #E4E4E7' : 'none',
                     alignItems: 'center',
@@ -300,12 +323,22 @@ export default function SuperAdmin() {
                     <button
                       onClick={() => updateVenue.mutate({ token, venueId: v.id, data: { isActive: !v.isActive } })}
                       disabled={updateVenue.isPending}
-                      title={v.isActive ? 'Deactivate' : 'Activate'}
+                      title={v.isActive ? 'Suspend' : 'Reactivate'}
                       style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #E4E4E7', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: updateVenue.isPending ? 'not-allowed' : 'pointer', color: v.isActive ? '#B85450' : '#5E8B8B', opacity: updateVenue.isPending ? 0.5 : 1 }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#F4F4F5'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
                     >
                       {v.isActive ? <X size={13} /> : <Check size={13} />}
+                    </button>
+                    <button
+                      onClick={() => handleExport(v.id, v.slug)}
+                      disabled={exportingId === v.id}
+                      title="Export data (JSON)"
+                      style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #E4E4E7', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: exportingId === v.id ? 'not-allowed' : 'pointer', color: '#71717A', opacity: exportingId === v.id ? 0.5 : 1 }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F4F4F5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
+                    >
+                      {exportingId === v.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                     </button>
                   </div>
                 </div>
