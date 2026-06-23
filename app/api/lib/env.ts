@@ -11,6 +11,11 @@ function required(name: string): string {
 export const env = {
   isProduction: process.env.NODE_ENV === "production",
   databaseUrl: required("DATABASE_URL"),
+  // Restricted (non-owner) role used for tenant-scoped requests so Postgres RLS
+  // actually applies — the owner role in DATABASE_URL bypasses RLS. Falls back to
+  // DATABASE_URL when unset (RLS present but not yet enforced); set this to the
+  // b1_app role's URL in production to turn enforcement on.
+  appDatabaseUrl: process.env.APP_DATABASE_URL || "",
   jwtSecret: process.env.JWT_SECRET || "b1-platform-jwt-secret-dev-only",
   platformAdminSecret: process.env.PLATFORM_ADMIN_SECRET || "b1-platform-admin-secret-dev-only",
   port: parseInt(process.env.PORT || "3001"),

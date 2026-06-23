@@ -8,6 +8,13 @@
       "when": 1782178313883,
       "tag": "0000_petite_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782187323651,
+      "tag": "0001_rls_tenant_isolation",
+      "breakpoints": true
     }
   ]
 }
