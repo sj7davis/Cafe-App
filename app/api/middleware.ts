@@ -2,14 +2,28 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { jwtVerify } from "jose";
 import { type TrpcContext } from "./context";
 import { env } from "./lib/env";
+import { runWithTenant } from "./queries/connection";
 
 const t = initTRPC.context<TrpcContext>().create();
 
 export const createRouter = t.router;
 
 /** Unauthenticated procedure. Use for genuinely public endpoints (public menu,
- *  customer ordering, waitlist join, OAuth-less reads). */
-export const publicQuery = t.procedure;
+ *  customer ordering, waitlist join, OAuth-less reads).
+ *
+ *  Sets the RLS tenant scope from `input.venueId` when the public input carries
+ *  one (menu, ordering, loyalty signup — all venue-addressed). Inputs without a
+ *  venueId (e.g. resolving a venue by slug) run unscoped, which only reaches the
+ *  public, non-RLS `venues` table. */
+export const publicQuery = t.procedure.use(async (opts) => {
+  const raw = await opts.getRawInput();
+  const vid =
+    raw && typeof raw === "object" && "venueId" in raw
+      ? Number((raw as { venueId?: unknown }).venueId)
+      : NaN;
+  const venueId = Number.isInteger(vid) && vid > 0 ? vid : null;
+  return runWithTenant(venueId, () => opts.next());
+});
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -62,7 +76,9 @@ export const protectedProcedure = t.procedure.use(async (opts) => {
     ownerId: typeof claims.ownerId === "number" ? claims.ownerId : undefined,
   };
 
-  return opts.next({ ctx: { auth } });
+  // Scope every query in this request to the tenant for RLS, derived from the
+  // verified token (never from client input).
+  return runWithTenant(venueId, () => opts.next({ ctx: { auth } }));
 });
 
 /**
