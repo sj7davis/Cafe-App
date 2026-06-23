@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
+// Auth/identity router: uses the system (RLS-bypassing) connection via
+// getSystemDb. These procedures verify their own token and filter explicitly by
+// id/venueId, and several run before a venue scope exists (login, password
+// reset) or legitimately span venues (platform admin), so they must not be
+// constrained by Row-Level Security.
+import { getSystemDb } from "./queries/connection";
 import { customerAccounts, loyaltyAccounts, favouriteOrders } from "@db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
@@ -18,7 +23,7 @@ export const customerAuthRouter = createRouter({
     phone: z.string().optional(),
     venueId: z.number().int().positive(),
   })).mutation(async ({ input }) => {
-    const db = getDb();
+    const db = getSystemDb();
 
     // Check email uniqueness within venue
     const existing = await db.select({ id: customerAccounts.id })
@@ -51,7 +56,7 @@ export const customerAuthRouter = createRouter({
     password: z.string(),
     venueId: z.number().int().positive(),
   })).mutation(async ({ input }) => {
-    const db = getDb();
+    const db = getSystemDb();
 
     const results = await db.select().from(customerAccounts)
       .where(and(eq(customerAccounts.email, input.email), eq(customerAccounts.venueId, input.venueId)))
@@ -89,7 +94,7 @@ export const customerAuthRouter = createRouter({
       const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
       const customerId = payload.payload.customerId as number;
       const venueId = payload.payload.venueId as number;
-      const db = getDb();
+      const db = getSystemDb();
 
       const results = await db.select().from(customerAccounts)
         .where(eq(customerAccounts.id, customerId))
@@ -134,7 +139,7 @@ export const customerAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const customerId = payload.payload.customerId as number;
-    const db = getDb();
+    const db = getSystemDb();
 
     const updateData: Record<string, unknown> = {};
     if (input.name !== undefined) updateData.name = input.name;
@@ -158,7 +163,7 @@ export const customerAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const customerId = payload.payload.customerId as number;
-    const db = getDb();
+    const db = getSystemDb();
 
     const rows = await db.select().from(customerAccounts).where(eq(customerAccounts.id, customerId)).limit(1);
     const account = rows[0];
@@ -177,7 +182,7 @@ export const customerAuthRouter = createRouter({
     venueId: z.number().int().positive(),
   })).query(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const db = getDb();
+    const db = getSystemDb();
     const customerId = payload.payload.customerId as number;
 
     // Get the customer's phone to look up favourites
@@ -204,7 +209,7 @@ export const customerAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const customerId = payload.payload.customerId as number;
-    const db = getDb();
+    const db = getSystemDb();
 
     await db.update(customerAccounts)
       .set({ marketingOptIn: input.pushEnabled })

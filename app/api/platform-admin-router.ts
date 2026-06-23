@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
+// Auth/identity router: uses the system (RLS-bypassing) connection via
+// getSystemDb. These procedures verify their own token and filter explicitly by
+// id/venueId, and several run before a venue scope exists (login, password
+// reset) or legitimately span venues (platform admin), so they must not be
+// constrained by Row-Level Security.
+import { getSystemDb } from "./queries/connection";
 import { venues, platformAdmins, orders, menuItems, franchiseePayouts } from "@db/schema";
 import { eq, count, desc, sum } from "drizzle-orm";
 import { compare } from "bcrypt-ts";
@@ -15,7 +20,7 @@ export const platformAdminRouter = createRouter({
     email: z.string().email(),
     password: z.string(),
   })).mutation(async ({ input }) => {
-    const db = getDb();
+    const db = getSystemDb();
     const results = await db.select().from(platformAdmins).where(eq(platformAdmins.email, input.email)).limit(1);
     const admin = results[0];
     if (!admin) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
@@ -35,7 +40,7 @@ export const platformAdminRouter = createRouter({
     if (!input?.token) return null;
     try {
       const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const db = getDb();
+      const db = getSystemDb();
       const results = await db.select().from(platformAdmins).where(eq(platformAdmins.id, payload.payload.adminId as number)).limit(1);
       const admin = results[0];
       if (!admin) return null;
@@ -45,7 +50,7 @@ export const platformAdminRouter = createRouter({
 
   stats: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
     await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const db = getDb();
+    const db = getSystemDb();
 
     const totalVenues = await db.select({ count: count() }).from(venues);
     const activeVenues = await db.select({ count: count() }).from(venues).where(eq(venues.isActive, true));
@@ -76,7 +81,7 @@ export const platformAdminRouter = createRouter({
 
   listVenues: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
     await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const db = getDb();
+    const db = getSystemDb();
     const all = await db.select().from(venues).orderBy(desc(venues.createdAt));
     return all.map(v => {
       const { squareAccessToken, squareRefreshToken, stripeCustomerId, stripeSubscriptionId, ...safe } = v;
@@ -94,7 +99,7 @@ export const platformAdminRouter = createRouter({
     }),
   })).mutation(async ({ input }) => {
     await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const db = getDb();
+    const db = getSystemDb();
     await db.update(venues).set(input.data).where(eq(venues.id, input.venueId));
     return { success: true };
   }),
@@ -102,7 +107,7 @@ export const platformAdminRouter = createRouter({
   // Aggregate platform fees collected per venue and in total (platform admin only)
   platformFees: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
     await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const db = getDb();
+    const db = getSystemDb();
 
     // Total platform fee across all payouts
     const [totalRow] = await db

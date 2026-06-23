@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
+// Auth/identity router: uses the system (RLS-bypassing) connection via
+// getSystemDb. These procedures verify their own token and filter explicitly by
+// id/venueId, and several run before a venue scope exists (login, password
+// reset) or legitimately span venues (platform admin), so they must not be
+// constrained by Row-Level Security.
+import { getSystemDb } from "./queries/connection";
 import { staffAccounts, venues, staffTwoFaTokens } from "@db/schema";
 import { eq, and, gt } from "drizzle-orm";
 import { compare, hash } from "bcrypt-ts";
@@ -32,7 +37,7 @@ export const staffAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const allowed = checkRateLimit(`login:${input.venueId}:${input.username.toLowerCase()}`, 5, 15 * 60 * 1000);
     if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many login attempts. Please try again in 15 minutes." });
-    const db = getDb();
+    const db = getSystemDb();
     const venueResults = await db.select().from(venues).where(eq(venues.id, input.venueId)).limit(1);
     const venue = venueResults[0];
     if (!venue || !venue.isActive) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
@@ -82,7 +87,7 @@ export const staffAuthRouter = createRouter({
     pendingToken: z.string(),
     code: z.string().length(6),
   })).mutation(async ({ input }) => {
-    const db = getDb();
+    const db = getSystemDb();
     let pendingPayload: any;
     try {
       const result = await jwtVerify(input.pendingToken, JWT_SECRET, { clockTolerance: 60 });
@@ -129,7 +134,7 @@ export const staffAuthRouter = createRouter({
   enable2FA: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const staffId = payload.payload.staffId as number;
-    const db = getDb();
+    const db = getSystemDb();
     const [staff] = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
     if (!staff?.email) throw new TRPCError({ code: "BAD_REQUEST", message: "Add an email address before enabling 2FA" });
     await db.update(staffAccounts).set({ twoFaEnabled: true }).where(eq(staffAccounts.id, staffId));
@@ -139,7 +144,7 @@ export const staffAuthRouter = createRouter({
   disable2FA: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const staffId = payload.payload.staffId as number;
-    const db = getDb();
+    const db = getSystemDb();
     await db.update(staffAccounts).set({ twoFaEnabled: false }).where(eq(staffAccounts.id, staffId));
     return { ok: true };
   }),
@@ -151,7 +156,7 @@ export const staffAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const allowed = checkRateLimit(`reset:${input.email.toLowerCase()}`, 3, 60 * 60 * 1000);
     if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many reset attempts. Please try again in 1 hour." });
-    const db = getDb();
+    const db = getSystemDb();
     const [staff] = await db.select().from(staffAccounts)
       .where(and(eq(staffAccounts.email, input.email), eq(staffAccounts.venueId, input.venueId)))
       .limit(1);
@@ -178,7 +183,7 @@ export const staffAuthRouter = createRouter({
     venueId: z.number().int().positive(),
     newPassword: z.string().min(6),
   })).mutation(async ({ input }) => {
-    const db = getDb();
+    const db = getSystemDb();
     const now = new Date();
     const [staff] = await db.select().from(staffAccounts)
       .where(and(
@@ -199,7 +204,7 @@ export const staffAuthRouter = createRouter({
     token: z.string(),
     venueId: z.number().int().positive(),
   })).mutation(async ({ input }) => {
-    const db = getDb();
+    const db = getSystemDb();
     const now = new Date();
     const [staff] = await db.select().from(staffAccounts)
       .where(and(
@@ -218,7 +223,7 @@ export const staffAuthRouter = createRouter({
     if (!input?.token) return null;
     try {
       const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const db = getDb();
+      const db = getSystemDb();
       const [staff] = await db.select().from(staffAccounts)
         .where(eq(staffAccounts.id, payload.payload.staffId as number)).limit(1);
       if (!staff || !staff.isActive) return null;
@@ -241,7 +246,7 @@ export const staffAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const staffId = payload.payload.staffId as number;
-    const db = getDb();
+    const db = getSystemDb();
     const [staff] = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
     if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Staff not found" });
 
@@ -279,7 +284,7 @@ export const staffAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const staffId = payload.payload.staffId as number;
-    const db = getDb();
+    const db = getSystemDb();
     const [staff] = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
     if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Staff not found" });
     const valid = await compare(input.currentPassword, staff.passwordHash);
@@ -293,7 +298,7 @@ export const staffAuthRouter = createRouter({
   list: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const db = getDb();
+    const db = getSystemDb();
     const callerRole = payload.payload.role as string;
     if (callerRole === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
     const allStaff = await db.select().from(staffAccounts).where(eq(staffAccounts.venueId, venueId));
@@ -321,7 +326,7 @@ export const staffAuthRouter = createRouter({
     const venueId = payload.payload.venueId as number;
     const callerRole = payload.payload.role as string;
     if (callerRole !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
-    const db = getDb();
+    const db = getSystemDb();
 
     const existing = await db.select().from(staffAccounts)
       .where(and(eq(staffAccounts.username, input.username), eq(staffAccounts.venueId, venueId))).limit(1);
@@ -378,7 +383,7 @@ export const staffAuthRouter = createRouter({
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const callerRole = payload.payload.role as string;
     if (callerRole !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
-    const db = getDb();
+    const db = getSystemDb();
     const updates: Record<string, any> = {};
     if (input.name !== undefined) updates.name = input.name;
     if (input.role !== undefined) updates.role = input.role;
@@ -401,7 +406,7 @@ export const staffAuthRouter = createRouter({
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const staffId = payload.payload.staffId as number;
     if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
-    const db = getDb();
+    const db = getSystemDb();
     await db.update(staffAccounts).set({ clockPin: input.pin }).where(eq(staffAccounts.id, staffId));
     return { ok: true };
   }),
@@ -413,7 +418,7 @@ export const staffAuthRouter = createRouter({
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const staffId = payload.payload.staffId as number;
     if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
-    const db = getDb();
+    const db = getSystemDb();
     await db.update(staffAccounts).set({ clockPin: null }).where(eq(staffAccounts.id, staffId));
     return { ok: true };
   }),
@@ -427,7 +432,7 @@ export const staffAuthRouter = createRouter({
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const callerRole = payload.payload.role as string;
     if (callerRole !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
-    const db = getDb();
+    const db = getSystemDb();
     const passwordHash = await hash(input.newPassword, 10);
     await db.update(staffAccounts).set({ passwordHash }).where(eq(staffAccounts.id, input.staffId));
     return { success: true };

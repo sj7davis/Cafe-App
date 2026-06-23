@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
-import { getDb } from "./queries/connection";
+// Auth/identity router: uses the system (RLS-bypassing) connection via
+// getSystemDb. These procedures verify their own token and filter explicitly by
+// id/venueId, and several run before a venue scope exists (login, password
+// reset) or legitimately span venues (platform admin), so they must not be
+// constrained by Row-Level Security.
+import { getSystemDb } from "./queries/connection";
 import { staffClockEvents, staffAccounts, venues } from "@db/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
 import { jwtVerify, SignJWT } from "jose";
@@ -32,7 +37,7 @@ export const clockRouter = createRouter({
     const staffId = payload.payload.staffId as number;
     const venueId = payload.payload.venueId as number;
     if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
-    const db = getDb();
+    const db = getSystemDb();
     // Double-clock-in guard: reject if the last event for this staff+venue is already "in"
     const last = await db.select({ eventType: staffClockEvents.eventType })
       .from(staffClockEvents)
@@ -52,7 +57,7 @@ export const clockRouter = createRouter({
     const staffId = payload.payload.staffId as number;
     const venueId = payload.payload.venueId as number;
     if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
-    const db = getDb();
+    const db = getSystemDb();
     const now = new Date();
     await db.insert(staffClockEvents).values({ venueId, staffId, eventType: "out", clockedAt: now, note: input.note });
     return { ok: true, clockedAt: now.toISOString() };
@@ -63,7 +68,7 @@ export const clockRouter = createRouter({
     const staffId = payload.payload.staffId as number;
     const venueId = payload.payload.venueId as number;
     if (!staffId) return { isClockedIn: false, lastEvent: null };
-    const db = getDb();
+    const db = getSystemDb();
     const last = await db.select().from(staffClockEvents)
       .where(and(eq(staffClockEvents.staffId, staffId), eq(staffClockEvents.venueId, venueId)))
       .orderBy(desc(staffClockEvents.clockedAt)).limit(1);
@@ -74,7 +79,7 @@ export const clockRouter = createRouter({
   getShiftHistory: publicQuery.input(z.object({ token: z.string(), days: z.number().default(14) })).query(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const db = getDb();
+    const db = getSystemDb();
     const since = new Date(Date.now() - input.days * 86400000);
     const events = await db.select({
       id: staffClockEvents.id,
@@ -94,7 +99,7 @@ export const clockRouter = createRouter({
   getHoursSummary: publicQuery.input(z.object({ token: z.string(), days: z.number().default(14) })).query(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const venueId = payload.payload.venueId as number;
-    const db = getDb();
+    const db = getSystemDb();
     const since = new Date(Date.now() - input.days * 86400000);
     const events = await db.select({
       staffId: staffClockEvents.staffId,
@@ -135,7 +140,7 @@ export const clockRouter = createRouter({
     slug: z.string(),
     pin: z.string().regex(/^\d{4,8}$/),
   })).mutation(async ({ input }) => {
-    const db = getDb();
+    const db = getSystemDb();
     const venueRows = await db.select({ id: venues.id, name: venues.name })
       .from(venues).where(eq(venues.slug, input.slug)).limit(1);
     if (!venueRows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
@@ -163,7 +168,7 @@ export const clockRouter = createRouter({
     const staffId = payload.payload.staffId as number;
     const venueId = payload.payload.venueId as number;
     if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
-    const db = getDb();
+    const db = getSystemDb();
     const now = new Date();
     await db.insert(staffClockEvents).values({ venueId, staffId, eventType: "break_start", clockedAt: now, note: input.note });
     return { ok: true, clockedAt: now.toISOString() };
@@ -175,7 +180,7 @@ export const clockRouter = createRouter({
     const staffId = payload.payload.staffId as number;
     const venueId = payload.payload.venueId as number;
     if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
-    const db = getDb();
+    const db = getSystemDb();
     const now = new Date();
     await db.insert(staffClockEvents).values({ venueId, staffId, eventType: "break_end", clockedAt: now, note: input.note });
     return { ok: true, clockedAt: now.toISOString() };
