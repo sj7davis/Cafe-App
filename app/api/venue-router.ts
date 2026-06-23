@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries, recurringOrders } from "@db/schema";
 import { eq, and, desc, asc, sql, gte, sum, inArray, notInArray, count, not, max } from "drizzle-orm";
@@ -248,7 +248,7 @@ export const venueRouter = createRouter({
   }),
 
   // ─── Venue Settings ───
-  update: publicQuery.input(z.object({
+  update: protectedProcedure.input(z.object({
     token: z.string(),
     data: z.object({
       name: z.string().optional(),
@@ -271,10 +271,9 @@ export const venueRouter = createRouter({
       websiteBlocks: z.any().optional(),
       tabletPin: z.string().max(8).optional().nullable(),
     }),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     await db.update(venues).set({
       ...input.data,
@@ -285,13 +284,12 @@ export const venueRouter = createRouter({
   }),
 
   // ─── Upload Logo ───
-  updateLogo: publicQuery.input(z.object({
+  updateLogo: protectedProcedure.input(z.object({
     token: z.string(),
     logoUrl: z.string(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    await db.update(venues).set({ logoUrl: input.logoUrl }).where(eq(venues.id, payload.payload.venueId as number));
+    await db.update(venues).set({ logoUrl: input.logoUrl }).where(eq(venues.id, ctx.auth.venueId));
     return { success: true };
   }),
 
@@ -811,14 +809,12 @@ export const venueRouter = createRouter({
     return db.select().from(menuItems).where(and(...conditions)).orderBy(asc(menuItems.sortOrder), asc(menuItems.createdAt));
   }),
 
-  reorderMenuItems: publicQuery.input(z.object({
+  reorderMenuItems: protectedProcedure.input(z.object({
     token: z.string(),
     venueId: z.number().int().positive(),
     items: z.array(z.object({ id: z.number().int().positive(), sortOrder: z.number().int() })),
-  })).mutation(async ({ input }) => {
-    const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
-    const payload = await jwtVerify(input.token, JWT_SECRET);
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     if (venueId !== input.venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
     const db = getDb();
     await Promise.all(
@@ -895,7 +891,7 @@ export const venueRouter = createRouter({
     return { success: true };
   }),
 
-  updateMenuItem: publicQuery.input(z.object({
+  updateMenuItem: protectedProcedure.input(z.object({
     token: z.string(),
     menuItemId: z.number().int().positive(),
     data: z.object({
@@ -908,10 +904,9 @@ export const venueRouter = createRouter({
       allergens: z.array(z.string()).optional(),
       dietaryTags: z.array(z.string()).optional(),
     }),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // Ensure the item belongs to the authenticated venue
     const existing = await db.select().from(menuItems).where(eq(menuItems.id, input.menuItemId)).limit(1);
@@ -927,13 +922,12 @@ export const venueRouter = createRouter({
     return { success: true };
   }),
 
-  deleteMenuItem: publicQuery.input(z.object({
+  deleteMenuItem: protectedProcedure.input(z.object({
     token: z.string(),
     menuItemId: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // Ensure the item belongs to the authenticated venue
     const existing = await db.select().from(menuItems).where(eq(menuItems.id, input.menuItemId)).limit(1);
@@ -1002,14 +996,13 @@ export const venueRouter = createRouter({
   }),
 
   // Set stock quantity + alert threshold for a menu item
-  setStockLevel: publicQuery.input(z.object({
+  setStockLevel: protectedProcedure.input(z.object({
     token: z.string(),
     menuItemId: z.number().int().positive(),
     quantity: z.number().int().min(0).nullable(),
     quantityAlert: z.number().int().min(0).nullable(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const existing = await db.select({ id: inventory.id })
@@ -1045,11 +1038,10 @@ export const venueRouter = createRouter({
   }),
 
   // Full inventory overview — menu items joined with their inventory row
-  getInventoryOverview: publicQuery.input(z.object({
+  getInventoryOverview: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     const items = await db
@@ -1163,7 +1155,7 @@ export const venueRouter = createRouter({
     return db.select().from(locations).where(eq(locations.venueId, input.venueId));
   }),
 
-  addLocation: publicQuery.input(z.object({
+  addLocation: protectedProcedure.input(z.object({
     token: z.string(),
     name: z.string().min(1).max(128),
     address: z.string().min(1).max(255),
@@ -1172,10 +1164,9 @@ export const venueRouter = createRouter({
     hoursWeekday: z.string().optional(),
     hoursSaturday: z.string().optional(),
     hoursSunday: z.string().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const result = await db.insert(locations).values({
       venueId,
       name: input.name,
@@ -1189,7 +1180,7 @@ export const venueRouter = createRouter({
     return { locationId: result[0].id };
   }),
 
-  updateLocation: publicQuery.input(z.object({
+  updateLocation: protectedProcedure.input(z.object({
     token: z.string(),
     locationId: z.number().int().positive(),
     name: z.string().min(1).max(128).optional(),
@@ -1199,10 +1190,9 @@ export const venueRouter = createRouter({
     hoursWeekday: z.string().optional(),
     hoursSaturday: z.string().optional(),
     hoursSunday: z.string().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const loc = await db.select().from(locations).where(eq(locations.id, input.locationId)).limit(1);
     if (!loc[0] || loc[0].venueId !== venueId) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
@@ -1221,13 +1211,12 @@ export const venueRouter = createRouter({
     return { success: true };
   }),
 
-  deleteLocation: publicQuery.input(z.object({
+  deleteLocation: protectedProcedure.input(z.object({
     token: z.string(),
     locationId: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const loc = await db.select().from(locations).where(eq(locations.id, input.locationId)).limit(1);
     if (!loc[0] || loc[0].venueId !== venueId) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Location not found" });
@@ -1365,7 +1354,7 @@ export const venueRouter = createRouter({
     }),
 
   // ─── Gift Cards ───
-  createGiftCard: publicQuery.input(z.object({
+  createGiftCard: protectedProcedure.input(z.object({
     token: z.string(),
     amount: z.number().positive(),
     senderName: z.string().optional(),
@@ -1373,10 +1362,9 @@ export const venueRouter = createRouter({
     recipientPhone: z.string().optional(),
     recipientEmail: z.string().email().optional(),
     message: z.string().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // Fetch venue name for email branding
     const venueRow = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, venueId)).limit(1);
@@ -1423,12 +1411,11 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return { id: result.id, code };
   }),
 
-  listGiftCards: publicQuery.input(z.object({
+  listGiftCards: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(giftCards)
       .where(eq(giftCards.venueId, venueId))
       .orderBy(desc(giftCards.createdAt));
@@ -1460,15 +1447,14 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
   }),
 
   // ─── Subscription Passes ───
-  upsertPassConfig: publicQuery.input(z.object({
+  upsertPassConfig: protectedProcedure.input(z.object({
     token: z.string(),
     name: z.string().min(1),
     totalCredits: z.number().int().positive(),
     price: z.number().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const venueResults = await db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
     const venue = venueResults[0];
@@ -1493,14 +1479,13 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return (venue.settingsJson as any)?.passConfig ?? null;
   }),
 
-  purchasePass: publicQuery.input(z.object({
+  purchasePass: protectedProcedure.input(z.object({
     token: z.string(),
     phone: z.string().min(1),
     name: z.string().min(1),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const venueResults = await db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
     const venue = venueResults[0];
@@ -1586,14 +1571,13 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return { requestId: cateringResult.id };
   }),
 
-  listCateringRequests: publicQuery.input(z.object({
+  listCateringRequests: protectedProcedure.input(z.object({
     token: z.string(),
     status: z.string().optional(),
     limit: z.number().int().min(1).max(100).default(50),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const conditions = [eq(cateringRequests.venueId, venueId)];
     if (input.status) {
       conditions.push(eq(cateringRequests.status, input.status as any));
@@ -1606,14 +1590,13 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
       .limit(input.limit);
   }),
 
-  updateCateringStatus: publicQuery.input(z.object({
+  updateCateringStatus: protectedProcedure.input(z.object({
     token: z.string(),
     requestId: z.number().int().positive(),
     status: z.enum(["new", "quoted", "confirmed", "completed"]),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const req = await db
       .select()
       .from(cateringRequests)
@@ -1726,12 +1709,11 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
   }),
 
   // ─── Daily Summary ───
-  getDailySummary: publicQuery.input(z.object({
+  getDailySummary: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1774,12 +1756,11 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     };
   }),
 
-  sendDailySummaryEmail: publicQuery.input(z.object({
+  sendDailySummaryEmail: protectedProcedure.input(z.object({
     token: z.string(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1854,7 +1835,7 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
       .orderBy(menuItemModifiers.sortOrder, menuItemModifiers.id);
   }),
 
-  addMenuModifier: publicQuery.input(z.object({
+  addMenuModifier: protectedProcedure.input(z.object({
     token: z.string(),
     menuItemId: z.number().int().positive(),
     name: z.string().min(1).max(64),
@@ -1864,10 +1845,9 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     })).min(1),
     required: z.boolean().default(false),
     sortOrder: z.number().int().default(0),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // Verify menu item belongs to venue
     const item = await db.select({ id: menuItems.id }).from(menuItems)
@@ -1886,7 +1866,7 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return { id: result.id };
   }),
 
-  updateMenuModifier: publicQuery.input(z.object({
+  updateMenuModifier: protectedProcedure.input(z.object({
     token: z.string(),
     modifierId: z.number().int().positive(),
     name: z.string().min(1).max(64).optional(),
@@ -1896,10 +1876,9 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     })).min(1).optional(),
     required: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const mod = await db.select().from(menuItemModifiers)
       .where(and(eq(menuItemModifiers.id, input.modifierId), eq(menuItemModifiers.venueId, venueId))).limit(1);
@@ -1915,13 +1894,12 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return { success: true };
   }),
 
-  deleteMenuModifier: publicQuery.input(z.object({
+  deleteMenuModifier: protectedProcedure.input(z.object({
     token: z.string(),
     modifierId: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     await db.delete(menuItemModifiers)
       .where(and(eq(menuItemModifiers.id, input.modifierId), eq(menuItemModifiers.venueId, venueId)));
     return { success: true };
@@ -1956,25 +1934,23 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return result;
   }),
 
-  listBundles: publicQuery.input(z.object({
+  listBundles: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(bundles).where(eq(bundles.venueId, venueId)).orderBy(desc(bundles.createdAt));
   }),
 
-  createBundle: publicQuery.input(z.object({
+  createBundle: protectedProcedure.input(z.object({
     token: z.string(),
     name: z.string().min(1),
     description: z.string().optional(),
     itemSlugs: z.string().min(1),
     bundlePrice: z.string(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const [result] = await db.insert(bundles).values({
       venueId,
       name: input.name,
@@ -1985,7 +1961,7 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return result;
   }),
 
-  updateBundle: publicQuery.input(z.object({
+  updateBundle: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive(),
     name: z.string().optional(),
@@ -1993,10 +1969,9 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     itemSlugs: z.string().optional(),
     bundlePrice: z.string().optional(),
     isActive: z.boolean().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const { token: _t, id, ...rest } = input;
     const updates: Record<string, unknown> = {};
     if (rest.name !== undefined) updates.name = rest.name;
@@ -2008,29 +1983,27 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return { success: true };
   }),
 
-  deleteBundle: publicQuery.input(z.object({
+  deleteBundle: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     await db.delete(bundles).where(and(eq(bundles.id, input.id), eq(bundles.venueId, venueId)));
     return { success: true };
   }),
 
   // ─── Happy Hour ───
-  setHappyHour: publicQuery.input(z.object({
+  setHappyHour: protectedProcedure.input(z.object({
     token: z.string(),
     enabled: z.boolean(),
     startTime: z.string(),
     endTime: z.string(),
     discountPercent: z.number().min(0).max(100),
     label: z.string().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
     const updated = {
@@ -2116,15 +2089,14 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
   }),
 
   // ─── Inventory Quantity ───
-  setInventoryQuantity: publicQuery.input(z.object({
+  setInventoryQuantity: protectedProcedure.input(z.object({
     token: z.string(),
     menuItemId: z.number().int().positive(),
     quantity: z.number().int().min(0),
     quantityAlert: z.number().int().min(0).optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const existing = await db.select().from(inventory)
       .where(and(eq(inventory.venueId, venueId), eq(inventory.menuItemId, input.menuItemId)))
       .limit(1);
@@ -2150,12 +2122,11 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     }
   }),
 
-  getInventoryLevels: publicQuery.input(z.object({
+  getInventoryLevels: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const rows = await db.select({
       id: inventory.id,
       menuItemId: inventory.menuItemId,
@@ -2226,15 +2197,14 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
   }),
 
   // ─── Catering Quote Email ───
-  sendCateringQuote: publicQuery.input(z.object({
+  sendCateringQuote: protectedProcedure.input(z.object({
     token: z.string(),
     requestId: z.number().int().positive(),
     quoteText: z.string().min(1),
     totalAmount: z.string(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const reqRows = await db.select().from(cateringRequests)
       .where(and(eq(cateringRequests.id, input.requestId), eq(cateringRequests.venueId, venueId)))
@@ -2269,13 +2239,12 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Wait Time ───
-  setWaitTime: publicQuery.input(z.object({
+  setWaitTime: protectedProcedure.input(z.object({
     token: z.string(),
     minutes: z.number().int().min(0).max(120),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
@@ -2298,12 +2267,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Automation Settings (AUTO-04) ───
-  getAutomationSettings: publicQuery.input(z.object({
+  getAutomationSettings: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const settings = (venueRows[0]?.settingsJson as any)?.automation ?? {};
     return {
@@ -2313,15 +2281,14 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     };
   }),
 
-  updateAutomationSettings: publicQuery.input(z.object({
+  updateAutomationSettings: protectedProcedure.input(z.object({
     token: z.string(),
     reEngagement: z.boolean(),
     birthday: z.boolean(),
     passExpiry: z.boolean(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
     await db.update(venues).set({
@@ -2339,12 +2306,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Subscription Passes List ───
-  listSubscriptionPasses: publicQuery.input(z.object({
+  listSubscriptionPasses: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(subscriptionPasses)
       .where(eq(subscriptionPasses.venueId, venueId))
       .orderBy(desc(subscriptionPasses.createdAt))
@@ -2352,18 +2318,17 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Corporate Accounts ───
-  listCorporateAccounts: publicQuery.input(z.object({
+  listCorporateAccounts: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(corporateAccounts)
       .where(and(eq(corporateAccounts.venueId, venueId), eq(corporateAccounts.isActive, true)))
       .orderBy(desc(corporateAccounts.createdAt));
   }),
 
-  createCorporateAccount: publicQuery.input(z.object({
+  createCorporateAccount: protectedProcedure.input(z.object({
     token: z.string(),
     companyName: z.string().min(1),
     contactName: z.string().min(1),
@@ -2371,10 +2336,9 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     contactEmail: z.string().email().optional(),
     billingAddress: z.string().optional(),
     paymentTerms: z.enum(["prepaid", "net_7", "net_14", "net_30"]).optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const [result] = await db.insert(corporateAccounts).values({
       venueId,
       companyName: input.companyName,
@@ -2432,12 +2396,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return { ok: true };
   }),
 
-  listPushSubscriptions: publicQuery.input(z.object({
+  listPushSubscriptions: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const [row] = await db.select({ count: count(pushSubscriptions.id) })
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.venueId, venueId));
@@ -2445,12 +2408,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Multi-Venue ───
-  listMyVenues: publicQuery.input(z.object({
+  listMyVenues: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // JWT has venueId but not email — look up owner email from venueOwners
     const ownerRow = await db.select({ email: venueOwners.email })
@@ -2475,13 +2437,12 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return rows;
   }),
 
-  getVenueToken: publicQuery.input(z.object({
+  getVenueToken: protectedProcedure.input(z.object({
     token: z.string(),
     venueId: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const currentVenueId = payload.payload.venueId as number;
+    const currentVenueId = ctx.auth.venueId;
 
     // Look up email from current venue owner record
     const ownerRow = await db.select({ email: venueOwners.email, id: venueOwners.id, name: venueOwners.name, role: venueOwners.role })
@@ -2691,18 +2652,17 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
 
   // ─── Table Management ─────────────────────────────────────────────────────
 
-  listTables: publicQuery.input(z.object({
+  listTables: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(venueTables)
       .where(eq(venueTables.venueId, venueId))
       .orderBy(venueTables.tableNumber);
   }),
 
-  saveTable: publicQuery.input(z.object({
+  saveTable: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive().optional(),
     tableNumber: z.string().min(1),
@@ -2713,10 +2673,9 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     height: z.number().optional(),
     shape: z.enum(["round", "rect"]).optional(),
     section: z.string().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const { token: _t, id, ...fields } = input;
     const values = { venueId, ...fields };
@@ -2730,25 +2689,23 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     }
   }),
 
-  deleteTable: publicQuery.input(z.object({
+  deleteTable: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     await db.delete(venueTables).where(and(eq(venueTables.id, input.id), eq(venueTables.venueId, venueId)));
     return { ok: true };
   }),
 
-  assignReservationTable: publicQuery.input(z.object({
+  assignReservationTable: protectedProcedure.input(z.object({
     token: z.string(),
     reservationId: z.number().int().positive(),
     tableId: z.number().int().positive().nullable(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     await db.update(reservations)
       .set({ tableId: input.tableId })
       .where(and(eq(reservations.id, input.reservationId), eq(reservations.venueId, venueId)));
@@ -2788,22 +2745,20 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
 
   // ─── Google My Business ────────────────────────────────────────────────────
 
-  gmbGetAuthUrl: publicQuery.input(z.object({
+  gmbGetAuthUrl: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     // Signed state + offline access via the shared OAuth module.
     const url = await buildAuthUrl("gmb", venueId);
     return { url, configured: !!url };
   }),
 
-  gmbGetConnection: publicQuery.input(z.object({
+  gmbGetConnection: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const settings = venueRows[0]?.settingsJson as any;
     const connected = !!(settings?.gmbAccessToken);
@@ -2815,11 +2770,10 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     };
   }),
 
-  gmbSyncHours: publicQuery.input(z.object({
+  gmbSyncHours: protectedProcedure.input(z.object({
     token: z.string(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const { accessToken, settings } = await getValidGmbToken(venueId);
     if (!settings.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB location ID not set" });
 
@@ -2856,12 +2810,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return { ok: true };
   }),
 
-  gmbSyncMenu: publicQuery.input(z.object({
+  gmbSyncMenu: protectedProcedure.input(z.object({
     token: z.string(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const { accessToken, settings } = await getValidGmbToken(venueId);
     if (!settings.gmbAccountId || !settings.gmbLocationId) throw new TRPCError({ code: "BAD_REQUEST", message: "GMB account/location ID not set" });
 
@@ -2913,14 +2866,13 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Review Reply ───
-  replyToReview: publicQuery.input(z.object({
+  replyToReview: protectedProcedure.input(z.object({
     token: z.string(),
     reviewId: z.number().int().positive(),
     reply: z.string().min(1),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const reviewRows = await db.select().from(reviews).where(eq(reviews.id, input.reviewId)).limit(1);
     const review = reviewRows[0];
@@ -2936,16 +2888,15 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Onboarding wizard: token-based menu item create ───
-  createMenuItemOwner: publicQuery.input(z.object({
+  createMenuItemOwner: protectedProcedure.input(z.object({
     token: z.string(),
     name: z.string().min(1).max(128),
     price: z.number().positive(),
     category: z.enum(["coffee", "pastries", "bread", "food", "drinks", "snacks", "merchandise", "seasonal"]),
     description: z.string().optional(),
     imageUrl: z.string().url().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const slug = `${input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
     const [item] = await db.insert(menuItems).values({
@@ -2960,13 +2911,12 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return { id: item.id };
   }),
 
-  updateMenuItemImage: publicQuery.input(z.object({
+  updateMenuItemImage: protectedProcedure.input(z.object({
     token: z.string(),
     menuItemId: z.number(),
     imageUrl: z.string().url().nullable(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     await db.update(menuItems).set({ image: input.imageUrl })
       .where(and(eq(menuItems.id, input.menuItemId), eq(menuItems.venueId, venueId)));
@@ -3005,11 +2955,10 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Activity Feed (owner dashboard sidebar widget) ───────────────────────
-  getActivityFeed: publicQuery.input(z.object({
+  getActivityFeed: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
 
     // 5 most recent orders for this venue
@@ -3059,12 +3008,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return { alreadySubmitted: false };
   }),
 
-  getNpsSummary: publicQuery.input(z.object({
+  getNpsSummary: protectedProcedure.input(z.object({
     token: z.string(),
     days: z.number().int().min(1).max(365).default(30),
-  })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  })).query(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
     const db = getDb();
     const since = new Date(Date.now() - input.days * 86400000);
 
