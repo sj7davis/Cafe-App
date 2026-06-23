@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { auditLog, orders, loyaltyAccounts } from "@db/schema";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, type SQL } from "drizzle-orm";
 
 export const auditRouter = createRouter({
   list: protectedProcedure.input(z.object({
@@ -13,7 +13,7 @@ export const auditRouter = createRouter({
     const venueId = ctx.auth.venueId;
     const db = getDb();
     const since = new Date(Date.now() - input.days * 86400000);
-    const conditions: any[] = [eq(auditLog.venueId, venueId), gte(auditLog.createdAt, since)];
+    const conditions: SQL[] = [eq(auditLog.venueId, venueId), gte(auditLog.createdAt, since)];
     if (input.entityType) conditions.push(eq(auditLog.entityType, input.entityType));
     return db.select().from(auditLog).where(and(...conditions)).orderBy(desc(auditLog.createdAt)).limit(500);
   }),

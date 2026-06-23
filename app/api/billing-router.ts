@@ -145,7 +145,7 @@ export const billingRouter = createRouter({
     }).where(eq(venues.id, venueId));
 
     // Extract client secret if payment is required
-    const invoice = subscription.latest_invoice as any;
+    const invoice = subscription.latest_invoice as { payment_intent?: { client_secret?: string | null } } | null;
     const clientSecret = invoice?.payment_intent?.client_secret ?? null;
 
     return { ok: true, clientSecret };

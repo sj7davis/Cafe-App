@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries, recurringOrders } from "@db/schema";
-import { eq, and, desc, asc, sql, gte, sum, inArray, notInArray, count, not, max } from "drizzle-orm";
+import { eq, and, desc, asc, sql, gte, sum, inArray, notInArray, count, not, max, type SQL } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "crypto";
@@ -521,8 +521,8 @@ export const venueRouter = createRouter({
                 { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
                 { title: "Order Ready! ☕", body: `Order ${ro.orderNumber} for ${ro.customerName} is ready for pickup.`, tag: `order-${ro.id}` }
               );
-            } catch (pushErr: any) {
-              if (pushErr?.statusCode === 410) {
+            } catch (pushErr) {
+              if ((pushErr as { statusCode?: number })?.statusCode === 410) {
                 // Subscription expired — remove it
                 await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
               }
@@ -546,8 +546,8 @@ export const venueRouter = createRouter({
                 { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
                 { title: "Your order is ready! ☕", body: `Order ${ro.orderNumber} is ready for pickup. Come grab it!`, tag: `customer-order-${input.orderId}` }
               );
-            } catch (e: any) {
-              if (e?.statusCode === 410) {
+            } catch (e) {
+              if ((e as { statusCode?: number })?.statusCode === 410) {
                 await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id));
               }
             }
@@ -2943,7 +2943,7 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     const phone = payload.payload.phone as string | undefined;
     const venueId = payload.payload.venueId as number | undefined;
     const db = getDb();
-    const conditions: any[] = [];
+    const conditions: SQL[] = [];
     if (phone) conditions.push(eq(orders.customerPhone, phone));
     if (venueId) conditions.push(eq(orders.venueId, venueId));
     if (conditions.length === 0) return [];

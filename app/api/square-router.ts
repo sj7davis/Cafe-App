@@ -30,6 +30,29 @@ async function getValidSquare(venueId: number) {
   return { accessToken: tokens.accessToken, venue };
 }
 
+// Minimal shapes for the Square API responses this router reads.
+type SquareError = { errors?: { detail?: string }[] };
+interface SquareCatalogObject {
+  type?: string;
+  id: string;
+  imageData?: { url?: string };
+  itemData?: {
+    name: string;
+    description?: string | null;
+    variations?: { itemVariationData?: { priceMoney?: { amount?: number | string } } }[];
+    imageIds?: string[];
+  };
+}
+interface SquareInventoryCount { catalog_object_id?: string; quantity?: string; state?: string }
+interface SquareLineItem { name?: string; quantity?: string | number; basePriceMoney?: { amount?: number | string } }
+interface SquareOrder {
+  id?: string;
+  state?: string;
+  createdAt?: string;
+  totalMoney?: { amount?: number | string };
+  lineItems?: SquareLineItem[];
+}
+
 export const squareRouter = createRouter({
   // Get Square OAuth URL for connecting a venue (signed state via shared module)
   getOAuthUrl: featureProcedure("pos_sync").input(z.object({
@@ -73,12 +96,12 @@ export const squareRouter = createRouter({
       });
 
       if (!res.ok) {
-        const err = await res.json() as any;
+        const err = await res.json() as SquareError;
         throw new TRPCError({ code: "BAD_REQUEST", message: err.errors?.[0]?.detail || "Square API error" });
       }
 
-      const data = await res.json() as any;
-      const allObjects: any[] = data.objects || [];
+      const data = await res.json() as { objects?: SquareCatalogObject[] };
+      const allObjects: SquareCatalogObject[] = data.objects || [];
 
       // Build image lookup map: imageId → URL
       const imageMap: Record<string, string> = {};
@@ -88,13 +111,14 @@ export const squareRouter = createRouter({
         }
       }
 
-      const items = allObjects.filter((o: any) => o.type === "ITEM");
+      const items = allObjects.filter((o) => o.type === "ITEM");
 
       let imported = 0;
       let withImages = 0;
 
       for (const item of items) {
         const itemData = item.itemData;
+        if (!itemData) continue;
         const variation = itemData.variations?.[0];
         if (!variation) continue;
 
@@ -124,7 +148,7 @@ export const squareRouter = createRouter({
           await db.update(menuItems).set({
             name: itemData.name,
             price: String(price),
-            category: category as any,
+            category,
             description: itemData.description || null,
             // Only update image if Square provides one (don't overwrite a manually-set image)
             ...(imageUrl ? { image: imageUrl } : {}),
@@ -136,7 +160,7 @@ export const squareRouter = createRouter({
             name: itemData.name,
             description: itemData.description || null,
             price: String(price),
-            category: category as any,
+            category,
             squareCatalogId: item.id,
             ...(imageUrl ? { image: imageUrl } : {}),
           });
@@ -145,8 +169,8 @@ export const squareRouter = createRouter({
       }
 
       return { imported, updated: items.length - imported, total: items.length, withImages };
-    } catch (e: any) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: e.message || "Failed to import from Square" });
+    } catch (e) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: (e as Error).message || "Failed to import from Square" });
     }
   }),
 
@@ -165,7 +189,7 @@ export const squareRouter = createRouter({
 
     const catalogObjectIds = linkedItems.map((item) => item.squareCatalogId as string);
 
-    const body: Record<string, any> = { catalog_object_ids: catalogObjectIds };
+    const body: Record<string, string[]> = { catalog_object_ids: catalogObjectIds };
     if (venue.squareLocationId) {
       body.location_ids = [venue.squareLocationId];
     }
@@ -180,12 +204,12 @@ export const squareRouter = createRouter({
     });
 
     if (!countsRes.ok) {
-      const err = await countsRes.json() as any;
+      const err = await countsRes.json() as SquareError;
       throw new TRPCError({ code: "BAD_REQUEST", message: err.errors?.[0]?.detail || "Square inventory API error" });
     }
 
-    const countsData = await countsRes.json() as any;
-    const counts: any[] = countsData.counts || [];
+    const countsData = await countsRes.json() as { counts?: SquareInventoryCount[] };
+    const counts: SquareInventoryCount[] = countsData.counts || [];
 
     // Build a map from squareCatalogId → quantity
     const quantityByCatalogId = new Map<string, number>();
@@ -265,11 +289,11 @@ export const squareRouter = createRouter({
       headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
     });
     if (!res.ok) throw new TRPCError({ code: "BAD_REQUEST", message: "Square order not found" });
-    const data = await res.json() as any;
+    const data = await res.json() as { order: SquareOrder };
     const sqOrder = data.order;
 
     const totalMoney = sqOrder.totalMoney?.amount ? Number(sqOrder.totalMoney.amount) / 100 : 0;
-    const lineItems = (sqOrder.lineItems || []).map((li: any) => ({
+    const lineItems = (sqOrder.lineItems || []).map((li) => ({
       name: li.name || "Item",
       quantity: Number(li.quantity || 1),
       unitPrice: li.basePriceMoney?.amount ? Number(li.basePriceMoney.amount) / 100 : 0,
@@ -313,8 +337,8 @@ export const squareRouter = createRouter({
       body: JSON.stringify(body),
     });
     if (!res.ok) return { orders: [] };
-    const data = await res.json() as any;
-    const sqOrders = (data.orders || []).map((o: any) => ({
+    const data = await res.json() as { orders?: SquareOrder[] };
+    const sqOrders = (data.orders || []).map((o) => ({
       id: o.id,
       total: o.totalMoney?.amount ? Number(o.totalMoney.amount) / 100 : 0,
       state: o.state,
