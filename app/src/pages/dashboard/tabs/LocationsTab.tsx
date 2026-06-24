@@ -156,7 +156,7 @@ export function LocationsTab({ venue }: { venue: any }) {
               {loc.hoursSunday && <div className="font-data" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>Sun: {loc.hoursSunday}</div>}
             </div>
             <div className="flex gap-2 ml-4 shrink-0">
-              <button onClick={() => handleEdit(loc)} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)' }}>
+              <button onClick={() => handleEdit(loc)} className="p-2 border hover:bg-[color:var(--op-btn-bg)] hover:text-[color:var(--op-btn-text)] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)' }}>
                 <Edit2 size={14} />
               </button>
               <button

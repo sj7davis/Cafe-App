@@ -107,7 +107,7 @@ export function BundlesTab({ venueId }: { venueId: number }) {
                   <p style={{ fontSize: 11, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' }}>Items: {Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || '').slice(0, 60)}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
+                  <button onClick={() => { setEditId(b.id); setEditForm({ name: b.name, description: b.description || '', itemSlugs: Array.isArray(b.itemSlugs) ? (b.itemSlugs as string[]).join(', ') : String(b.itemSlugs || ''), bundlePrice: String(b.bundlePrice), isActive: !!b.isActive }); }} className="p-2 border hover:bg-[color:var(--op-btn-bg)] hover:text-[color:var(--op-btn-text)] transition-all" style={{ borderColor: 'var(--op-border-strong)', color: 'var(--op-text)', background: 'transparent' }}><Edit2 size={14} /></button>
                   {deleteConfirm === b.id ? (
                     <div className="flex gap-1 items-center">
                       <button onClick={() => { deleteBundle.mutate({ token, id: b.id }); setDeleteConfirm(null); }} style={{ background: '#B85450', color: '#F3F2EE', border: 'none', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Delete</button>

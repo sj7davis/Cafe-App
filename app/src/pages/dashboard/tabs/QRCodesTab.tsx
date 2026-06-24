@@ -163,7 +163,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
             <div className="flex gap-3">
               <button
                 onClick={printTableQRs}
-                className="px-5 py-2.5 font-button flex items-center gap-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
+                className="px-5 py-2.5 font-button flex items-center gap-2 border hover:bg-[color:var(--op-btn-bg)] hover:text-[color:var(--op-btn-text)] transition-all"
                 style={qrBtnSecondary}
               >
                 Print All
@@ -194,7 +194,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
               </button>
               <button
                 onClick={() => printSingle(menuQR, `${slug} — Menu QR Code`)}
-                className="px-4 py-2.5 font-button flex items-center gap-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
+                className="px-4 py-2.5 font-button flex items-center gap-2 border hover:bg-[color:var(--op-btn-bg)] hover:text-[color:var(--op-btn-text)] transition-all"
                 style={qrBtnSecondary}
               >
                 Print
@@ -227,7 +227,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
               </button>
               <button
                 onClick={() => printSingle(kioskQR, `${slug} — Kiosk Mode QR Code`)}
-                className="px-4 py-2.5 font-button flex items-center gap-2 border hover:bg-[#181818] hover:text-[#F3F2EE] transition-all"
+                className="px-4 py-2.5 font-button flex items-center gap-2 border hover:bg-[color:var(--op-btn-bg)] hover:text-[color:var(--op-btn-text)] transition-all"
                 style={qrBtnSecondary}
               >
                 Print
