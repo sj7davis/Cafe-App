@@ -10,10 +10,12 @@ import {
 
 
 import QRCode from 'qrcode';
+import { useFeatureGate, UpgradeGate } from '../shared';
 
 
-export function IntegrationsTab({ venue }: { venue: { slug: string; name: string } | null }) {
+export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; name: string } | null; onUpgrade?: () => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
+  const posGate = useFeatureGate('pos_sync');
 
   // ── Banner state ──────────────────────────────────────────────────────────
   const [connectedBanner, setConnectedBanner] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
   // ── Square ────────────────────────────────────────────────────────────────
   const { data: squareStatus } = trpc.square.status.useQuery({ token }, { enabled: !!token });
   const { data: oauthData, isLoading: oauthLoading, error: oauthError } = trpc.square.getOAuthUrl.useQuery(
-    { token }, { enabled: !!token && !squareStatus?.connected }
+    { token }, { enabled: !!token && !squareStatus?.connected && posGate.allowed }
   );
   const squareDisconnect = trpc.square.disconnect.useMutation({ onSuccess: () => window.location.reload() });
   const squareSyncMenu = trpc.square.syncMenu.useMutation();
@@ -56,7 +58,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
 
   async function handleLsConnect() {
     const result = await fetchLsAuthUrl();
-    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
+    if (result.data?.url) window.open(result.data.url, '_blank');
   }
 
   // ── Tyro ──────────────────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
 
   async function handleGmbConnect() {
     const result = await fetchGmbAuthUrl();
-    if ((result.data as any)?.url) window.open((result.data as any).url, '_blank');
+    if (result.data?.url) window.open(result.data.url, '_blank');
   }
 
   // ── Stripe Connect ────────────────────────────────────────────────────────
@@ -111,19 +113,20 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
     try {
       const result = await stripeConnectMut.mutateAsync({ token });
       window.location.href = result.url;
-    } catch (err: any) {
+    } catch (err) {
+      const e = err as { message?: string; data?: { code?: string } };
       // If franchisee config not yet set up, auto-create with defaults then retry
-      if (err?.message?.includes('Set up franchisee config') || err?.data?.code === 'NOT_FOUND') {
+      if (e?.message?.includes('Set up franchisee config') || e?.data?.code === 'NOT_FOUND') {
         try {
           await franchiseeSetupMut.mutateAsync({ token });
           const result = await stripeConnectMut.mutateAsync({ token });
           window.location.href = result.url;
-        } catch (e2: any) {
-          showToast(e2?.message || 'Could not start Stripe onboarding', false);
+        } catch (e2) {
+          showToast((e2 as Error)?.message || 'Could not start Stripe onboarding', false);
           setStripeConnecting(false);
         }
       } else {
-        showToast(err?.message || 'Could not start Stripe onboarding', false);
+        showToast(e?.message || 'Could not start Stripe onboarding', false);
         setStripeConnecting(false);
       }
     }
@@ -187,7 +190,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
   };
   const pillNotConnected: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 4,
-    background: 'rgba(24,24,24,0.06)', color: 'var(--op-text-secondary)',
+    background: 'var(--op-border-soft)', color: 'var(--op-text-secondary)',
     fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase',
     padding: '2px 8px', borderRadius: 99,
   };
@@ -247,14 +250,21 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
       {/* ── Section 1: POS Systems ─────────────────────────────────────────── */}
       <div>
         <p style={sectionHeadStyle}>POS Systems</p>
+        {posGate.locked ? (
+          <UpgradeGate
+            title="POS sync is a Pro feature"
+            description={`Your ${posGate.planLabel} plan doesn't include POS sync. Upgrade to connect Square, Lightspeed, Tyro or Impos and sync your menu, inventory and sales automatically.`}
+            onUpgrade={onUpgrade}
+          />
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Square */}
           <div style={cardStyle}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div style={{ width: 36, height: 36, background: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Zap size={18} style={{ color: '#F3F2EE' }} />
+                <div style={{ width: 36, height: 36, background: 'var(--op-btn-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Zap size={18} style={{ color: 'var(--op-btn-text)' }} />
                 </div>
                 <div>
                   <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Square POS</p>
@@ -271,7 +281,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
               </p>
             )}
             {squareStatus?.connected ? (
-              <div style={{ borderTop: '1px solid rgba(24,24,24,0.06)', paddingTop: 12 }}>
+              <div style={{ borderTop: '1px solid var(--op-border-soft)', paddingTop: 12 }}>
                 {/* One-way import notice */}
                 <p style={{ fontSize: 11, color: 'var(--op-text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
                   ↓ <strong>Import from Square only</strong> — changes in B1 are not pushed back to Square.
@@ -327,7 +337,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 )}
               </div>
             ) : squareNotConfigured ? null : (
-              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 <button style={{ ...primaryBtn, opacity: oauthLoading ? 0.6 : 1 }}
                   disabled={oauthLoading || !oauthData?.url}
                   onClick={() => { if (oauthData?.url) window.open(oauthData.url, '_blank'); }}>
@@ -355,7 +365,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 : <span style={pillNotConnected}>Not connected</span>}
             </div>
             {lsC?.connected ? (
-              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 {lsC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(lsC.lastSyncAt).toLocaleDateString()}</p>}
                 <button style={{ ...primaryBtn, opacity: lsSyncMenu.isPending ? 0.6 : 1 }} disabled={lsSyncMenu.isPending}
                   onClick={() => { setLsSyncMsg(''); lsSyncMenu.mutate({ token }, { onSuccess: () => { setLsSyncMsg('Menu synced!'); showToast('Lightspeed menu synced'); }, onError: (e) => { setLsSyncMsg(e.message); showToast(e.message, false); } }); }}>
@@ -366,7 +376,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 {lsSyncMsg && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: lsSyncMsg === 'Menu synced!' ? '#5E8B5E' : '#B85450' }}>{lsSyncMsg}</span>}
               </div>
             ) : (
-              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 <button style={{ ...primaryBtn, background: '#FF6600', opacity: lsAuthFetching ? 0.6 : 1 }} disabled={lsAuthFetching} onClick={handleLsConnect}>
                   {lsAuthFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
                   Connect Lightspeed
@@ -392,11 +402,11 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 : <span style={pillNotConnected}>Not connected</span>}
             </div>
             {tyroC?.connected ? (
-              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Terminal: {tyroC.terminalId}</p>
               </div>
             ) : (
-              <div className="pt-1 space-y-2" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1 space-y-2" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 {[
                   { label: 'API Key', key: 'apiKey', placeholder: 'tyro-api-key' },
                   { label: 'Merchant ID', key: 'merchantId', placeholder: 'MID-123456' },
@@ -424,8 +434,8 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
           <div style={cardStyle}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div style={{ width: 36, height: 36, background: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Coffee size={18} style={{ color: '#F3F2EE' }} />
+                <div style={{ width: 36, height: 36, background: 'var(--op-btn-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Coffee size={18} style={{ color: 'var(--op-btn-text)' }} />
                 </div>
                 <div>
                   <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Impos POS</p>
@@ -437,7 +447,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 : <span style={pillNotConnected}>Not connected</span>}
             </div>
             {imposC?.connected ? (
-              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 {imposC.lastSyncAt && <p className="font-data w-full" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(imposC.lastSyncAt).toLocaleDateString()}</p>}
                 <button style={{ ...primaryBtn, opacity: imposSyncMenu.isPending ? 0.6 : 1 }} disabled={imposSyncMenu.isPending}
                   onClick={() => { setImposSyncMsg(''); imposSyncMenu.mutate({ token }, { onSuccess: () => { setImposSyncMsg('Synced!'); showToast('Impos menu synced'); }, onError: (e) => { setImposSyncMsg(e.message); showToast(e.message, false); } }); }}>
@@ -448,7 +458,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 {imposSyncMsg && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: imposSyncMsg === 'Synced!' ? '#5E8B5E' : '#B85450' }}>{imposSyncMsg}</span>}
               </div>
             ) : (
-              <div className="pt-1 space-y-2" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1 space-y-2" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 {[
                   { label: 'API Key', key: 'apiKey', placeholder: 'impos-api-key' },
                   { label: 'Site ID', key: 'siteId', placeholder: 'SITE-001' },
@@ -472,6 +482,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
           </div>
 
         </div>
+        )}
       </div>
 
       {/* ── Section 2: Accounting ──────────────────────────────────────────── */}
@@ -496,7 +507,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 : <span style={pillNotConnected}>Not connected</span>}
             </div>
             {xeroC?.isConnected ? (
-              <div className="pt-1 space-y-3" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1 space-y-3" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 {xeroC.updatedAt && <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(xeroC.updatedAt).toLocaleDateString()}</p>}
                 <div className="flex flex-wrap gap-2 items-end">
                   <div>
@@ -520,7 +531,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 <button style={ghostBtn} disabled={xeroDisconnect.isPending} onClick={() => xeroDisconnect.mutate({ token })}>Disconnect</button>
               </div>
             ) : (
-              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 <button style={{ ...primaryBtn, background: '#13B5EA' }}
                   onClick={() => { if ((xeroAuthUrlData as any)?.url) window.open((xeroAuthUrlData as any).url, '_blank'); }}>
                   <Link2 size={12} /> Connect Xero
@@ -554,7 +565,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 : <span style={pillNotConnected}>{stripeStatusQuery.data?.accountId ? 'Onboarding incomplete' : 'Not connected'}</span>}
             </div>
 
-            <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+            <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
               {stripeStatusQuery.data?.ready ? (
                 <div className="space-y-2">
                   {/* Payout balance card */}
@@ -629,17 +640,17 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                     </div>
                     <div>
                       <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>{platform.label}</p>
-                      <span style={{ ...pillNotConnected, background: 'rgba(24,24,24,0.06)', color: 'var(--op-text-secondary)' }}>
+                      <span style={{ ...pillNotConnected, background: 'var(--op-border-soft)', color: 'var(--op-text-secondary)' }}>
                         Platform fee: {platform.fee}
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="pt-1 space-y-2" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+                <div className="pt-1 space-y-2" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                   <label className="font-data block" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>Webhook URL</label>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <input readOnly value={webhookUrl}
-                      style={{ flex: 1, fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', color: 'var(--op-text-secondary)', background: 'rgba(24,24,24,0.03)', border: '1px solid rgba(24,24,24,0.10)', padding: '5px 8px', minWidth: 0 }} />
+                      style={{ flex: 1, fontFamily: 'Geist Mono, monospace', fontSize: '0.625rem', color: 'var(--op-text-secondary)', background: 'var(--op-border-soft)', border: '1px solid var(--op-border-mid)', padding: '5px 8px', minWidth: 0 }} />
                     <button style={{ ...primaryBtn, flexShrink: 0 }}
                       onClick={() => { navigator.clipboard.writeText(webhookUrl).then(() => showToast('Webhook URL copied')).catch(() => showToast('Copy failed', false)); }}>
                       Copy
@@ -677,7 +688,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 : <span style={pillNotConnected}>Not connected</span>}
             </div>
             {gmbC?.connected ? (
-              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="flex flex-wrap gap-2 pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 <button style={{ ...primaryBtn, opacity: gmbSyncHours.isPending ? 0.6 : 1 }} disabled={gmbSyncHours.isPending}
                   onClick={() => { setGmbSyncMsg(''); gmbSyncHours.mutate({ token }, { onSuccess: () => { setGmbSyncMsg('Hours synced!'); showToast('Hours synced to GMB'); }, onError: (e) => { setGmbSyncMsg(e.message); showToast(e.message, false); } }); }}>
                   {gmbSyncHours.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -691,7 +702,7 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
                 {gmbSyncMsg && <span className="font-data self-center" style={{ fontSize: '0.5625rem', color: gmbSyncMsg.includes('synced') ? '#5E8B5E' : '#B85450' }}>{gmbSyncMsg}</span>}
               </div>
             ) : (
-              <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+              <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
                 <button style={{ ...primaryBtn, background: '#4285F4', opacity: gmbAuthFetching ? 0.6 : 1 }} disabled={gmbAuthFetching} onClick={handleGmbConnect}>
                   {gmbAuthFetching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
                   Connect Google
@@ -709,14 +720,14 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
         <div style={{ ...cardStyle, maxWidth: 560 }}>
           <div className="flex items-center gap-3">
             <div style={{ width: 36, height: 36, background: '#5E8B8B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Bell size={18} style={{ color: '#F3F2EE' }} />
+              <Bell size={18} style={{ color: 'var(--op-btn-text)' }} />
             </div>
             <div>
               <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Automated Marketing</p>
               <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Daily triggers sent to opted-in customers</p>
             </div>
           </div>
-          <div style={{ borderTop: '1px solid rgba(24,24,24,0.06)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+          <div style={{ borderTop: '1px solid var(--op-border-soft)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             {[
               { key: 'reEngagement' as const, label: 'Re-engagement', desc: 'Email/SMS customers who haven\'t ordered in 30 days' },
               { key: 'birthday' as const, label: 'Birthday Greeting', desc: 'Birthday message to customers who opted in' },
@@ -757,15 +768,15 @@ export function IntegrationsTab({ venue }: { venue: { slug: string; name: string
         <p style={sectionHeadStyle}>Venue QR Code</p>
         <div style={{ ...cardStyle, maxWidth: 420 }}>
           <div className="flex items-center gap-3">
-            <div style={{ width: 36, height: 36, background: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <QrCode size={18} style={{ color: '#F3F2EE' }} />
+            <div style={{ width: 36, height: 36, background: 'var(--op-btn-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <QrCode size={18} style={{ color: 'var(--op-btn-text)' }} />
             </div>
             <div>
               <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--op-text)', marginBottom: 2 }}>Ordering QR Code</p>
               <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Customers scan to open your ordering page</p>
             </div>
           </div>
-          <div className="pt-1" style={{ borderTop: '1px solid rgba(24,24,24,0.06)' }}>
+          <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
             {qrDataUrl ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <img src={qrDataUrl} alt="QR code" style={{ width: 160, height: 160, border: '1px solid var(--op-border-soft)' }} />

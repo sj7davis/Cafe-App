@@ -261,7 +261,7 @@ export default function OwnerDashboard() {
           {activeTab === 'inventory' && <InventoryTab />}
           {activeTab === 'settings' && <SettingsTab venue={venue} />}
           {activeTab === 'billing' && <BillingTab />}
-          {activeTab === 'integrations' && <IntegrationsTab venue={venue} />}
+          {activeTab === 'integrations' && <IntegrationsTab venue={venue} onUpgrade={() => setActiveTab('billing')} />}
           {activeTab === 'reviews' && venue && <ReviewsTab venueId={venue.id} />}
           {activeTab === 'giftcards' && venue && <GiftCardsTab venueId={venue.id} />}
           {activeTab === 'passes' && venue && <PassesTab venueId={venue.id} />}
