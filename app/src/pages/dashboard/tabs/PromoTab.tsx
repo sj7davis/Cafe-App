@@ -145,7 +145,7 @@ export function PromoTab({ venueId: _venueId }: { venueId: number }) {
             </thead>
             <tbody>
               {codes.map((c: any) => (
-                <tr key={c.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.04)' }}>
+                <tr key={c.id} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                   <td style={{ padding: '10px 4px', fontFamily: 'Geist Mono', fontWeight: 600 }}>{c.code}</td>
                   <td style={{ padding: '10px 4px' }}>
                     {c.type === 'percentage' ? `${c.value}% off` : `$${Number(c.value).toFixed(2)} off`}

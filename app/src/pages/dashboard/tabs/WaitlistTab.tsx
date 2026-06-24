@@ -108,7 +108,7 @@ export function WaitlistTab({ venueId: _venueId }: { venueId: number }) {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['#', 'Name', 'Party', 'Wait', 'Status', 'Phone', 'Actions'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
@@ -116,7 +116,7 @@ export function WaitlistTab({ venueId: _venueId }: { venueId: number }) {
               </thead>
               <tbody>
                 {waiting.map((e: any) => (
-                  <tr key={e.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                  <tr key={e.id} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                     <td style={{ padding: '10px 10px', fontWeight: 700, color: 'var(--op-text)', fontFamily: 'Geist Mono' }}>{e.position}</td>
                     <td style={{ padding: '10px 10px', fontWeight: 600, color: 'var(--op-text)' }}>{e.name}</td>
                     <td style={{ padding: '10px 10px', color: 'var(--op-text)' }}>{e.partySize}</td>

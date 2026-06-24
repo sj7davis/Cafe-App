@@ -147,7 +147,7 @@ export function GiftCardsTab({ venueId: _venueId }: { venueId: number }) {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['Code', 'Amount', 'Balance', 'Recipient', 'Created'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
@@ -155,7 +155,7 @@ export function GiftCardsTab({ venueId: _venueId }: { venueId: number }) {
               </thead>
               <tbody>
                 {cards.map(card => (
-                  <tr key={card.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                  <tr key={card.id} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                     <td style={{ padding: '10px 12px', fontFamily: 'Geist Mono', fontWeight: 700, letterSpacing: 2 }}>{card.code}</td>
                     <td style={{ padding: '10px 12px' }}>${Number(card.amount).toFixed(2)}</td>
                     <td style={{ padding: '10px 12px', color: Number(card.balance) > 0 ? '#16a34a' : '#5E5E5E' }}>

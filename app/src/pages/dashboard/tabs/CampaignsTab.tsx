@@ -68,7 +68,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
               <div className="flex gap-6">
                 {(['email', 'sms'] as const).map(t => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: 14, color: 'var(--op-text)' }}>
-                    <input type="radio" name="camp-type" value={t} checked={form.type === t} onChange={() => setForm({ ...form, type: t })} style={{ accentColor: '#181818' }} />
+                    <input type="radio" name="camp-type" value={t} checked={form.type === t} onChange={() => setForm({ ...form, type: t })} style={{ accentColor: 'var(--op-btn-bg)' }} />
                     {t === 'email' ? 'Email' : 'SMS'}
                   </label>
                 ))}
@@ -105,7 +105,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)' }}>{c.name}</span>
                   <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: c.type === 'email' ? 'rgba(37,99,235,0.10)' : 'rgba(196,149,58,0.12)', color: c.type === 'email' ? '#2563EB' : '#C4953A', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{c.type}</span>
-                  <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: c.status === 'sent' ? 'rgba(94,139,94,0.12)' : 'rgba(24,24,24,0.06)', color: c.status === 'sent' ? '#5E8B5E' : '#5E5E5E', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{c.status}</span>
+                  <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: c.status === 'sent' ? 'rgba(94,139,94,0.12)' : 'var(--op-border-soft)', color: c.status === 'sent' ? '#5E8B5E' : '#5E5E5E', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{c.status}</span>
                   <span style={{ fontSize: 12, color: 'var(--op-text-secondary)' }}>{segmentLabel[c.segment] || c.segment}</span>
                 </div>
                 {c.sentAt && <p style={{ fontSize: 11, color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono' }}>Sent: {new Date(c.sentAt).toLocaleString()}</p>}
@@ -159,7 +159,7 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
               </thead>
               <tbody>
                 {(birthdayVouchers as any[]).map((v) => (
-                  <tr key={v.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.04)' }}>
+                  <tr key={v.id} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                     <td style={{ padding: '8px 10px', fontFamily: 'Geist Mono', fontWeight: 600, color: 'var(--op-text)' }}>{v.code}</td>
                     <td style={{ padding: '8px 10px', color: 'var(--op-text)' }}>${Number(v.value).toFixed(2)}</td>
                     <td style={{ padding: '8px 10px', color: 'var(--op-text)' }}>{v.usedCount ?? 0} / {v.maxUses ?? 1}</td>

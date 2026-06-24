@@ -72,7 +72,7 @@ export function CustomerCRMTab() {
     padding: '10px 10px',
     fontSize: 13,
     color: 'var(--op-text)',
-    borderBottom: '1px solid rgba(24,24,24,0.04)',
+    borderBottom: '1px solid var(--op-border-soft)',
     verticalAlign: 'top' as const,
   };
 
@@ -165,7 +165,7 @@ export function CustomerCRMTab() {
                       </tr>
                       {isExpanded && (
                         <tr key={`${c.phone}-expanded`}>
-                          <td colSpan={8} style={{ padding: '12px 16px 16px', background: 'rgba(94,139,139,0.04)', borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                          <td colSpan={8} style={{ padding: '12px 16px 16px', background: 'rgba(94,139,139,0.04)', borderBottom: '1px solid var(--op-border-soft)' }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--op-text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                               Recent Orders
                             </div>
@@ -176,10 +176,10 @@ export function CustomerCRMTab() {
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                 {(orderHistory as any[]).map((o) => (
-                                  <div key={o.id} style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 13, padding: '6px 0', borderBottom: '1px solid rgba(24,24,24,0.04)' }}>
+                                  <div key={o.id} style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 13, padding: '6px 0', borderBottom: '1px solid var(--op-border-soft)' }}>
                                     <span style={{ fontFamily: 'Geist Mono', fontSize: 11, color: 'var(--op-text-secondary)', minWidth: 100 }}>{o.orderNumber}</span>
                                     <span style={{ color: 'var(--op-text)' }}>${Number(o.totalAmount).toFixed(2)}</span>
-                                    <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: o.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'rgba(24,24,24,0.06)', color: o.status === 'completed' ? '#065F46' : 'var(--op-text-secondary)', textTransform: 'capitalize' }}>{o.status}</span>
+                                    <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: o.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'var(--op-border-soft)', color: o.status === 'completed' ? '#065F46' : 'var(--op-text-secondary)', textTransform: 'capitalize' }}>{o.status}</span>
                                     <span style={{ color: 'var(--op-text-secondary)', fontSize: 12 }}>{new Date(o.createdAt).toLocaleDateString('en-AU')}</span>
                                   </div>
                                 ))}

@@ -72,7 +72,7 @@ export function DeliveryTab() {
           {(['all', 'uber_eats', 'doordash', 'menulog', 'manual'] as DeliveryPlatform[]).map((p) => (
             <button key={p} onClick={() => setPlatformFilter(p)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: platformFilter === p ? '#181818' : 'transparent', color: platformFilter === p ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: platformFilter === p ? 'var(--op-btn-bg)' : 'transparent', color: platformFilter === p ? 'var(--op-btn-text)' : 'var(--op-text-secondary)', cursor: 'pointer' }}>
               {platformLabel(p)}
             </button>
           ))}
@@ -82,7 +82,7 @@ export function DeliveryTab() {
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: days === d ? 'var(--op-btn-bg)' : 'transparent', color: days === d ? 'var(--op-btn-text)' : 'var(--op-text-secondary)', cursor: 'pointer' }}>
               {d}D
             </button>
           ))}
@@ -190,7 +190,7 @@ export function DeliveryTab() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['Platform', 'Customer', 'Items', 'Subtotal', 'Fee', 'Net', 'Status', 'Date'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
@@ -200,7 +200,7 @@ export function DeliveryTab() {
                 {orders.map((order: any) => {
                   const badge = platformBadgeColor(order.platform);
                   return (
-                    <tr key={order.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <tr key={order.id} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                       <td style={{ padding: '10px 10px' }}>
                         <span style={{ fontSize: 11, fontFamily: 'Geist Mono', padding: '2px 8px', background: badge.bg, color: badge.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           {platformLabel(order.platform)}

@@ -101,7 +101,7 @@ export function SettingsTab({ venue }: { venue: any }) {
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Happy Hour</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="md:col-span-2 flex items-center gap-3">
-            <input type="checkbox" id="hh-enabled" checked={hhForm.enabled} onChange={e => setHhForm({ ...hhForm, enabled: e.target.checked })} style={{ accentColor: '#181818', width: 16, height: 16 }} />
+            <input type="checkbox" id="hh-enabled" checked={hhForm.enabled} onChange={e => setHhForm({ ...hhForm, enabled: e.target.checked })} style={{ accentColor: 'var(--op-btn-bg)', width: 16, height: 16 }} />
             <label htmlFor="hh-enabled" className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text)', cursor: 'pointer' }}>Enable Happy Hour</label>
           </div>
           <div>
@@ -145,7 +145,7 @@ export function SettingsTab({ venue }: { venue: any }) {
         <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Booking Deposits</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="md:col-span-2 flex items-center gap-3">
-            <input type="checkbox" id="deposit-enabled" checked={depositForm.requireDeposit} onChange={e => setDepositForm({ ...depositForm, requireDeposit: e.target.checked })} style={{ accentColor: '#181818', width: 16, height: 16 }} />
+            <input type="checkbox" id="deposit-enabled" checked={depositForm.requireDeposit} onChange={e => setDepositForm({ ...depositForm, requireDeposit: e.target.checked })} style={{ accentColor: 'var(--op-btn-bg)', width: 16, height: 16 }} />
             <label htmlFor="deposit-enabled" className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text)', cursor: 'pointer' }}>Require deposit to confirm bookings</label>
           </div>
           <div>

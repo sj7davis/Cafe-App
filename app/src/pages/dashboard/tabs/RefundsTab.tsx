@@ -79,7 +79,7 @@ export function RefundsTab() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['Order #', 'Customer', 'Amount', 'Date', 'Action'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', ...labelStyle, fontWeight: 400 }}>{h}</th>
                   ))}
@@ -89,7 +89,7 @@ export function RefundsTab() {
                 {orderList.map((order: any) => {
                   const isRefunded = !!refundedIds[order.id];
                   return (
-                    <tr key={order.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <tr key={order.id} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                       <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: 12, color: 'var(--op-text)', fontWeight: 600 }}>
                         #{order.orderNumber || order.id}
                       </td>

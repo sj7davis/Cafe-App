@@ -208,7 +208,7 @@ export function SmsMarketingTab() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['Date', 'Segment', 'Message', 'Sent'].map((h) => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
@@ -216,7 +216,7 @@ export function SmsMarketingTab() {
               </thead>
               <tbody>
                 {history.map((row: any, i: number) => (
-                  <tr key={row.id ?? i} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                  <tr key={row.id ?? i} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                     <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', whiteSpace: 'nowrap' as const, fontFamily: 'Geist Mono', fontSize: '0.625rem' }}>
                       {new Date(row.sentAt ?? row.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>

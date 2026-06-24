@@ -90,7 +90,7 @@ export function ReviewsTab({ venueId }: { venueId: number }) {
             <p style={{ fontSize: 14, color: 'var(--op-text-secondary)', margin: 0 }}>{r.comment}</p>
           )}
           {(r as any).ownerReply ? (
-            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(24,24,24,0.04)', border: '1px solid var(--op-border-soft)', borderRadius: 6 }}>
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--op-border-soft)', border: '1px solid var(--op-border-soft)', borderRadius: 6 }}>
               <span style={{ fontSize: '0.5625rem', fontFamily: 'Geist Mono', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: 4 }}>Owner reply:</span>
               <p style={{ fontSize: 13, color: 'var(--op-text)', margin: 0 }}>{(r as any).ownerReply}</p>
             </div>
@@ -131,7 +131,7 @@ function ReviewReplyForm({ reviewId, onSuccess }: { reviewId: number; onSuccess:
   }
 
   return (
-    <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(24,24,24,0.03)', border: '1px solid var(--op-border-soft)' }}>
+    <div style={{ marginTop: 10, padding: '10px 12px', background: 'var(--op-border-soft)', border: '1px solid var(--op-border-soft)' }}>
       <textarea
         value={reply}
         onChange={(e) => setReply(e.target.value)}

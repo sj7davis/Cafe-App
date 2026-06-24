@@ -104,7 +104,7 @@ export function LoyaltyTab({ venueId: _venueId, onUpgrade }: { venueId: number; 
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                  <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                     {['Phone', 'Points', 'Lifetime Pts', 'Tier', 'Joined'].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                     ))}
@@ -114,7 +114,7 @@ export function LoyaltyTab({ venueId: _venueId, onUpgrade }: { venueId: number; 
                   {filtered.map((a: any) => {
                     const tier = getTier(a.totalLifetimePoints ?? 0);
                     return (
-                      <tr key={a.id} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                      <tr key={a.id} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                         <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: 12, color: 'var(--op-text)' }}>{a.phone || '—'}</td>
                         <td style={{ padding: '10px 10px', fontWeight: 600, color: 'var(--op-text)' }}>{a.pointsBalance ?? 0}</td>
                         <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)' }}>{a.totalLifetimePoints ?? 0}</td>
@@ -207,7 +207,7 @@ export function LoyaltyTab({ venueId: _venueId, onUpgrade }: { venueId: number; 
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)' }}>{r.name}</span>
                       <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'rgba(94,139,139,0.12)', color: '#5E8B8B' }}>{r.pointsCost} PTS</span>
-                      <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'rgba(24,24,24,0.06)', color: 'var(--op-text-secondary)', textTransform: 'uppercase' as const }}>{r.rewardType?.replace('_', ' ')}</span>
+                      <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: 'var(--op-border-soft)', color: 'var(--op-text-secondary)', textTransform: 'uppercase' as const }}>{r.rewardType?.replace('_', ' ')}</span>
                       <span style={{ fontFamily: 'Geist Mono', fontSize: 10, padding: '1px 6px', background: r.isActive ? 'rgba(94,139,94,0.12)' : 'rgba(184,84,80,0.10)', color: r.isActive ? '#5E8B5E' : '#B85450' }}>{r.isActive ? 'ACTIVE' : 'OFF'}</span>
                     </div>
                     {r.description && <p style={{ fontSize: 13, color: 'var(--op-text-secondary)', marginBottom: 2 }}>{r.description}</p>}

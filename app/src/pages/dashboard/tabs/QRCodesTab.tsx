@@ -144,7 +144,7 @@ export function QRCodesTab({ venue }: { venue: any }) {
           <>
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 mb-4 max-h-96 overflow-y-auto">
               {tableQRs.map((q) => (
-                <div key={q.table} className="text-center border p-2 group relative" style={{ borderColor: 'rgba(24,24,24,0.1)' }}>
+                <div key={q.table} className="text-center border p-2 group relative" style={{ borderColor: 'var(--op-border-mid)' }}>
                   <img src={q.dataUrl} alt={`Table ${q.table}`} className="w-full" />
                   <p style={{ fontFamily: 'Geist Mono, monospace', fontSize: '0.5rem', color: 'var(--op-text-secondary)', marginTop: '4px' }}>
                     T{q.table}

@@ -109,7 +109,7 @@ export function AuditTab() {
           {entityTypes.map((e) => (
             <button key={e} onClick={() => setEntityFilter(e)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: entityFilter === e ? '#181818' : 'transparent', color: entityFilter === e ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: entityFilter === e ? 'var(--op-btn-bg)' : 'transparent', color: entityFilter === e ? 'var(--op-btn-text)' : 'var(--op-text-secondary)', cursor: 'pointer' }}>
               {e}
             </button>
           ))}
@@ -119,7 +119,7 @@ export function AuditTab() {
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)}
               className="px-3 py-1 font-data"
-              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: days === d ? '#181818' : 'transparent', color: days === d ? '#F3F2EE' : '#5E5E5E', cursor: 'pointer' }}>
+              style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--op-border-strong)', background: days === d ? 'var(--op-btn-bg)' : 'transparent', color: days === d ? 'var(--op-btn-text)' : 'var(--op-text-secondary)', cursor: 'pointer' }}>
               {d}D
             </button>
           ))}
@@ -139,7 +139,7 @@ export function AuditTab() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['Time', 'Actor', 'Action', 'Entity', 'Details'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
@@ -150,7 +150,7 @@ export function AuditTab() {
                   let detailStr = '';
                   try { detailStr = typeof row.details === 'string' ? row.details : JSON.stringify(row.details); } catch { detailStr = ''; }
                   return (
-                    <tr key={row.id ?? idx} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <tr key={row.id ?? idx} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                       <td style={{ padding: '10px 10px', whiteSpace: 'nowrap', fontFamily: 'Geist Mono', fontSize: 11, color: 'var(--op-text-secondary)' }}>
                         {row.createdAt ? new Date(row.createdAt).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                       </td>

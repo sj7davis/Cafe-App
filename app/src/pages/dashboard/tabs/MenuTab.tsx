@@ -386,7 +386,7 @@ export function MenuTab({ venue }: { venue: any }) {
                             : current.filter((t) => t !== tag);
                           setForm({ ...form, dietary: next.join(', ') });
                         }}
-                        style={{ accentColor: '#181818' }}
+                        style={{ accentColor: 'var(--op-btn-bg)' }}
                       />
                       <span className="font-data" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>{label}</span>
                     </label>

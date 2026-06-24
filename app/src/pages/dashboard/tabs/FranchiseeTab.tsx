@@ -212,7 +212,7 @@ export function FranchiseeTab() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ borderBottom: '2px solid rgba(24,24,24,0.1)' }}>
+                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
                   {['Period', 'Gross', 'Fee', 'Net', 'Status'].map((h) => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
                   ))}
@@ -222,7 +222,7 @@ export function FranchiseeTab() {
                 {payouts.map((row: any, i: number) => {
                   const statusColor = row.status === 'paid' ? '#5E8B5E' : '#C4953A';
                   return (
-                    <tr key={row.id ?? i} style={{ borderBottom: '1px solid rgba(24,24,24,0.06)' }}>
+                    <tr key={row.id ?? i} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
                       <td style={{ padding: '10px 10px', color: 'var(--op-text)', fontFamily: 'Geist Mono', fontSize: '0.625rem', whiteSpace: 'nowrap' as const }}>
                         {row.periodStart ? new Date(row.periodStart).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }) : '—'}
                       </td>

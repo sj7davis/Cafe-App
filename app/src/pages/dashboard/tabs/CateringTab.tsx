@@ -59,8 +59,8 @@ export function CateringTab({ venueId: _venueId }: { venueId: number }) {
               onClick={() => setStatusFilter(s)}
               style={{
                 padding: '6px 12px',
-                background: statusFilter === s ? '#181818' : 'transparent',
-                color: statusFilter === s ? '#F3F2EE' : '#5E5E5E',
+                background: statusFilter === s ? 'var(--op-btn-bg)' : 'transparent',
+                color: statusFilter === s ? 'var(--op-btn-text)' : 'var(--op-text-secondary)',
                 border: '1px solid var(--op-border-strong)',
                 cursor: 'pointer',
                 fontFamily: 'Geist Mono',
