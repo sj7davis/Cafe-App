@@ -54,7 +54,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
   const { refetch: fetchLsAuthUrl, isFetching: lsAuthFetching } = trpc.lightspeed.getAuthUrl.useQuery({ token }, { enabled: false });
   const lsSyncMenu = trpc.lightspeed.syncMenu.useMutation();
   const [lsSyncMsg, setLsSyncMsg] = useState('');
-  const lsC = lsConn as any;
+  const lsC = lsConn;
 
   async function handleLsConnect() {
     const result = await fetchLsAuthUrl();

@@ -46,7 +46,9 @@ export const lightspeedRouter = createRouter({
       .limit(1);
     if (!rows[0]) return null;
     const { accessToken, refreshToken, ...safe } = rows[0];
-    return safe;
+    // Expose connection state without leaking the (encrypted) token, matching
+    // the tyro/impos getConnection shape the UI expects.
+    return { ...safe, connected: !!accessToken };
   }),
 
   // Sync menu from Lightspeed
