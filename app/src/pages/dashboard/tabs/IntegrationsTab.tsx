@@ -66,7 +66,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
   const tyroConnect = trpc.tyro.connect.useMutation();
   const [tyroForm, setTyroForm] = useState({ apiKey: '', merchantId: '', terminalId: '' });
   const [tyroMsg, setTyroMsg] = useState('');
-  const tyroC = tyroConn as any;
+  const tyroC = tyroConn;
 
   // ── Impos ─────────────────────────────────────────────────────────────────
   const { data: imposConn, refetch: refetchImpos } = trpc.impos.getConnection.useQuery({ token }, { enabled: !!token });
@@ -75,7 +75,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
   const [imposForm, setImposForm] = useState({ apiKey: '', siteId: '' });
   const [imposConnMsg, setImposConnMsg] = useState('');
   const [imposSyncMsg, setImposSyncMsg] = useState('');
-  const imposC = imposConn as any;
+  const imposC = imposConn;
 
   // ── Xero ──────────────────────────────────────────────────────────────────
   const { data: xeroConn, refetch: refetchXeroHub } = trpc.xero.getConnection.useQuery({ token }, { enabled: !!token });
@@ -85,7 +85,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
   const [xeroSyncFrom, setXeroSyncFrom] = useState('');
   const [xeroSyncTo, setXeroSyncTo] = useState('');
   const [xeroMsg, setXeroMsg] = useState('');
-  const xeroC = xeroConn as any;
+  const xeroC = xeroConn;
 
   // ── Google My Business ────────────────────────────────────────────────────
   const { data: gmbConn } = trpc.venue.gmbGetConnection.useQuery({ token }, { enabled: !!token });
@@ -93,7 +93,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
   const gmbSyncHours = trpc.venue.gmbSyncHours.useMutation();
   const gmbSyncMenu = trpc.venue.gmbSyncMenu.useMutation();
   const [gmbSyncMsg, setGmbSyncMsg] = useState('');
-  const gmbC = gmbConn as any;
+  const gmbC = gmbConn;
 
   async function handleGmbConnect() {
     const result = await fetchGmbAuthUrl();
@@ -403,7 +403,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
             </div>
             {tyroC?.connected ? (
               <div className="pt-1" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
-                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Terminal: {tyroC.terminalId}</p>
+                <p className="font-data" style={{ fontSize: '0.5625rem', color: '#5E8B5E' }}>Terminal: {(tyroC.settingsJson as { terminalId?: string } | null)?.terminalId}</p>
               </div>
             ) : (
               <div className="pt-1 space-y-2" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
@@ -508,7 +508,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
             </div>
             {xeroC?.isConnected ? (
               <div className="pt-1 space-y-3" style={{ borderTop: '1px solid var(--op-border-soft)' }}>
-                {xeroC.updatedAt && <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(xeroC.updatedAt).toLocaleDateString()}</p>}
+                {xeroC.lastSyncAt && <p className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Last sync: {new Date(xeroC.lastSyncAt).toLocaleDateString()}</p>}
                 <div className="flex flex-wrap gap-2 items-end">
                   <div>
                     <label className="font-data block mb-1" style={{ fontSize: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>From</label>

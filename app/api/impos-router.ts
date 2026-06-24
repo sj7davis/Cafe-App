@@ -35,7 +35,9 @@ export const imposRouter = createRouter({
       .where(and(eq(posIntegrations.venueId, venueId), eq(posIntegrations.provider, "impos"))).limit(1);
     if (!rows[0]) return null;
     const { accessToken, refreshToken, ...safe } = rows[0];
-    return safe;
+    // Expose connection state without leaking the (encrypted) key, matching the
+    // tyro getConnection shape the UI expects.
+    return { ...safe, connected: !!accessToken };
   }),
 
   syncMenu: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
