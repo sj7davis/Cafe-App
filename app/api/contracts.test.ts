@@ -41,6 +41,8 @@ const validCalls: [string, Record<string, unknown>][] = [
   ["venue.getBySlug", { slug: "b1-backhaus" }],
   ["venue.getById", { id: 1 }],
   ["venue.listMenu", { venueId: 1 }],
+  ["venue.menuItemCosts", { token: T }],
+  ["venue.createMenuItem", { venueId: 1, slug: "flat-white", name: "Flat White", price: "5.00", cost: "1.80", category: "coffee" }],
   ["venue.getInventoryLevels", { token: T }],
   ["venue.setInventoryQuantity", { token: T, menuItemId: 2, quantity: 5, quantityAlert: 2 }],
   ["venue.toggleInventoryItem", { token: T, venueId: 1, menuItemId: 2, isAvailable: false }],
