@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
   Loader2, Check, Plus, X, AlertCircle,
@@ -19,6 +19,12 @@ export function MenuTab({ venue }: { venue: any }) {
   const token = localStorage.getItem('b1-owner-token') || '';
   const utils = trpc.useUtils();
   const { data: items, isLoading } = trpc.venue.listMenu.useQuery({ venueId: venue.id });
+  // Owner-only per-item cost (COGS), kept out of the public menu, for margin display.
+  const { data: itemCosts } = trpc.venue.menuItemCosts.useQuery({ token }, { enabled: !!token });
+  const costById = useMemo(
+    () => Object.fromEntries((itemCosts ?? []).map((c) => [c.id, c.cost])) as Record<number, string | null>,
+    [itemCosts],
+  );
   const { data: inventoryLevels, refetch: refetchInventory } = trpc.venue.getInventoryLevels.useQuery({ token }, { enabled: !!venue.id && !!token });
   const setInventoryQty = trpc.venue.setInventoryQuantity.useMutation({ onSuccess: () => { refetchInventory(); } });
   const [stockFormOpen, setStockFormOpen] = useState<number | null>(null);
@@ -30,6 +36,7 @@ export function MenuTab({ venue }: { venue: any }) {
     name: '',
     description: '',
     price: '',
+    cost: '',
     category: 'coffee' as 'coffee' | 'pastries' | 'bread',
     dietary: '',
     image: '',
@@ -55,6 +62,7 @@ export function MenuTab({ venue }: { venue: any }) {
   const createMutation = trpc.venue.createMenuItem.useMutation({
     onSuccess: () => {
       utils.venue.listMenu.invalidate();
+      utils.venue.menuItemCosts.invalidate();
       setMode('list');
       showSaved();
     },
@@ -63,6 +71,7 @@ export function MenuTab({ venue }: { venue: any }) {
   const updateMutation = trpc.venue.updateMenuItem.useMutation({
     onSuccess: () => {
       utils.venue.listMenu.invalidate();
+      utils.venue.menuItemCosts.invalidate();
       setMode('list');
       showSaved();
     },
@@ -113,7 +122,7 @@ export function MenuTab({ venue }: { venue: any }) {
   };
 
   const startCreate = () => {
-    setForm({ name: '', description: '', price: '', category: 'coffee', dietary: '', image: '' });
+    setForm({ name: '', description: '', price: '', cost: '', category: 'coffee', dietary: '', image: '' });
     setFormAllergens([]);
     setFormDietaryTags([]);
     setDeleteError('');
@@ -125,6 +134,7 @@ export function MenuTab({ venue }: { venue: any }) {
       name: item.name || '',
       description: item.description || '',
       price: String(item.price ?? ''),
+      cost: costById[item.id] != null ? String(costById[item.id]) : '',
       category: item.category || 'coffee',
       dietary: item.dietary || '',
       image: item.image || '',
@@ -148,6 +158,7 @@ export function MenuTab({ venue }: { venue: any }) {
         name: form.name.trim(),
         description: form.description || undefined,
         price: form.price,
+        cost: form.cost.trim() ? form.cost.trim() : null,
         category: form.category,
         dietary: form.dietary || undefined,
         image: form.image || undefined,
@@ -162,6 +173,7 @@ export function MenuTab({ venue }: { venue: any }) {
           name: form.name.trim(),
           description: form.description || undefined,
           price: form.price,
+          cost: form.cost.trim() ? form.cost.trim() : null,
           category: form.category,
           dietary: form.dietary || undefined,
           image: form.image || undefined,
@@ -286,6 +298,7 @@ export function MenuTab({ venue }: { venue: any }) {
                         <SortableMenuRow
                           key={item.id}
                           item={item}
+                          cost={costById[item.id] ?? null}
                           venue={venue}
                           token={token}
                           inventoryLevels={inventoryLevels as any[] || []}
@@ -344,6 +357,30 @@ export function MenuTab({ venue }: { venue: any }) {
                 style={inputStyle}
                 placeholder="4.50"
               />
+            </div>
+
+            {/* Cost (COGS) — internal only, drives profit margin */}
+            <div>
+              <label className="font-data block mb-1.5" style={labelStyle}>
+                Cost <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--op-text-muted)' }}>— optional, not shown to customers</span>
+              </label>
+              <input
+                type="text"
+                value={form.cost}
+                onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                className={inputCls}
+                style={inputStyle}
+                placeholder="1.80"
+              />
+              {form.price.trim() && form.cost.trim() && Number(form.price) > 0 && Number(form.cost) >= 0 && (
+                <p className="font-data mt-1.5" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
+                  Margin:{' '}
+                  <strong style={{ color: Number(form.cost) <= Number(form.price) ? '#5E8B5E' : '#B85450' }}>
+                    {(((Number(form.price) - Number(form.cost)) / Number(form.price)) * 100).toFixed(0)}%
+                  </strong>{' '}
+                  · ${(Number(form.price) - Number(form.cost)).toFixed(2)} profit per item
+                </p>
+              )}
             </div>
 
             {/* Category */}

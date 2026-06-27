@@ -817,7 +817,20 @@ export const venueRouter = createRouter({
     if (input.category) {
       conditions.push(eq(menuItems.category, input.category as any));
     }
-    return db.select().from(menuItems).where(and(...conditions)).orderBy(asc(menuItems.sortOrder), asc(menuItems.createdAt));
+    const rows = await db.select().from(menuItems).where(and(...conditions)).orderBy(asc(menuItems.sortOrder), asc(menuItems.createdAt));
+    // `cost` is internal COGS — never expose it on the public menu.
+    return rows.map(({ cost, ...item }) => item);
+  }),
+
+  // Owner-only: per-item cost (COGS) for the venue, keyed by menu item id. Used
+  // by the dashboard to compute profit margins without leaking cost publicly.
+  menuItemCosts: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db
+      .select({ id: menuItems.id, cost: menuItems.cost })
+      .from(menuItems)
+      .where(eq(menuItems.venueId, ctx.auth.venueId));
+    return rows;
   }),
 
   reorderMenuItems: protectedProcedure.input(z.object({
@@ -879,6 +892,7 @@ export const venueRouter = createRouter({
     name: z.string().min(1),
     description: z.string().optional(),
     price: z.string().or(z.number()),
+    cost: z.string().or(z.number()).nullable().optional(),
     category: z.enum(["coffee", "pastries", "bread", "food", "drinks", "snacks", "merchandise", "seasonal"]),
     dietary: z.string().optional(),
     image: z.string().optional(),
@@ -892,12 +906,13 @@ export const venueRouter = createRouter({
     dietaryTags: z.array(z.string()).optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const { venueId: vid, ...data } = input;
+    const { venueId: vid, cost, ...data } = input;
     const price = typeof data.price === 'number' ? data.price.toFixed(2) : data.price;
     await db.insert(menuItems).values({
       venueId: vid,
       ...data,
       price,
+      cost: cost == null ? null : (typeof cost === 'number' ? cost.toFixed(2) : cost),
     });
     return { success: true };
   }),
@@ -909,6 +924,7 @@ export const venueRouter = createRouter({
       name: z.string().min(1).optional(),
       description: z.string().optional(),
       price: z.string().or(z.number()).optional(),
+      cost: z.string().or(z.number()).nullable().optional(),
       category: z.enum(["coffee", "pastries", "bread", "food", "drinks", "snacks", "merchandise", "seasonal"]).optional(),
       dietary: z.string().optional(),
       image: z.string().optional(),
@@ -927,6 +943,9 @@ export const venueRouter = createRouter({
     const updateData: Record<string, unknown> = { ...input.data };
     if (updateData.price !== undefined) {
       updateData.price = typeof updateData.price === 'number' ? updateData.price.toFixed(2) : updateData.price;
+    }
+    if (updateData.cost !== undefined && updateData.cost !== null) {
+      updateData.cost = typeof updateData.cost === 'number' ? updateData.cost.toFixed(2) : updateData.cost;
     }
 
     await db.update(menuItems).set(updateData).where(eq(menuItems.id, input.menuItemId));

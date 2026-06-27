@@ -533,12 +533,12 @@ export function TabletPinSection({ venue, token, inputCls, inputStyle }: { venue
 }
 
 export function SortableMenuRow({
-  item, venue, token, inventoryLevels, stockFormOpen, stockForm,
+  item, cost, venue, token, inventoryLevels, stockFormOpen, stockForm,
   setStockFormOpen, setStockForm, setInventoryQty,
   openModifiers, setOpenModifiers,
   deleteConfirm, setDeleteConfirm, deleteMutation, startEdit,
 }: {
-  item: any; venue: any; token: string; inventoryLevels: any[];
+  item: any; cost?: string | null; venue: any; token: string; inventoryLevels: any[];
   stockFormOpen: number | null; stockForm: { quantity: string; quantityAlert: string };
   setStockFormOpen: (id: number | null) => void;
   setStockForm: (f: any) => void;
@@ -585,6 +585,19 @@ export function SortableMenuRow({
         <div style={{ flex: 1, minWidth: 0 }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--op-text)', display: 'block', marginBottom: 3 }}>{item.name}</span>
           <span style={{ fontFamily: 'Geist Mono', fontSize: 13, color: 'var(--op-text)', fontWeight: 700 }}>${Number(item.price).toFixed(2)}</span>
+          {cost != null && String(cost) !== '' && Number(item.price) > 0 && (() => {
+            const margin = ((Number(item.price) - Number(cost)) / Number(item.price)) * 100;
+            const ok = margin >= 0;
+            return (
+              <span
+                className="font-data"
+                title={`Cost $${Number(cost).toFixed(2)} · $${(Number(item.price) - Number(cost)).toFixed(2)} profit per item`}
+                style={{ marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 4, background: ok ? 'rgba(94,139,94,0.12)' : 'rgba(184,84,80,0.12)', color: ok ? '#5E8B5E' : '#B85450', letterSpacing: '0.04em' }}
+              >
+                {margin.toFixed(0)}% margin
+              </span>
+            );
+          })()}
           {((Array.isArray(item.allergens) && item.allergens.length > 0) || (Array.isArray(item.dietaryTags) && item.dietaryTags.length > 0)) && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {(Array.isArray(item.allergens) ? item.allergens : []).map((a: string) => (

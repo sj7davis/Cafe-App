@@ -120,6 +120,7 @@ export const menuItems = pgTable("menu_items", {
   name: varchar("name", { length: 128 }).notNull(),
   description: text("description"),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  cost: numeric("cost", { precision: 10, scale: 2 }), // unit cost (COGS); nullable — drives profit-margin display
   category: menuCategoryEnum("category").notNull(),
   dietary: text("dietary"),
   image: varchar("image", { length: 255 }),
