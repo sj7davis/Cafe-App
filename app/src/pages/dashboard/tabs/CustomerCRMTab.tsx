@@ -199,6 +199,48 @@ export function CustomerCRMTab() {
           </div>
         )}
       </div>
+
+      {/* Top Customers by Lifetime Value */}
+      {rows.length > 0 && (() => {
+        const topByLTV = [...rows]
+          .sort((a, b) => b.totalSpent - a.totalSpent)
+          .slice(0, 5);
+        const max = topByLTV[0]?.totalSpent ?? 1;
+        return (
+          <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)', marginTop: 24 }}>
+            <h2 style={{ ...DS.sectionTitle, marginBottom: 16 }}>Top Customers by Lifetime Value</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {topByLTV.map((c, idx) => {
+                const tierColors = TIER_COLORS[c.loyaltyTier] ?? TIER_COLORS.bronze;
+                return (
+                  <div key={c.phone} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{
+                      width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                      background: idx === 0 ? '#5E8B8B' : 'var(--op-border-soft)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, fontWeight: 700, color: idx === 0 ? '#fff' : 'var(--op-text-secondary)',
+                    }}>{idx + 1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, fontWeight: idx === 0 ? 600 : 400, color: 'var(--op-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.name || c.phone}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                          <span style={{ ...tierColors, padding: '1px 6px', borderRadius: 99, fontSize: 10, fontWeight: 600, textTransform: 'capitalize' }}>{c.loyaltyTier ?? 'bronze'}</span>
+                          <span style={{ fontFamily: 'Geist Mono', fontSize: 12, fontWeight: 700, color: '#5E8B8B' }}>${c.totalSpent.toFixed(2)}</span>
+                        </span>
+                      </div>
+                      <div style={{ height: 4, background: 'var(--op-border-soft)', borderRadius: 2 }}>
+                        <div style={{ height: 4, background: idx === 0 ? '#5E8B8B' : '#7C5CBF', borderRadius: 2, width: `${(c.totalSpent / max) * 100}%`, opacity: idx === 0 ? 1 : 0.55 }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

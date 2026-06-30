@@ -3397,4 +3397,44 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
       .orderBy(desc(orders.createdAt))
       .limit(input.limit);
   }),
+
+  // Revenue goal — stored in venues.settingsJson.revenueGoal
+  getRevenueGoal: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+    const rows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const settings = (rows[0]?.settingsJson as Record<string, any>) ?? {};
+    return { monthlyTarget: settings.revenueGoal?.monthlyTarget ?? null as number | null };
+  }),
+
+  setRevenueGoal: publicQuery.input(z.object({
+    token: z.string(),
+    monthlyTarget: z.number().min(0).max(10_000_000),
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+    const rows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
+    const existing = (rows[0]?.settingsJson as Record<string, unknown>) ?? {};
+    await db.update(venues).set({
+      settingsJson: { ...existing, revenueGoal: { monthlyTarget: input.monthlyTarget } },
+      updatedAt: new Date(),
+    }).where(eq(venues.id, venueId));
+    return { ok: true };
+  }),
+
+  // Month-to-date revenue (current calendar month)
+  getMonthRevenue: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+    const db = getDb();
+    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
+    const venueId = payload.venueId as number;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [result] = await db
+      .select({ revenue: sql<string>`COALESCE(SUM(total_amount::numeric), 0)`, orderCount: count(orders.id) })
+      .from(orders)
+      .where(and(eq(orders.venueId, venueId), gte(orders.createdAt, monthStart), sql`status != 'cancelled'`));
+    return { revenue: Number(result.revenue).toFixed(2), orderCount: Number(result.orderCount) };
+  }),
 });

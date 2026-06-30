@@ -381,8 +381,18 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
   const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
   function downloadGSTCsv() {
-    if (!(gstSummary as any)?.csv) return;
-    const blob = new Blob([(gstSummary as any).csv], { type: 'text/csv' });
+    if (!gstSummary) return;
+    const gs = gstSummary as any;
+    const lines = [
+      ['Payment Method', 'Revenue', 'GST', 'Net Ex-GST'].join(','),
+      ...(gs.byPaymentMethod ?? []).map((r: any) => [
+        `"${r.paymentMethod ?? 'Other'}"`,
+        Number(r.total ?? 0).toFixed(2),
+        Number(r.gst ?? 0).toFixed(2),
+        Number(r.netExGst ?? 0).toFixed(2),
+      ].join(',')),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'gst-report.csv'; a.click();
@@ -390,6 +400,8 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
   }
 
   const pc = periodComparison as any;
+  const forecastRows = Array.isArray(revenueForecast) ? (revenueForecast as any[]) : [];
+  const forecastTotal = forecastRows.reduce((s, d) => s + Number(d.predictedRevenue ?? 0), 0);
 
   return (
     <>
@@ -399,30 +411,26 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Period Comparison</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { label: 'Revenue', cur: pc.revenue?.current, prev: pc.revenue?.previous, prefix: '$' },
-              { label: 'Orders', cur: pc.orders?.current, prev: pc.orders?.previous, prefix: '' },
-              { label: 'Avg Order', cur: pc.avgOrder?.current, prev: pc.avgOrder?.previous, prefix: '$' },
+              { label: 'Revenue', cur: Number(pc.current?.revenue ?? 0), prev: Number(pc.previous?.revenue ?? 0), prefix: '$' },
+              { label: 'Orders', cur: Number(pc.current?.orders ?? 0), prev: Number(pc.previous?.orders ?? 0), prefix: '' },
+              { label: 'Avg Order', cur: Number(pc.current?.avgOrder ?? 0), prev: Number(pc.previous?.avgOrder ?? 0), prefix: '$' },
             ].map((card) => {
-              const change = card.prev && card.prev !== 0
-                ? ((card.cur - card.prev) / card.prev) * 100
-                : null;
+              const change = card.prev > 0 ? ((card.cur - card.prev) / card.prev) * 100 : null;
               const up = change !== null && change >= 0;
               return (
                 <div key={card.label} className="border p-5" style={statCardStyle}>
                   <span style={monoLabel}>{card.label}</span>
-                  <span style={bigNum}>{card.prefix}{typeof card.cur === 'number' ? card.cur.toFixed(2) : '—'}</span>
-                  {card.prev !== undefined && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>
-                        prev: {card.prefix}{typeof card.prev === 'number' ? card.prev.toFixed(2) : '—'}
+                  <span style={bigNum}>{card.prefix}{card.cur.toFixed(2)}</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>
+                      prev: {card.prefix}{card.prev.toFixed(2)}
+                    </span>
+                    {change !== null && (
+                      <span className="font-data" style={{ fontSize: '0.5625rem', color: up ? '#5E8B5E' : '#B85450' }}>
+                        {up ? '↑' : '↓'}{Math.abs(change).toFixed(1)}%
                       </span>
-                      {change !== null && (
-                        <span className="font-data" style={{ fontSize: '0.5625rem', color: up ? '#5E8B5E' : '#B85450' }}>
-                          {up ? '↑' : '↓'}{Math.abs(change).toFixed(1)}%
-                        </span>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -431,25 +439,21 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
       )}
 
       {/* Revenue Forecast */}
-      {revenueForecast && (
+      {forecastRows.length > 0 && (
         <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Predicted Revenue — Next 7 Days</h2>
-          {(revenueForecast as any).days && (revenueForecast as any).days.length > 0 && (
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={(revenueForecast as any).days} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--op-border-soft)" />
-                <XAxis dataKey="date" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
-                <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v}`} />
-                <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Predicted']} labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
-                <Area type="monotone" dataKey="predicted" stroke="#C4953A" fill="rgba(196,149,58,0.15)" strokeWidth={2} strokeDasharray="6 3" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-          {(revenueForecast as any).total !== undefined && (
-            <p className="font-data mt-3" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
-              Predicted total: <span style={{ color: 'var(--op-text)', fontWeight: 600 }}>${Number((revenueForecast as any).total).toFixed(2)}</span>
-            </p>
-          )}
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={forecastRows} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--op-border-soft)" />
+              <XAxis dataKey="date" tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} />
+              <YAxis tick={{ fontFamily: 'Geist Mono', fontSize: 10 }} tickFormatter={(v: number) => `$${v}`} />
+              <Tooltip formatter={(v: number) => [`$${Number(v).toFixed(2)}`, 'Predicted']} labelStyle={{ fontFamily: 'Geist Mono', fontSize: 11 }} />
+              <Area type="monotone" dataKey="predictedRevenue" stroke="#C4953A" fill="rgba(196,149,58,0.15)" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+          <p className="font-data mt-3" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
+            Predicted 7-day total: <span style={{ color: 'var(--op-text)', fontWeight: 600 }}>${forecastTotal.toFixed(2)}</span>
+          </p>
         </div>
       )}
 
@@ -523,8 +527,8 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               {[
                 { label: 'Total Revenue', value: `$${Number((gstSummary as any).totalRevenue ?? 0).toFixed(2)}` },
-                { label: 'GST (1/11th)', value: `$${Number((gstSummary as any).gstComponent ?? 0).toFixed(2)}` },
-                { label: 'Net Ex-GST', value: `$${Number((gstSummary as any).netExGST ?? 0).toFixed(2)}` },
+                { label: 'GST (1/11th)', value: `$${Number((gstSummary as any).gst ?? 0).toFixed(2)}` },
+                { label: 'Net Ex-GST', value: `$${Number((gstSummary as any).netExGst ?? 0).toFixed(2)}` },
               ].map(s => (
                 <div key={s.label} className="border p-4" style={statCardStyle}>
                   <span style={monoLabel}>{s.label}</span>
@@ -544,10 +548,10 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
                 <tbody>
                   {(gstSummary as any).byPaymentMethod.map((row: any) => (
                     <tr key={row.method} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
-                      <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: 'var(--op-text)' }}>{row.method || 'Other'}</td>
+                      <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: 'var(--op-text)' }}>{row.paymentMethod || 'Other'}</td>
                       <td style={{ padding: '8px 10px' }}>${Number(row.revenue).toFixed(2)}</td>
                       <td style={{ padding: '8px 10px', color: '#C4953A' }}>${Number(row.gst).toFixed(2)}</td>
-                      <td style={{ padding: '8px 10px', color: '#5E8B5E' }}>${Number(row.net).toFixed(2)}</td>
+                      <td style={{ padding: '8px 10px', color: '#5E8B5E' }}>${Number(row.netExGst ?? 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

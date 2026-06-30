@@ -2,7 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
   Loader2, Check, AlertCircle, Send, Globe, Settings, Coffee, BarChart3, Shield, CreditCard,
-  Zap,
+  Zap, Target, Edit2, X,
 } from 'lucide-react';
 
 
@@ -19,6 +19,13 @@ export function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner:
   );
   const sendEmail = trpc.venue.sendDailySummaryEmail.useMutation();
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sent' | 'error'>('idle');
+
+  // Revenue goal
+  const { data: goalData, refetch: refetchGoal } = trpc.venue.getRevenueGoal.useQuery({ token }, { enabled: !!token, staleTime: 5 * 60 * 1000 });
+  const { data: monthRevData } = trpc.venue.getMonthRevenue.useQuery({ token }, { enabled: !!token, staleTime: 2 * 60 * 1000 });
+  const setGoalMutation = trpc.venue.setRevenueGoal.useMutation({ onSuccess: () => { refetchGoal(); setEditingGoal(false); } });
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState('');
 
   // ── Setup checklist ──────────────────────────────────────────────────────
   const { data: menuData } = trpc.venue.listMenu.useQuery({ venueId: venue?.id || 0 }, { enabled: !!venue?.id, staleTime: 10 * 60 * 1000 });
@@ -272,6 +279,87 @@ export function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner:
           <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--op-text-muted)', fontSize: 13 }}>
             Could not load today's summary.
           </div>
+        )}
+      </div>
+
+      {/* Monthly Revenue Goal */}
+      <div style={{ ...card, marginTop: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Target size={14} style={{ color: '#7C5CBF' }} />
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--op-text)', margin: 0, letterSpacing: '-0.01em' }}>
+              Monthly Revenue Goal
+            </h2>
+          </div>
+          {!editingGoal && (
+            <button
+              onClick={() => { setGoalInput(String(goalData?.monthlyTarget ?? '')); setEditingGoal(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'transparent', border: '1px solid var(--op-card-border)', borderRadius: 6, fontSize: 11, color: 'var(--op-text-secondary)', cursor: 'pointer' }}
+            >
+              <Edit2 size={10} /> {goalData?.monthlyTarget ? 'Edit' : 'Set goal'}
+            </button>
+          )}
+        </div>
+
+        {editingGoal ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, color: 'var(--op-text-secondary)' }}>$</span>
+            <input
+              type="number" min={0} step={100}
+              value={goalInput}
+              onChange={e => setGoalInput(e.target.value)}
+              placeholder="e.g. 15000"
+              autoFocus
+              style={{ flex: 1, padding: '7px 10px', border: '1px solid var(--op-card-border)', borderRadius: 6, fontSize: 13, color: 'var(--op-text)', background: 'var(--op-bg)', maxWidth: 180 }}
+            />
+            <button
+              onClick={() => setGoalMutation.mutate({ token, monthlyTarget: Number(goalInput) || 0 })}
+              disabled={setGoalMutation.isPending || !goalInput}
+              style={{ padding: '7px 14px', background: '#7C5CBF', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              {setGoalMutation.isPending ? '...' : 'Save'}
+            </button>
+            <button
+              onClick={() => setEditingGoal(false)}
+              style={{ padding: '6px', background: 'transparent', border: '1px solid var(--op-card-border)', borderRadius: 6, cursor: 'pointer', color: 'var(--op-text-secondary)', display: 'flex' }}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ) : goalData?.monthlyTarget ? (
+          (() => {
+            const target = goalData.monthlyTarget;
+            const current = Number(monthRevData?.revenue ?? 0);
+            const pct = Math.min(100, Math.round((current / target) * 100));
+            const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+            const dayOfMonth = new Date().getDate();
+            const expectedPct = Math.round((dayOfMonth / daysInMonth) * 100);
+            const onTrack = pct >= expectedPct - 5;
+            return (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                  <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--op-text)', letterSpacing: '-0.04em', fontFamily: 'Inter' }}>
+                    ${current.toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--op-text-muted)', marginLeft: 4 }}>/ ${target.toLocaleString('en-AU')} goal</span>
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: onTrack ? '#3D9A6E' : '#C4953A' }}>{pct}%</span>
+                </div>
+                <div style={{ height: 8, background: 'var(--op-card-border)', borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: pct >= 100 ? '#3D9A6E' : '#7C5CBF', borderRadius: 99, transition: 'width 0.4s ease' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--op-text-muted)' }}>Day {dayOfMonth} of {daysInMonth}</span>
+                  <span style={{ fontSize: 11, color: onTrack ? '#3D9A6E' : '#C4953A', fontWeight: 500 }}>
+                    {onTrack ? '↑ On track' : '↓ Behind pace'} (expected {expectedPct}%)
+                  </span>
+                </div>
+              </div>
+            );
+          })()
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--op-text-muted)', margin: 0 }}>
+            Set a monthly revenue target to track your progress here.
+          </p>
         )}
       </div>
     </div>

@@ -11,7 +11,7 @@ import { trpc } from '@/providers/trpc';
 import { Settings, CreditCard, Coffee, Link2, Loader2,
   Globe, BarChart3, Users, LogOut, Shield, Star, Gift, Ticket, MapPin, Briefcase, QrCode,
   Send, TrendingUp, Tag, DollarSign, Building2, MessageSquare, Percent,
-  Bell, CalendarDays, Clock, Package, RotateCcw,
+  Bell, CalendarDays, Clock, Package, RotateCcw, Trash2,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { ThemeProvider } from '@/components/layout/ThemeContext';
@@ -46,6 +46,7 @@ import { TimesheetTab } from './tabs/TimesheetTab';
 
 import { WaitlistTab } from './tabs/WaitlistTab';
 import { RefundsTab } from './tabs/RefundsTab';
+import { WasteTab } from './tabs/WasteTab';
 
 import { CustomerCRMTab } from './tabs/CustomerCRMTab';
 
@@ -55,7 +56,7 @@ export default function OwnerDashboard() {
   const { owner, venue, loading, logout } = useVenueAuth();
   const token = localStorage.getItem('b1-owner-token') || '';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'inventory' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets' | 'waitlist' | 'refunds' | 'customers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'pl' | 'settings' | 'billing' | 'integrations' | 'menu' | 'inventory' | 'reviews' | 'giftcards' | 'passes' | 'locations' | 'catering' | 'promo' | 'bundles' | 'campaigns' | 'loyalty' | 'delivery' | 'audit' | 'allvenues' | 'smsmarketing' | 'franchisee' | 'qrcodes' | 'website' | 'scheduling' | 'timesheets' | 'waitlist' | 'refunds' | 'customers' | 'waste'>('overview');
 
 
 
@@ -93,6 +94,7 @@ export default function OwnerDashboard() {
       { id: 'analytics',    label: 'Analytics',      icon: TrendingUp },
       { id: 'menu',         label: 'Menu',           icon: Coffee },
       { id: 'inventory',    label: 'Inventory',      icon: Package },
+      { id: 'waste',        label: 'Waste Log',      icon: Trash2 },
       { id: 'reviews',      label: 'Reviews',        icon: Star },
       { id: 'website',      label: 'Website',        icon: Globe },
     ]},
@@ -283,6 +285,7 @@ export default function OwnerDashboard() {
 
           {activeTab === 'waitlist' && venue && <WaitlistTab venueId={venue.id} />}
           {activeTab === 'refunds' && <RefundsTab />}
+          {activeTab === 'waste' && <WasteTab />}
 
           {activeTab === 'customers' && <CustomerCRMTab />}
 
