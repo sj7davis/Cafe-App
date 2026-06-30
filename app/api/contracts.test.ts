@@ -116,6 +116,10 @@ const validCalls: [string, Record<string, unknown>][] = [
   ["reservations.create", { venueId: 1, customerName: "Sam", customerPhone: "0400000000", partySize: 2, reservationDate: "2026-06-20", reservationTime: "12:30" }],
   ["nps.getStats", { token: T }],
 
+  // ── analytics ─────────────────────────────────────────────────────────────
+  ["analytics.getTopItems", { token: T, days: 30, limit: 5 }],
+  ["analytics.getProfitByItem", { token: T, days: 30, limit: 10 }],
+
   // ── stripeCheckout (incl. post-purchase metadata) ──────────────────────────
   ["stripeCheckout.createCheckoutSession", {
     venueId: 1,

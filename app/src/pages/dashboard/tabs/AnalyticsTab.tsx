@@ -34,6 +34,9 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
   const { data: topItems } = trpc.analytics.getTopItems.useQuery(
     { token, days: selectedDays, limit: 5 }, analyticsOpts
   );
+  const { data: profitByItem } = trpc.analytics.getProfitByItem.useQuery(
+    { token, days: selectedDays, limit: 10 }, analyticsOpts
+  );
   const { data: hourlyDist } = trpc.analytics.getHourlyDistribution.useQuery(
     { token, days: selectedDays as 7 | 30 | 90 }, analyticsOpts
   );
@@ -198,6 +201,46 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Profit by item (uses menu item cost / COGS) */}
+      {profitByItem && profitByItem.items.length > 0 && (
+        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
+          <div className="flex items-baseline justify-between mb-1" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Profit by Item</h2>
+            <span className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>
+              Total profit: <strong style={{ color: '#5E8B5E' }}>${profitByItem.totalProfit}</strong>
+            </span>
+          </div>
+          {profitByItem.withoutCost > 0 && (
+            <p className="font-data" style={{ fontSize: '0.625rem', color: '#C4953A', marginBottom: 12 }}>
+              {profitByItem.withoutCost} item{profitByItem.withoutCost === 1 ? '' : 's'} with no cost set — add costs in the Menu tab to see their margins.
+            </p>
+          )}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--op-border-mid)' }}>
+                  {['Item', 'Sold', 'Revenue', 'Cost/ea', 'Profit', 'Margin'].map((h, i) => (
+                    <th key={h} className="font-data" style={{ textAlign: i === 0 ? 'left' : 'right', padding: '8px 10px', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {profitByItem.items.map((it) => (
+                  <tr key={it.name} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
+                    <td style={{ padding: '9px 10px', color: 'var(--op-text)' }}>{it.name}</td>
+                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--op-text-secondary)' }}>{it.units}</td>
+                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--op-text)' }}>${it.revenue}</td>
+                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--op-text-secondary)' }}>{it.unitCost != null ? `$${it.unitCost}` : '—'}</td>
+                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: it.profit == null ? 'var(--op-text-muted)' : Number(it.profit) >= 0 ? '#5E8B5E' : '#B85450' }}>{it.profit != null ? `$${it.profit}` : 'set cost'}</td>
+                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: it.marginPct == null ? 'var(--op-text-muted)' : '#5E8B5E' }}>{it.marginPct != null ? `${it.marginPct}%` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
