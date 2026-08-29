@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
   Loader2, AlertCircle, Download, PieChart as PieChartIcon,
+  DollarSign, ShoppingBag, Receipt, Users,
 } from 'lucide-react';
 
 
@@ -10,7 +11,47 @@ import {
   PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
 import { CHART_COLORS, useFeatureGate, UpgradeGate } from '../shared';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { StatCard } from '@/components/ui/StatCard';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+} from '@/components/ui/table';
 
+/** Card shell used for every analytics section — structural shadcn Card,
+ * colored via the app's --op-* tokens (shadcn's own --card/--border tokens
+ * have no dark-mode override here, so they'd stay light-mode-only). */
+function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <Card className="shadow-none gap-3" style={{ background: 'transparent', borderColor: 'var(--op-border-soft)' }}>
+      <CardHeader>
+        <div className="flex items-baseline justify-between gap-2" style={{ flexWrap: 'wrap' }}>
+          <CardTitle style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>{title}</CardTitle>
+          {action}
+        </div>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+type BadgeTone = 'positive' | 'negative' | 'neutral' | 'warning';
+const BADGE_TONES: Record<BadgeTone, { bg: string; fg: string }> = {
+  positive: { bg: 'rgba(94,139,94,0.15)', fg: '#5E8B5E' },
+  negative: { bg: 'rgba(184,84,80,0.15)', fg: '#B85450' },
+  warning: { bg: 'rgba(196,149,58,0.15)', fg: '#C4953A' },
+  neutral: { bg: 'var(--op-stat-bg)', fg: 'var(--op-text-secondary)' },
+};
+function MetricBadge({ children, tone }: { children: ReactNode; tone: BadgeTone }) {
+  const c = BADGE_TONES[tone];
+  return (
+    <Badge variant="outline" className="font-data" style={{ background: c.bg, color: c.fg, borderColor: 'transparent' }}>
+      {children}
+    </Badge>
+  );
+}
+
+const thStyle = { padding: '8px 10px', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', fontWeight: 400 };
 
 export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
   const token = localStorage.getItem('b1-owner-token') || '';
@@ -63,10 +104,6 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
       URL.revokeObjectURL(url);
     }
   }, [ordersExportData]);
-
-  const statCardStyle = { borderColor: 'var(--op-border-soft)', background: 'var(--op-stat-bg)' };
-  const monoLabel = { fontFamily: 'Geist Mono', fontSize: '0.5625rem', letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'var(--op-text-secondary)', display: 'block', marginBottom: '0.5rem' };
-  const bigNum = { fontWeight: 500, fontSize: '1.25rem', color: 'var(--op-text)', fontFamily: 'Inter' };
 
   // Build heatmap data
   const heatmapHours = Array.from({ length: 17 }, (_, i) => i + 6); // 6–22
@@ -142,23 +179,15 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
       {overviewLoading && <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
       {overview && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Total Revenue', value: `$${overview.totalRevenue}` },
-            { label: 'Orders', value: String(overview.orderCount) },
-            { label: 'Avg Order', value: `$${overview.avgOrder}` },
-            { label: 'Loyalty Members', value: String(overview.loyaltyMembers) },
-          ].map((s) => (
-            <div key={s.label} className="border p-5" style={statCardStyle}>
-              <span style={monoLabel}>{s.label}</span>
-              <span style={bigNum}>{s.value}</span>
-            </div>
-          ))}
+          <StatCard icon={DollarSign} label="Total Revenue" value={`$${overview.totalRevenue}`} />
+          <StatCard icon={ShoppingBag} label="Orders" value={String(overview.orderCount)} />
+          <StatCard icon={Receipt} label="Avg Order" value={`$${overview.avgOrder}`} />
+          <StatCard icon={Users} label="Loyalty Members" value={String(overview.loyaltyMembers)} />
         </div>
       )}
 
       {/* Daily revenue chart */}
-      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Daily Revenue</h2>
+      <SectionCard title="Daily Revenue">
         {dailyLoading && <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
         {!dailyLoading && dailyRevenue && dailyRevenue.length > 0 && (
           <ResponsiveContainer width="100%" height={220}>
@@ -174,12 +203,11 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
         {!dailyLoading && (!dailyRevenue || dailyRevenue.length === 0) && (
           <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No data for this period.</p>
         )}
-      </div>
+      </SectionCard>
 
       {/* Top items */}
       {topItems && topItems.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Top Selling Items</h2>
+        <SectionCard title="Top Selling Items">
           <div className="space-y-2">
             {(topItems as { name: string; quantity: number; revenue: string }[]).map((item, idx) => {
               const maxQty = Math.max(...(topItems as { name: string; quantity: number }[]).map(i => i.quantity));
@@ -202,53 +230,60 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
               );
             })}
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {/* Profit by item (uses menu item cost / COGS) */}
       {profitByItem && profitByItem.items.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <div className="flex items-baseline justify-between mb-1" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)' }}>Profit by Item</h2>
+        <SectionCard
+          title="Profit by Item"
+          action={
             <span className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>
               Total profit: <strong style={{ color: '#5E8B5E' }}>${profitByItem.totalProfit}</strong>
             </span>
-          </div>
+          }
+        >
           {profitByItem.withoutCost > 0 && (
             <p className="font-data" style={{ fontSize: '0.625rem', color: '#C4953A', marginBottom: 12 }}>
               {profitByItem.withoutCost} item{profitByItem.withoutCost === 1 ? '' : 's'} with no cost set — add costs in the Menu tab to see their margins.
             </p>
           )}
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--op-border-mid)' }}>
-                  {['Item', 'Sold', 'Revenue', 'Cost/ea', 'Profit', 'Margin'].map((h, i) => (
-                    <th key={h} className="font-data" style={{ textAlign: i === 0 ? 'left' : 'right', padding: '8px 10px', fontSize: '0.5625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {profitByItem.items.map((it) => (
-                  <tr key={it.name} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
-                    <td style={{ padding: '9px 10px', color: 'var(--op-text)' }}>{it.name}</td>
-                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--op-text-secondary)' }}>{it.units}</td>
-                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--op-text)' }}>${it.revenue}</td>
-                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: 'var(--op-text-secondary)' }}>{it.unitCost != null ? `$${it.unitCost}` : '—'}</td>
-                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: it.profit == null ? 'var(--op-text-muted)' : Number(it.profit) >= 0 ? '#5E8B5E' : '#B85450' }}>{it.profit != null ? `$${it.profit}` : 'set cost'}</td>
-                    <td className="font-data" style={{ padding: '9px 10px', textAlign: 'right', color: it.marginPct == null ? 'var(--op-text-muted)' : '#5E8B5E' }}>{it.marginPct != null ? `${it.marginPct}%` : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          <Table>
+            <TableHeader>
+              <TableRow style={{ borderColor: 'var(--op-border-mid)' }}>
+                <TableHead className="font-data" style={{ ...thStyle, textAlign: 'left' }}>Item</TableHead>
+                <TableHead className="font-data text-right" style={thStyle}>Sold</TableHead>
+                <TableHead className="font-data text-right" style={thStyle}>Revenue</TableHead>
+                <TableHead className="font-data text-right" style={thStyle}>Cost/ea</TableHead>
+                <TableHead className="font-data text-right" style={thStyle}>Profit</TableHead>
+                <TableHead className="font-data text-right" style={thStyle}>Margin</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {profitByItem.items.map((it) => (
+                <TableRow key={it.name} style={{ borderColor: 'var(--op-border-soft)' }}>
+                  <TableCell style={{ color: 'var(--op-text)', whiteSpace: 'normal' }}>{it.name}</TableCell>
+                  <TableCell className="font-data text-right" style={{ color: 'var(--op-text-secondary)' }}>{it.units}</TableCell>
+                  <TableCell className="font-data text-right" style={{ color: 'var(--op-text)' }}>${it.revenue}</TableCell>
+                  <TableCell className="font-data text-right" style={{ color: 'var(--op-text-secondary)' }}>{it.unitCost != null ? `$${it.unitCost}` : '—'}</TableCell>
+                  <TableCell className="font-data text-right" style={{ fontWeight: 700, color: it.profit == null ? 'var(--op-text-muted)' : Number(it.profit) >= 0 ? '#5E8B5E' : '#B85450' }}>
+                    {it.profit != null ? `$${it.profit}` : 'set cost'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {it.marginPct != null
+                      ? <MetricBadge tone={it.marginPct >= 20 ? 'positive' : it.marginPct >= 0 ? 'neutral' : 'negative'}>{it.marginPct}%</MetricBadge>
+                      : <span className="font-data" style={{ color: 'var(--op-text-muted)' }}>—</span>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </SectionCard>
       )}
 
       {/* Hourly distribution */}
       {hourlyDist && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Orders by Hour</h2>
+        <SectionCard title="Orders by Hour">
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={hourlyDist as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--op-border-soft)" />
@@ -258,13 +293,12 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
               <Bar dataKey="orders" fill="#5E8B8B" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </SectionCard>
       )}
 
       {/* Order type breakdown */}
       {pieData.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Order Type Breakdown</h2>
+        <SectionCard title="Order Type Breakdown">
           <div className="flex items-center gap-8">
             <ResponsiveContainer width={200} height={200}>
               <PieChart>
@@ -284,27 +318,26 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
               ))}
             </div>
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {/* Item-by-hour heatmap */}
       {heatmapTopItems.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Item Popularity by Hour</h2>
+        <SectionCard title="Item Popularity by Hour">
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', fontSize: 11, whiteSpace: 'nowrap' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '4px 8px', fontFamily: 'Geist Mono', fontSize: 9, textAlign: 'left', color: 'var(--op-text-secondary)', minWidth: 120 }}>Item</th>
+            <Table style={{ whiteSpace: 'nowrap' }}>
+              <TableHeader>
+                <TableRow style={{ borderColor: 'var(--op-border-soft)' }}>
+                  <TableHead className="font-data" style={{ fontSize: 9, textAlign: 'left', color: 'var(--op-text-secondary)', minWidth: 120 }}>Item</TableHead>
                   {heatmapHours.map(h => (
-                    <th key={h} style={{ padding: '4px 6px', fontFamily: 'Geist Mono', fontSize: 9, color: 'var(--op-text-secondary)', textAlign: 'center', minWidth: 36 }}>{hourLabel(h)}</th>
+                    <TableHead key={h} className="font-data text-center" style={{ fontSize: 9, color: 'var(--op-text-secondary)', minWidth: 36 }}>{hourLabel(h)}</TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {heatmapTopItems.map(itemName => (
-                  <tr key={itemName}>
-                    <td style={{ padding: '3px 8px', fontSize: 12, color: 'var(--op-text)', fontWeight: 500 }}>{itemName}</td>
+                  <TableRow key={itemName} style={{ borderColor: 'var(--op-border-soft)' }}>
+                    <TableCell style={{ fontSize: 12, color: 'var(--op-text)', fontWeight: 500 }}>{itemName}</TableCell>
                     {heatmapHours.map(h => {
                       const qty = heatmapItems[itemName]?.[h] ?? 0;
                       const intensity = heatmapMax > 0 ? qty / heatmapMax : 0;
@@ -312,24 +345,24 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
                         ? 'var(--op-bg)'
                         : `rgba(94,139,139,${0.15 + intensity * 0.85})`;
                       return (
-                        <td key={h} title={qty > 0 ? `${qty} orders` : undefined}
-                          style={{ padding: '3px 6px', textAlign: 'center', background: bg, fontSize: 11, color: intensity > 0.5 ? '#fff' : 'var(--op-text-secondary)', border: '1px solid var(--op-border-soft)' }}>
+                        <TableCell key={h} title={qty > 0 ? `${qty} orders` : undefined}
+                          className="text-center"
+                          style={{ background: bg, fontSize: 11, color: intensity > 0.5 ? '#fff' : 'var(--op-text-secondary)', border: '1px solid var(--op-border-soft)' }}>
                           {qty > 0 ? qty : ''}
-                        </td>
+                        </TableCell>
                       );
                     })}
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
           <p className="font-data mt-3" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>Darker cells = more orders at that hour. Based on last {selectedDays} days.</p>
-        </div>
+        </SectionCard>
       )}
 
       {/* Sellout events */}
-      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Sellout Events (Last 30 Days)</h2>
+      <SectionCard title="Sellout Events (Last 30 Days)">
         {!selloutEvents || (selloutEvents as any[]).length === 0 ? (
           <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No sellout events recorded in the last 30 days.</p>
         ) : (
@@ -348,7 +381,7 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       <AnalyticsExtras analyticsRange={selectedDays} />
       </div>
@@ -407,8 +440,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
     <>
       {/* Period Comparison */}
       {pc && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Period Comparison</h2>
+        <SectionCard title="Period Comparison">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { label: 'Revenue', cur: Number(pc.current?.revenue ?? 0), prev: Number(pc.previous?.revenue ?? 0), prefix: '$' },
@@ -416,32 +448,23 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
               { label: 'Avg Order', cur: Number(pc.current?.avgOrder ?? 0), prev: Number(pc.previous?.avgOrder ?? 0), prefix: '$' },
             ].map((card) => {
               const change = card.prev > 0 ? ((card.cur - card.prev) / card.prev) * 100 : null;
-              const up = change !== null && change >= 0;
+              const delta = change !== null ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : undefined;
               return (
-                <div key={card.label} className="border p-5" style={statCardStyle}>
-                  <span style={monoLabel}>{card.label}</span>
-                  <span style={bigNum}>{card.prefix}{card.cur.toFixed(2)}</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="font-data" style={{ fontSize: '0.5625rem', color: 'var(--op-text-secondary)' }}>
-                      prev: {card.prefix}{card.prev.toFixed(2)}
-                    </span>
-                    {change !== null && (
-                      <span className="font-data" style={{ fontSize: '0.5625rem', color: up ? '#5E8B5E' : '#B85450' }}>
-                        {up ? '↑' : '↓'}{Math.abs(change).toFixed(1)}%
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <StatCard
+                  key={card.label}
+                  label={card.label}
+                  value={`${card.prefix}${card.cur.toFixed(2)}`}
+                  delta={delta ? `${delta} vs ${card.prefix}${card.prev.toFixed(2)} prev` : undefined}
+                />
               );
             })}
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {/* Revenue Forecast */}
       {forecastRows.length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Predicted Revenue — Next 7 Days</h2>
+        <SectionCard title="Predicted Revenue — Next 7 Days">
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={forecastRows} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--op-border-soft)" />
@@ -454,51 +477,45 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
           <p className="font-data mt-3" style={{ fontSize: '0.625rem', color: 'var(--op-text-secondary)' }}>
             Predicted 7-day total: <span style={{ color: 'var(--op-text)', fontWeight: 600 }}>${forecastTotal.toFixed(2)}</span>
           </p>
-        </div>
+        </SectionCard>
       )}
 
       {/* Menu Scorecard */}
       {menuScorecard && (menuScorecard as any[]).length > 0 && (
-        <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-          <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>Menu Scorecard</h2>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--op-border-mid)' }}>
-                  {['Rank', 'Item', 'Units Sold', 'Revenue', 'Rev Share %', 'Trend'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {menuScorecard.map((row, idx) => {
-                  const trendPct = Number(row.trend) || 0;
-                  const trendColor = trendPct > 5 ? '#5E8B5E' : trendPct < -5 ? '#B85450' : 'var(--op-text-secondary)';
-                  const trendArrow = trendPct > 5 ? '↑' : trendPct < -5 ? '↓' : '→';
-                  return (
-                    <tr key={row.name} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
-                      <td style={{ padding: '10px 10px', fontFamily: 'Geist Mono', fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>{idx + 1}</td>
-                      <td style={{ padding: '10px 10px', fontWeight: 500, color: 'var(--op-text)' }}>{row.name}</td>
-                      <td style={{ padding: '10px 10px' }}>{row.totalQty}</td>
-                      <td style={{ padding: '10px 10px', color: '#5E8B5E' }}>${Number(row.totalRevenue).toFixed(2)}</td>
-                      <td style={{ padding: '10px 10px' }}>{Number(row.revenueShare).toFixed(1)}%</td>
-                      <td style={{ padding: '10px 10px' }}>
-                        <span className="font-data" style={{ fontSize: '0.625rem', color: trendColor }}>
-                          {trendArrow} {Math.abs(trendPct).toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <SectionCard title="Menu Scorecard">
+          <Table>
+            <TableHeader>
+              <TableRow style={{ borderColor: 'var(--op-border-mid)' }}>
+                {['Rank', 'Item', 'Units Sold', 'Revenue', 'Rev Share %', 'Trend'].map(h => (
+                  <TableHead key={h} className="font-data" style={thStyle}>{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {menuScorecard.map((row, idx) => {
+                const trendPct = Number(row.trend) || 0;
+                const trendTone: BadgeTone = trendPct > 5 ? 'positive' : trendPct < -5 ? 'negative' : 'neutral';
+                const trendArrow = trendPct > 5 ? '↑' : trendPct < -5 ? '↓' : '→';
+                return (
+                  <TableRow key={row.name} style={{ borderColor: 'var(--op-border-soft)' }}>
+                    <TableCell className="font-data" style={{ color: 'var(--op-text-secondary)' }}>{idx + 1}</TableCell>
+                    <TableCell style={{ fontWeight: 500, color: 'var(--op-text)', whiteSpace: 'normal' }}>{row.name}</TableCell>
+                    <TableCell style={{ color: 'var(--op-text)' }}>{row.totalQty}</TableCell>
+                    <TableCell style={{ color: '#5E8B5E' }}>${Number(row.totalRevenue).toFixed(2)}</TableCell>
+                    <TableCell style={{ color: 'var(--op-text)' }}>{Number(row.revenueShare).toFixed(1)}%</TableCell>
+                    <TableCell>
+                      <MetricBadge tone={trendTone}>{trendArrow} {Math.abs(trendPct).toFixed(1)}%</MetricBadge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </SectionCard>
       )}
 
       {/* GST Summary */}
-      <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-        <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', marginBottom: '1rem' }}>GST Summary</h2>
+      <SectionCard title="GST Summary">
         <div className="flex flex-wrap items-end gap-3 mb-4">
           <div>
             <label className="font-data block mb-1.5" style={{ fontSize: '0.625rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--op-text-secondary)' }}>From</label>
@@ -537,25 +554,25 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
               ))}
             </div>
             {(gstSummary as any).byPaymentMethod && (gstSummary as any).byPaymentMethod.length > 0 && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--op-border-mid)' }}>
+              <Table style={{ marginBottom: 12 }}>
+                <TableHeader>
+                  <TableRow style={{ borderColor: 'var(--op-border-mid)' }}>
                     {['Payment Method', 'Revenue', 'GST', 'Net Ex-GST'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontFamily: 'Geist Mono', fontSize: '0.625rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--op-text-secondary)', fontWeight: 400 }}>{h}</th>
+                      <TableHead key={h} className="font-data" style={thStyle}>{h}</TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {(gstSummary as any).byPaymentMethod.map((row: any) => (
-                    <tr key={row.method} style={{ borderBottom: '1px solid var(--op-border-soft)' }}>
-                      <td style={{ padding: '8px 10px', textTransform: 'capitalize', color: 'var(--op-text)' }}>{row.paymentMethod || 'Other'}</td>
-                      <td style={{ padding: '8px 10px' }}>${Number(row.revenue).toFixed(2)}</td>
-                      <td style={{ padding: '8px 10px', color: '#C4953A' }}>${Number(row.gst).toFixed(2)}</td>
-                      <td style={{ padding: '8px 10px', color: '#5E8B5E' }}>${Number(row.netExGst ?? 0).toFixed(2)}</td>
-                    </tr>
+                    <TableRow key={row.method} style={{ borderColor: 'var(--op-border-soft)' }}>
+                      <TableCell style={{ textTransform: 'capitalize', color: 'var(--op-text)' }}>{row.paymentMethod || 'Other'}</TableCell>
+                      <TableCell style={{ color: 'var(--op-text)' }}>${Number(row.revenue).toFixed(2)}</TableCell>
+                      <TableCell style={{ color: '#C4953A' }}>${Number(row.gst).toFixed(2)}</TableCell>
+                      <TableCell style={{ color: '#5E8B5E' }}>${Number(row.netExGst ?? 0).toFixed(2)}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )}
             <button
               onClick={downloadGSTCsv}
@@ -566,8 +583,7 @@ function AnalyticsExtras({ analyticsRange }: { analyticsRange: number }) {
             </button>
           </div>
         )}
-      </div>
+      </SectionCard>
     </>
   );
 }
-
