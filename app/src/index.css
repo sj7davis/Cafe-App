@@ -4,26 +4,42 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    /* Aliased to the --op-* tokens in styles/tokens.css, which already carry
+       [data-theme="dark"] overrides — so every shadcn/ui component that reads
+       these (Card, Table, Badge, Button, etc.) follows dark mode automatically
+       with zero extra CSS here. Do NOT hardcode HSL values on these again;
+       that's what silently broke dark mode for shadcn components before. */
+    --background: var(--op-bg);
+    --foreground: var(--op-text);
+    --card: var(--op-card-bg);
+    --card-foreground: var(--op-text);
+    --popover: var(--op-card-bg);
+    --popover-foreground: var(--op-text);
+    --primary: var(--op-btn-bg);
+    --primary-foreground: var(--op-btn-text);
+    --secondary: var(--op-stat-bg);
+    --secondary-foreground: var(--op-text);
+    --muted: var(--op-stat-bg);
+    --muted-foreground: var(--op-text-secondary);
+    --accent: var(--op-card-hover);
+    --accent-foreground: var(--op-text);
+    --destructive: #B85450;
+    --destructive-foreground: #FFFFFF;
+    --border: var(--op-card-border);
+    --input: var(--op-card-border);
+    --ring: var(--op-accent);
     --radius: 0.625rem;
+
+    /* Sidebar tokens — no shadcn Sidebar is in use yet, but fall back sanely
+       (the app's own sidebar is dark-toned in both themes; see --op-sidebar). */
+    --sidebar-background: var(--op-sidebar);
+    --sidebar-foreground: var(--op-sidebar-text-active);
+    --sidebar-primary: var(--op-accent);
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: rgba(255, 255, 255, 0.08);
+    --sidebar-accent-foreground: var(--op-sidebar-text-active);
+    --sidebar-border: rgba(255, 255, 255, 0.12);
+    --sidebar-ring: var(--op-accent);
 
     /* B1 Platform Custom */
     --color-ink: #181818;

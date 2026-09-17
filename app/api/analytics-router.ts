@@ -112,6 +112,58 @@ export const analyticsRouter = createRouter({
     }));
   }),
 
+  // Profit by item over a period — joins sales to each item's recorded cost
+  // (menu_items.cost). Items without a cost set return null profit/margin so the
+  // UI can prompt the owner to fill them in. Ordered most-profitable first.
+  getProfitByItem: analyticsProcedure.input(z.object({
+    token: z.string(),
+    days: z.number().int().min(1).max(365).default(30),
+    limit: z.number().int().min(1).max(50).default(15),
+  })).query(async ({ input, ctx }) => {
+    const db = getDb();
+    const venueId = ctx.auth.venueId;
+    const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+    const rows = await db
+      .select({
+        itemName: orderItems.itemName,
+        units: sql<string>`SUM(${orderItems.quantity})`,
+        revenue: sql<string>`SUM(${orderItems.quantity}::numeric * ${orderItems.unitPrice}::numeric)`,
+        unitCost: menuItems.cost,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .where(and(
+        eq(orders.venueId, venueId),
+        gte(orders.createdAt, since),
+        sql`${orders.status} != 'cancelled'`,
+      ))
+      .groupBy(orderItems.itemName, menuItems.cost)
+      .orderBy(sql`(SUM(${orderItems.quantity}::numeric * ${orderItems.unitPrice}::numeric) - ${menuItems.cost} * SUM(${orderItems.quantity})) DESC NULLS LAST`)
+      .limit(input.limit);
+
+    let withoutCost = 0;
+    const items = rows.map(r => {
+      const units = Number(r.units);
+      const revenue = Number(r.revenue);
+      const unitCost = r.unitCost != null ? Number(r.unitCost) : null;
+      if (unitCost == null) withoutCost++;
+      const profit = unitCost != null ? revenue - unitCost * units : null;
+      const marginPct = profit != null && revenue > 0 ? Math.round((profit / revenue) * 100) : null;
+      return {
+        name: r.itemName,
+        units,
+        revenue: revenue.toFixed(2),
+        unitCost: unitCost != null ? unitCost.toFixed(2) : null,
+        profit: profit != null ? profit.toFixed(2) : null,
+        marginPct,
+      };
+    });
+    const totalProfit = items.reduce((s, i) => s + (i.profit != null ? Number(i.profit) : 0), 0);
+    return { items, totalProfit: totalProfit.toFixed(2), withoutCost };
+  }),
+
   // Hourly order distribution (heat map data)
   getHourlyDistribution: analyticsProcedure.input(z.object({
     token: z.string(),
