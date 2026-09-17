@@ -11,11 +11,12 @@ import { trpc } from '@/providers/trpc';
 import { Settings, CreditCard, Coffee, Link2, Loader2,
   Globe, BarChart3, Users, LogOut, Shield, Star, Gift, Ticket, MapPin, Briefcase, QrCode,
   Send, TrendingUp, Tag, DollarSign, Building2, MessageSquare, Percent,
-  Bell, CalendarDays, Clock, Package, RotateCcw, Trash2,
+  Bell, CalendarDays, Clock, Package, RotateCcw, Trash2, Search,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { ThemeProvider } from '@/components/layout/ThemeContext';
 import type { SidebarNavGroup } from '@/components/layout/SidebarNav';
+import { CommandPalette } from '@/components/CommandPalette';
 
 import { OverviewTab } from './tabs/OverviewTab';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
@@ -68,6 +69,9 @@ export default function OwnerDashboard() {
       window.location.reload();
     },
   });
+
+  // ── Command palette ────────────────────────────────────────────────────────
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // ── Activity feed ──────────────────────────────────────────────────────────
   const [activityOpen, setActivityOpen] = useState(false);
@@ -196,6 +200,15 @@ export default function OwnerDashboard() {
         }
         topBarRight={
           <>
+            {/* Command palette trigger */}
+            <button
+              onClick={() => setPaletteOpen(true)}
+              title="Jump to a page (⌘K)"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid var(--op-card-border,#E4E4E7)', background: 'transparent', cursor: 'pointer', color: 'var(--op-text-secondary,#71717A)', fontSize: 12 }}
+            >
+              <Search size={14} />
+              <span style={{ fontFamily: 'Geist Mono, monospace', fontSize: 10, letterSpacing: '0.04em', opacity: 0.7 }}>⌘K</span>
+            </button>
             {/* Activity bell with unread-reviews badge */}
             <div style={{ position: 'relative' }}>
               <button
@@ -291,6 +304,12 @@ export default function OwnerDashboard() {
 
         </div>
       </AppShell>
+      <CommandPalette
+        groups={NAV_GROUPS}
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onSelect={(id) => setActiveTab(id as typeof activeTab)}
+      />
     </ThemeProvider>
   );
 }
