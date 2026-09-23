@@ -1,9 +1,10 @@
 import { useState, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Plus, Send, Trash2,
+  Plus, Send, Trash2,
 } from 'lucide-react';
-
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 
 
@@ -94,8 +95,14 @@ export function CampaignsTab({ venueId: _venueId }: { venueId: number }) {
         </div>
       )}
 
-      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
-      {!isLoading && (!campaigns || (campaigns as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No campaigns yet.</p>}
+      {isLoading && (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+        </div>
+      )}
+      {!isLoading && (!campaigns || (campaigns as any[]).length === 0) && (
+        <EmptyState icon={Send} title="No campaigns yet" description="Create a campaign to send a one-off promo or announcement to your customer list." />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {(campaigns as any[] | undefined)?.map((c) => (

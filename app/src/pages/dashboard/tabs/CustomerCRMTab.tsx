@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { trpc } from '@/providers/trpc';
 import { Loader2, Search, Download, ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DS } from '../shared';
 
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
@@ -111,8 +112,8 @@ export function CustomerCRMTab() {
         </div>
 
         {isLoading && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
-            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />
+          <div className="space-y-2" style={{ padding: '8px 0' }}>
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-full" />)}
           </div>
         )}
 

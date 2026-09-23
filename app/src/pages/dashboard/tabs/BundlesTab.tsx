@@ -1,9 +1,10 @@
 import { useState, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Plus, Edit2, Trash2,
+  Plus, Edit2, Trash2, Gift,
 } from 'lucide-react';
-
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 
 
@@ -72,8 +73,14 @@ export function BundlesTab({ venueId }: { venueId: number }) {
         </div>
       )}
 
-      {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
-      {!isLoading && (!bundles || (bundles as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No bundles yet.</p>}
+      {isLoading && (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+        </div>
+      )}
+      {!isLoading && (!bundles || (bundles as any[]).length === 0) && (
+        <EmptyState icon={Gift} title="No bundles yet" description="Group menu items together at a discount — e.g. a coffee + pastry combo." />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {(bundles as any[] | undefined)?.map((b) => (

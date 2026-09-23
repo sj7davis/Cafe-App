@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
-
-
-
+import { Tag } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 
 import { DS } from '../shared';
@@ -129,7 +128,7 @@ export function PromoTab({ venueId: _venueId }: { venueId: number }) {
           All Codes ({codes.length})
         </h2>
         {codes.length === 0 ? (
-          <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No discount codes yet.</p>
+          <EmptyState icon={Tag} title="No discount codes yet" description="Create a code to offer customers a percentage or fixed discount at checkout." />
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>

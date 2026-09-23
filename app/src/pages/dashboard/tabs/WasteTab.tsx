@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
 import { Loader2, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -210,8 +211,8 @@ export function WasteTab() {
           <h2 style={{ fontWeight: 400, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--op-text)', margin: 0 }}>Recent Entries</h2>
         </div>
         {isLoading && (
-          <div className="flex justify-center py-8">
-            <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />
+          <div className="p-5 space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
           </div>
         )}
         {!isLoading && rows.length === 0 && (

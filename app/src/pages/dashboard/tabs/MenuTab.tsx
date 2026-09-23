@@ -3,6 +3,7 @@ import { trpc } from '@/providers/trpc';
 import {
   Loader2, Check, Plus, X, AlertCircle,
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -242,8 +243,8 @@ export function MenuTab({ venue }: { venue: any }) {
 
       {/* Loading state */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full" />)}
         </div>
       )}
 
