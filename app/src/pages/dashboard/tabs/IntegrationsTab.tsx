@@ -658,6 +658,7 @@ export function IntegrationsTab({ venue, onUpgrade }: { venue: { slug: string; n
                   </div>
                   <p className="font-data" style={{ fontSize: '0.5rem', color: 'var(--op-text-secondary)', lineHeight: 1.6 }}>
                     Paste this URL in your {platform.label} merchant dashboard under Developer Settings → Webhooks. Replace YOUR_VENUE_ID with your venue ID.
+                    {' '}Requires webhook auth to be set up platform-side first (contact support if orders aren't coming through) — this prevents anyone from injecting fake orders into your revenue reports.
                   </p>
                 </div>
               </div>

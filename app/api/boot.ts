@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { env } from "./lib/env";
 import { verifyState, exchangeCode, expiryDate, OAuthError } from "./lib/oauth";
 import { seal } from "./lib/crypto";
+import { verifyUberEatsSignature, verifyDoorDashAuth, verifyMenulogSecret } from "./lib/webhook-auth";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, customerPreferences, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
@@ -202,7 +203,11 @@ app.get("/api/gmb/callback", async (c) => {
 // Uber Eats order webhook
 app.post("/api/webhooks/uber-eats", async (c) => {
   try {
-    const body = await c.req.json() as any;
+    const rawBody = await c.req.text();
+    if (!verifyUberEatsSignature(rawBody, c.req.header("x-uber-signature"), env.uberEatsWebhookSecret)) {
+      return c.json({ error: "invalid signature" }, 401);
+    }
+    const body = JSON.parse(rawBody) as any;
     const db = getDb();
     // Uber Eats sends events with type like "orders.notification"
     const event = body.meta?.status || body.type || "";
@@ -243,6 +248,9 @@ app.post("/api/webhooks/uber-eats", async (c) => {
 // DoorDash order webhook
 app.post("/api/webhooks/doordash", async (c) => {
   try {
+    if (!verifyDoorDashAuth(c.req.header("authorization"), env.doordashWebhookAuth)) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
     const body = await c.req.json() as any;
     const db = getDb();
     const event = body.event_type || "";
@@ -280,6 +288,10 @@ app.post("/api/webhooks/doordash", async (c) => {
 // Menulog/Just Eat order webhook
 app.post("/api/webhooks/menulog", async (c) => {
   try {
+    const providedSecret = c.req.header("x-menulog-signature") || c.req.query("secret");
+    if (!verifyMenulogSecret(providedSecret, env.menulogWebhookSecret)) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
     const body = await c.req.json() as any;
     const db = getDb();
     const event = body.event || body.EventType || "";
