@@ -12,6 +12,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
+import { checkRateLimit } from "./lib/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -56,6 +57,8 @@ export const customerAuthRouter = createRouter({
     password: z.string(),
     venueId: z.number().int().positive(),
   })).mutation(async ({ input }) => {
+    const allowed = checkRateLimit(`login:customer:${input.venueId}:${input.email.toLowerCase()}`, 8, 15 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many login attempts. Please try again in 15 minutes." });
     const db = getSystemDb();
 
     const results = await db.select().from(customerAccounts)
@@ -163,6 +166,8 @@ export const customerAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const customerId = payload.payload.customerId as number;
+    const allowed = checkRateLimit(`change-password:customer:${customerId}`, 5, 15 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please try again in 15 minutes." });
     const db = getSystemDb();
 
     const rows = await db.select().from(customerAccounts).where(eq(customerAccounts.id, customerId)).limit(1);

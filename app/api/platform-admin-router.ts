@@ -13,6 +13,7 @@ import { compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "./lib/env";
 import { exportVenue as buildVenueExport, purgeVenue } from "./lib/tenant-lifecycle";
+import { checkRateLimit } from "./lib/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(env.platformAdminSecret);
 
@@ -21,6 +22,10 @@ export const platformAdminRouter = createRouter({
     email: z.string().email(),
     password: z.string(),
   })).mutation(async ({ input }) => {
+    // Tighter than owner/staff logins — a platform admin account grants
+    // superuser access across every venue, so it's the highest-value target.
+    const allowed = checkRateLimit(`login:platform-admin:${input.email.toLowerCase()}`, 5, 30 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many login attempts. Please try again in 30 minutes." });
     const db = getSystemDb();
     const results = await db.select().from(platformAdmins).where(eq(platformAdmins.email, input.email)).limit(1);
     const admin = results[0];
