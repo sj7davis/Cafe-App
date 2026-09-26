@@ -51,4 +51,10 @@ export const env = {
   // Google OAuth app (used for Google My Business "business.manage" scope)
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+  // Delivery platform webhook auth — see api/lib/webhook-auth.ts for what each
+  // one actually verifies. Platform-wide (one value covers every venue); venue
+  // is disambiguated via the existing ?venue= query param on each endpoint.
+  uberEatsWebhookSecret: process.env.UBER_EATS_WEBHOOK_SECRET ?? "",
+  doordashWebhookAuth: process.env.DOORDASH_WEBHOOK_AUTH ?? "",
+  menulogWebhookSecret: process.env.MENULOG_WEBHOOK_SECRET ?? "",
 };
