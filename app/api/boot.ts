@@ -10,6 +10,7 @@ import { env } from "./lib/env";
 import { verifyState, exchangeCode, expiryDate, OAuthError } from "./lib/oauth";
 import { seal } from "./lib/crypto";
 import { verifyUberEatsSignature, verifyDoorDashAuth, verifyMenulogSecret } from "./lib/webhook-auth";
+import { checkRateLimit, getClientIp } from "./lib/rate-limit";
 import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store";
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, customerPreferences, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
@@ -897,9 +898,28 @@ function isDuplicateObjectError(err: unknown): boolean {
 
 await runMigrations();
 
+// General per-IP abuse guard for the whole /api/* surface. tRPC requests are
+// dispatched below before ever reaching Hono's middleware chain, so this has
+// to live at the raw HTTP level to cover them too. Excludes webhook paths —
+// those are already signature/secret-verified (see lib/webhook-auth.ts) and
+// may legitimately burst from a provider's shared infra IPs; a generic IP
+// throttle would only risk dropping real events there for no security gain.
+// This is a coarse abuse layer, separate from the tighter per-account limits
+// on login/2FA endpoints below.
+const API_RATE_LIMIT = 300; // requests per IP per minute
+const API_RATE_WINDOW_MS = 60 * 1000;
+
 // Raw Node.js HTTP server — intercept /api/trpc/* before Hono's Fetch-API
 // translation so that nodeHTTPRequestHandler can read the body natively.
 const server = createServer((req, res) => {
+  const isWebhook = req.url?.startsWith("/api/stripe/webhook") || req.url?.startsWith("/api/webhooks/");
+  if (!isWebhook && req.url?.startsWith("/api/")) {
+    if (!checkRateLimit(`ip:${getClientIp(req)}`, API_RATE_LIMIT, API_RATE_WINDOW_MS)) {
+      res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "60" });
+      res.end(JSON.stringify({ error: "Too many requests. Please slow down." }));
+      return;
+    }
+  }
   if (req.url?.startsWith("/api/stripe/webhook")) {
     handleStripeWebhook(req, res);
   } else if (req.url?.startsWith("/api/trpc")) {

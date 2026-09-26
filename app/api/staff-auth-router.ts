@@ -99,6 +99,12 @@ export const staffAuthRouter = createRouter({
     if (!pendingPayload.pending2FA) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid session" });
 
     const staffId = pendingPayload.pendingStaffId as number;
+
+    // A 6-digit OTP is only 1,000,000 possibilities — without this, the code's
+    // 10-minute validity window is trivially brute-forceable unthrottled.
+    const allowed = checkRateLimit(`2fa:${staffId}`, 5, 10 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please request a new code." });
+
     const now = new Date();
 
     // Find valid unused code
@@ -285,6 +291,8 @@ export const staffAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
     const staffId = payload.payload.staffId as number;
+    const allowed = checkRateLimit(`change-password:${staffId}`, 5, 15 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please try again in 15 minutes." });
     const db = getSystemDb();
     const [staff] = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
     if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Staff not found" });

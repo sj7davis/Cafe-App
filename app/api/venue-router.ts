@@ -13,6 +13,7 @@ import { seal, open } from "./lib/crypto";
 import { sendEmail, sendOrderConfirmation, sendNewOrderAlert, sendOrderReady, sendReviewRequest } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import { broadcastToVenue } from "./lib/sse-store";
+import { checkRateLimit } from "./lib/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -214,6 +215,8 @@ export const venueRouter = createRouter({
     email: z.string().email(),
     password: z.string(),
   })).mutation(async ({ input }) => {
+    const allowed = checkRateLimit(`login:owner:${input.email.toLowerCase()}`, 5, 15 * 60 * 1000);
+    if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many login attempts. Please try again in 15 minutes." });
     const db = getDb();
     const results = await db.select().from(venueOwners).where(eq(venueOwners.email, input.email)).limit(1);
     const owner = results[0];
