@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
-
-
-
+import { Gift } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 
 import { DS } from '../shared';
@@ -142,7 +141,7 @@ export function GiftCardsTab({ venueId: _venueId }: { venueId: number }) {
           All Gift Cards
         </h2>
         {!cards || cards.length === 0 ? (
-          <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No gift cards yet.</p>
+          <EmptyState icon={Gift} title="No gift cards yet" description="Gift cards purchased by customers will show up here." />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

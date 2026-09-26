@@ -1,10 +1,10 @@
 import { useState, type CSSProperties } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
-  Loader2, Plus, Edit2, Trash2,
+  Plus, Edit2, Trash2, Star, Award,
 } from 'lucide-react';
-
-
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 
 import { DS, useFeatureGate, UpgradeGate } from '../shared';
@@ -91,8 +91,14 @@ export function LoyaltyTab({ venueId: _venueId, onUpgrade }: { venueId: number; 
             style={{ padding: '7px 12px', border: '1px solid var(--op-card-border)', borderRadius: 'var(--op-radius-input)', fontSize: 13, background: 'var(--op-bg)', color: 'var(--op-text)', width: '100%', maxWidth: 280 }}
           />
         </div>
-        {accsLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
-        {!accsLoading && (!accounts || (accounts as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No loyalty accounts yet.</p>}
+        {accsLoading && (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        )}
+        {!accsLoading && (!accounts || (accounts as any[]).length === 0) && (
+          <EmptyState icon={Star} title="No loyalty accounts yet" description="Customers earn points as they order — accounts will appear here once the first order comes in." />
+        )}
         {(accounts as any[] | undefined) && (accounts as any[]).length > 0 && (() => {
           const getTier = (pts: number) => pts >= 2000 ? { label: 'Gold', bg: '#FEF3C7', color: '#92400E' }
             : pts >= 500 ? { label: 'Silver', bg: '#F3F4F6', color: 'var(--op-text)' }
@@ -175,8 +181,14 @@ export function LoyaltyTab({ venueId: _venueId, onUpgrade }: { venueId: number; 
           </div>
         )}
 
-        {rewardsLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
-        {!rewardsLoading && (!rewards || (rewards as any[]).length === 0) && <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No rewards yet.</p>}
+        {rewardsLoading && (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+          </div>
+        )}
+        {!rewardsLoading && (!rewards || (rewards as any[]).length === 0) && (
+          <EmptyState icon={Award} title="No rewards yet" description="Create a reward customers can redeem with their points, like a free coffee or a discount." />
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(rewards as any[] | undefined)?.map((r) => (

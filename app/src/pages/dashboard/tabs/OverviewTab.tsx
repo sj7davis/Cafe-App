@@ -9,6 +9,7 @@ import {
 
 
 import { SetupChecklist } from '@/components/SetupChecklist';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 export function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner: any; setActiveTab: (tab: any) => void }) {
@@ -217,8 +218,14 @@ export function OverviewTab({ venue, owner, setActiveTab }: { venue: any; owner:
         </div>
 
         {summaryLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-            <Loader2 size={22} className="animate-spin" style={{ color: 'var(--op-text-muted)' }} />
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+            </div>
+            <Skeleton className="h-4 w-32 mb-3" />
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-9 w-full" />)}
+            </div>
           </div>
         )}
 

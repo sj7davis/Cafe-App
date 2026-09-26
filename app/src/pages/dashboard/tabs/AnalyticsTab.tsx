@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /** Card shell used for every analytics section — structural shadcn Card,
  * colored via the app's --op-* tokens (shadcn's own --card/--border tokens
@@ -176,7 +177,11 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
       </div>
 
       {/* Overview stats */}
-      {overviewLoading && <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
+      {overviewLoading && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+        </div>
+      )}
       {overview && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={DollarSign} label="Total Revenue" value={`$${overview.totalRevenue}`} />
@@ -188,7 +193,7 @@ export function AnalyticsTab({ onUpgrade }: { onUpgrade?: () => void }) {
 
       {/* Daily revenue chart */}
       <SectionCard title="Daily Revenue">
-        {dailyLoading && <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} /></div>}
+        {dailyLoading && <Skeleton className="h-[220px] w-full" />}
         {!dailyLoading && dailyRevenue && dailyRevenue.length > 0 && (
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={dailyRevenue as any[]} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>

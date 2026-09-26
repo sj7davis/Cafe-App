@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
-import { Loader2, Bell, CheckCircle, X, Users, RefreshCw } from 'lucide-react';
+import { Bell, CheckCircle, X, Users, RefreshCw } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function WaitlistTab({ venueId: _venueId }: { venueId: number }) {
   const token = localStorage.getItem('b1-owner-token') || '';
@@ -97,7 +98,11 @@ export function WaitlistTab({ venueId: _venueId }: { venueId: number }) {
 
       {/* Table */}
       <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-        {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
+        {isLoading && (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        )}
         {!isLoading && waiting.length === 0 && (
           <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--op-text-secondary)' }}>
             <Users size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />

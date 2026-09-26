@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
 import {
   Loader2, AlertCircle, ChevronDown,
-  ChevronUp,
+  ChevronUp, Building2,
 } from 'lucide-react';
-
+import { EmptyState } from '@/components/ui/EmptyState';
 
 
 
@@ -91,7 +91,7 @@ export function AllVenuesTab() {
 
       {/* Per-venue cards */}
       {!venuesLoading && venues.length === 0 && !venuesError && (
-        <p className="font-data" style={{ fontSize: '0.75rem', color: 'var(--op-text-secondary)' }}>No venues found.</p>
+        <EmptyState icon={Building2} title="No venues found" description="Venues you own or manage will appear here." />
       )}
 
       {!venuesLoading && venues.length > 0 && (

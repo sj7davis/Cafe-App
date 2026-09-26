@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { trpc } from '@/providers/trpc';
 import { Loader2, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export function RefundsTab() {
   const token = localStorage.getItem('b1-owner-token') || '';
@@ -71,9 +73,13 @@ export function RefundsTab() {
       )}
 
       <div className="border p-6" style={{ borderColor: 'var(--op-border-soft)' }}>
-        {isLoading && <Loader2 size={20} className="animate-spin" style={{ color: 'var(--op-text-secondary)' }} />}
+        {isLoading && (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        )}
         {!isLoading && orderList.length === 0 && (
-          <p style={{ color: 'var(--op-text-secondary)', fontSize: 14 }}>No refundable orders found.</p>
+          <EmptyState icon={RotateCcw} title="No refundable orders found" description="Completed orders eligible for a refund will show up here." />
         )}
         {orderList.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
