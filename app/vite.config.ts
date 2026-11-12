@@ -37,7 +37,12 @@ export default defineConfig({
         importScripts: ['/sw-push.js'],
         // Only precache small static assets — not the large JS bundle.
         // JS changes on every deploy so network-first is better for it.
-        globPatterns: ["**/*.{css,html,png,ico,svg,webmanifest}"],
+        // index.html is deliberately NOT precached: it references hashed JS
+        // that is deleted each deploy, so a cached shell = blank page.
+        globPatterns: ["**/*.{css,png,ico,svg,webmanifest}"],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         // Raise the per-file limit so a future CSS/icon approaching 3 MB
         // doesn't break the build without a clear error message.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
@@ -60,15 +65,8 @@ export default defineConfig({
               expiration: { maxEntries: 10, maxAgeSeconds: 604800 },
             },
           },
-          // Venue pages: stale-while-revalidate for fast perceived load
-          {
-            urlPattern: /\/v\/[^/]+$/,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "venue-pages",
-              expiration: { maxAgeSeconds: 300 },
-            },
-          },
+          // (No caching for /v/:slug pages — they are just the SPA HTML shell,
+          // and serving a stale one points at JS bundles from a previous deploy.)
         ],
       },
     }),
