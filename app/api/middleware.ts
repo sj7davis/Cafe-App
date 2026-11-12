@@ -69,6 +69,19 @@ export const protectedProcedure = t.procedure.use(async (opts) => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Session is not venue-scoped" });
   }
 
+  // Several unrelated tokens are signed with the same JWT_SECRET and carry a
+  // venueId: customer sessions (public self-signup), the 2FA *pending* token
+  // (password only), and the OAuth `state` param (travels through redirect
+  // URLs). Only owner, staff and POS-tablet sessions may use venue APIs, so
+  // allowlist those explicitly rather than trusting any venue-scoped token.
+  const isOwner = typeof claims.ownerId === "number";
+  const isStaff = typeof claims.staffId === "number";
+  const isTablet = claims.role === "tablet";
+  const isNonSession = claims.pending2FA === true || "customerId" in claims || "provider" in claims;
+  if (isNonSession || !(isOwner || isStaff || isTablet)) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "This session can't access venue management" });
+  }
+
   const auth: AuthContext = {
     venueId,
     role: typeof claims.role === "string" ? claims.role : undefined,
