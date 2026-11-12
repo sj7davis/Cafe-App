@@ -68,16 +68,43 @@ describe("protectedProcedure", () => {
     const noVenue = await sign({ role: "owner" });
     await expect(call().whoami({ token: noVenue })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("allows a staff session and a POS tablet session", async () => {
+    await expect(call().whoami({ token: await sign({ venueId: 7, staffId: 4, role: "staff" }) })).resolves.toMatchObject({ venueId: 7, staffId: 4 });
+    await expect(call().whoami({ token: await sign({ venueId: 7, role: "tablet" }) })).resolves.toMatchObject({ venueId: 7, role: "tablet" });
+  });
+
+  // These are all signed with the same JWT_SECRET and carry a venueId, but are
+  // not owner/staff sessions — none may reach venue-management procedures.
+  it("rejects a customer session (public self-signup)", async () => {
+    const token = await sign({ customerId: 9, venueId: 7, email: "c@example.com" });
+    await expect(call().whoami({ token })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  it("rejects the 2FA pending token (password only, code not yet entered)", async () => {
+    const token = await sign({ pendingStaffId: 4, venueId: 7, pending2FA: true });
+    await expect(call().whoami({ token })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  it("rejects an OAuth state token", async () => {
+    const token = await sign({ venueId: 7, provider: "square" });
+    await expect(call().whoami({ token })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  it("rejects a venue-scoped token that names no session type", async () => {
+    const token = await sign({ venueId: 7, role: "owner" });
+    await expect(call().whoami({ token })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });
 
 describe("adminProcedure", () => {
   it("allows an admin token", async () => {
-    const token = await sign({ venueId: 7, role: "admin" });
+    const token = await sign({ venueId: 7, staffId: 1, role: "admin" });
     await expect(call().adminOnly({ token })).resolves.toBe("ok");
   });
 
   it("forbids a non-admin token", async () => {
-    const token = await sign({ venueId: 7, role: "staff" });
+    const token = await sign({ venueId: 7, staffId: 2, role: "staff" });
     await expect(call().adminOnly({ token })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
