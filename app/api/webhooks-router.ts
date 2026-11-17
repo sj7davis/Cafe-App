@@ -1,14 +1,11 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { webhookSubscriptions } from "@db/schema";
 import { eq, and } from "drizzle-orm";
-import { jwtVerify } from "jose";
-import { env } from "./lib/env";
 import { createHmac } from "crypto";
 
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 // Export for use by other routers/event handlers
 export async function triggerWebhooks(venueId: number, event: string, payload: object): Promise<void> {
@@ -51,11 +48,10 @@ export async function triggerWebhooks(venueId: number, event: string, payload: o
 
 export const webhooksRouter = createRouter({
   // Owner: list all webhook subscriptions
-  list: publicQuery
+  list: protectedProcedure
     .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .query(async ({ ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       return db
         .select()
@@ -64,7 +60,7 @@ export const webhooksRouter = createRouter({
     }),
 
   // Owner: create a webhook subscription
-  create: publicQuery
+  create: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -73,9 +69,8 @@ export const webhooksRouter = createRouter({
         secret: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const { token, ...data } = input;
       const db = getDb();
       const [sub] = await db
@@ -86,7 +81,7 @@ export const webhooksRouter = createRouter({
     }),
 
   // Owner: update a webhook subscription
-  update: publicQuery
+  update: protectedProcedure
     .input(
       z.object({
         token: z.string(),
@@ -97,9 +92,8 @@ export const webhooksRouter = createRouter({
         isActive: z.boolean().optional(),
       })
     )
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const { token, id, ...data } = input;
       const db = getDb();
       const [sub] = await db
@@ -112,11 +106,10 @@ export const webhooksRouter = createRouter({
     }),
 
   // Owner: delete a webhook subscription
-  delete: publicQuery
+  delete: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
       await db
         .delete(webhookSubscriptions)
@@ -125,11 +118,10 @@ export const webhooksRouter = createRouter({
     }),
 
   // Owner: fire a test payload to a webhook
-  test: publicQuery
+  test: protectedProcedure
     .input(z.object({ token: z.string(), id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      const venueId = payload.payload.venueId as number;
+    .mutation(async ({ input, ctx }) => {
+      const venueId = ctx.auth.venueId;
       const db = getDb();
 
       const subResults = await db

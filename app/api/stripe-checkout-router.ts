@@ -1,15 +1,13 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure, type AuthContext } from "./middleware";
 import { getDb } from "./queries/connection";
 import { orders, orderItems, menuItems, venues, franchiseeAccounts } from "@db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { jwtVerify } from "jose";
 import Stripe from "stripe";
 import { env } from "./lib/env";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
-const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
 function getStripe(): Stripe {
   if (!env.stripeSecretKey) {
@@ -54,6 +52,17 @@ async function buildPaymentIntentData(
   }
 
   return paymentIntentData;
+}
+
+/** Refunds move the venue's money, so only owners and admin/manager staff —
+ *  never a basic staff login or the counter tablet. */
+function assertCanRefund(auth: AuthContext): number {
+  const isOwner = auth.ownerId !== undefined;
+  const isSeniorStaff = auth.staffId !== undefined && (auth.role === "admin" || auth.role === "manager");
+  if (!isOwner && !isSeniorStaff) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only owners and managers can issue refunds" });
+  }
+  return auth.venueId;
 }
 
 export const stripeCheckoutRouter = createRouter({
@@ -385,16 +394,10 @@ export const stripeCheckoutRouter = createRouter({
   // ─── Refund Management (owner only) ────────────────────────────────────────
 
   // List orders eligible for refund: completed, has Stripe session, not yet refunded
-  getRefundableOrders: publicQuery.input(z.object({
+  getRefundableOrders: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
-    let venueId: number;
-    try {
-      const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      venueId = payload.venueId as number;
-    } catch {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
-    }
+  })).query(async ({ ctx }) => {
+    const venueId = assertCanRefund(ctx.auth);
 
     const db = getDb();
     const rows = await db
@@ -422,20 +425,13 @@ export const stripeCheckoutRouter = createRouter({
   }),
 
   // Issue a partial or full refund for a completed Stripe order
-  createRefund: publicQuery.input(z.object({
+  createRefund: protectedProcedure.input(z.object({
     token: z.string(),
     orderId: z.number().int().positive(),
     amount: z.number().positive().optional(), // partial refund in dollars; omit for full refund
     reason: z.enum(["duplicate", "fraudulent", "requested_by_customer"]).default("requested_by_customer"),
-  })).mutation(async ({ input }) => {
-    // 1. Verify JWT and extract venueId (owner only)
-    let venueId: number;
-    try {
-      const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      venueId = payload.venueId as number;
-    } catch {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
-    }
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = assertCanRefund(ctx.auth);
 
     const db = getDb();
 
