@@ -2,10 +2,14 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery, protectedProcedure, type AuthContext } from "./middleware";
 import { getDb } from "./queries/connection";
-import { orders, orderItems, menuItems, venues, franchiseeAccounts } from "@db/schema";
+import { orders, orderItems, venues, franchiseeAccounts } from "@db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import Stripe from "stripe";
 import { env } from "./lib/env";
+import { randomBytes } from "crypto";
+import { priceCart } from "./lib/cart-pricing";
+import { applyRedemptions } from "./lib/redemptions";
+import { broadcastToVenue } from "./lib/sse-store";
 
 const STRIPE_API_VERSION = "2026-04-22.dahlia" as const;
 
@@ -65,196 +69,208 @@ function assertCanRefund(auth: AuthContext): number {
   return auth.venueId;
 }
 
+const cartInput = z.object({
+  venueId: z.number().int().positive(),
+  items: z.array(z.object({
+    menuItemId: z.number().int().positive().optional(),
+    bundleId: z.number().int().positive().optional(),
+    quantity: z.number().int().min(1).max(99),
+    modifiers: z.array(z.object({ group: z.string().max(64), option: z.string().max(64) })).max(20).optional(),
+  })).min(1).max(50),
+  tipAmount: z.number().min(0).default(0),
+  discountCode: z.string().max(32).optional(),
+  giftCardCode: z.string().max(32).optional(),
+  loyaltyPhone: z.string().max(32).optional(),
+  loyaltyPointsRedeemed: z.number().int().min(0).default(0),
+  passId: z.number().int().positive().optional(),
+});
+
+/** Venue that exists and is currently taking online orders. */
+async function loadOrderableVenue(venueId: number) {
+  const [venue] = await getDb().select().from(venues).where(eq(venues.id, venueId)).limit(1);
+  if (!venue) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+  if (!venue.isActive || venue.isPublic === false) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This cafe isn't taking online orders right now." });
+  }
+  return venue;
+}
+
+/** Timestamp plus random suffix — two orders in the same millisecond used to collide. */
+export function newOrderNumber(): string {
+  return `B1-${Date.now().toString(36).toUpperCase()}${randomBytes(2).toString("hex").toUpperCase()}`;
+}
+
 export const stripeCheckoutRouter = createRouter({
-  // Create a Stripe Checkout session for an order
-  createCheckoutSession: publicQuery.input(z.object({
-    venueId: z.number().int().positive(),
-    items: z.array(z.object({
-      menuItemId: z.number().int().positive(),
-      name: z.string(),
-      itemName: z.string().optional(), // alias accepted
-      quantity: z.number().int().min(1),
-      unitPrice: z.number().positive(), // in dollars
-    })),
-    tipAmount: z.number().min(0).default(0),
-    discountAmount: z.number().min(0).default(0),
+  // Price a cart exactly as checkout will charge it, so the cart drawer shows
+  // the server's numbers (discounts, surcharge, pass credit) before paying.
+  quoteCart: publicQuery.input(cartInput.extend({
+    customerPhone: z.string().optional(),
+  })).query(async ({ input }) => {
+    const venue = await loadOrderableVenue(input.venueId);
+    const quote = await priceCart(getDb(), venue, input);
+    return {
+      subtotal: quote.subtotalCents / 100,
+      pass: quote.pass ? quote.pass.cents / 100 : 0,
+      promo: quote.promo ? { kind: quote.promo.kind, label: quote.promo.label, amount: quote.promo.cents / 100 } : null,
+      giftCard: quote.giftCard ? quote.giftCard.cents / 100 : 0,
+      loyalty: quote.loyalty ? { points: quote.loyalty.points, amount: quote.loyalty.cents / 100 } : null,
+      surcharge: quote.surcharge ? { label: quote.surcharge.label, amount: quote.surcharge.cents / 100 } : null,
+      tip: quote.tipCents / 100,
+      total: quote.totalCents / 100,
+    };
+  }),
+
+  // Create a Stripe Checkout session for an order. Every amount comes from
+  // priceCart — the client sends ids, option names and codes only.
+  createCheckoutSession: publicQuery.input(cartInput.extend({
     customerEmail: z.string().email().optional(),
-    customerName: z.string().min(1),
-    customerPhone: z.string().min(1),
-    pickupTime: z.string(),
-    orderNote: z.string().optional(),
+    customerName: z.string().trim().min(1).max(100),
+    customerPhone: z.string().trim().min(6).max(32),
+    pickupTime: z.string().max(32),
+    orderNote: z.string().max(400).optional(),
     locationId: z.number().int().positive().optional(),
-    discountCode: z.string().optional(),
-    loyaltyPhone: z.string().optional(),
-    loyaltyPointsRedeemed: z.number().int().min(0).default(0),
-    metadata: z.record(z.string(), z.string()).optional(),
+    // Post-purchase extras the webhook understands. Only these two are ever
+    // copied into Stripe metadata, so a client can't overwrite venueId or kind.
+    metadata: z.object({
+      prefMilk: z.string().max(32).optional(),
+      prefSugar: z.string().max(32).optional(),
+    }).passthrough().optional(),
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const venueResults = await db.select().from(venues).where(eq(venues.id, input.venueId)).limit(1);
-    const venue = venueResults[0];
-    if (!venue) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
+    const venue = await loadOrderableVenue(input.venueId);
+    const quote = await priceCart(db, venue, input);
 
-    // ── Stripe-not-configured fallback ────────────────────────────────────────
-    // When STRIPE_SECRET_KEY is absent, create the order directly and return
-    // a local /order/<num> URL so ordering still works without payment.
-    if (!env.stripeSecretKey) {
-      const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
-      let totalAmount = 0;
-      const itemDetails: { menuItemId: number; itemName: string; quantity: number; unitPrice: number }[] = [];
+    const noteParts = [input.orderNote?.trim()];
+    if (quote.pass) noteParts.push("Pass credit used");
+    if (quote.giftCard) noteParts.push(`Gift card: -$${(quote.giftCard.cents / 100).toFixed(2)}`);
+    if (quote.surcharge) noteParts.push(`${quote.surcharge.label}: +$${(quote.surcharge.cents / 100).toFixed(2)}`);
+    const orderNote = noteParts.filter(Boolean).join("; ").slice(0, 450);
 
-      for (const item of input.items) {
-        const miRows = await db.select().from(menuItems).where(eq(menuItems.id, item.menuItemId)).limit(1);
-        const mi = miRows[0];
-        if (!mi || mi.venueId !== input.venueId) continue;
-        const unitPrice = Number(item.unitPrice ?? mi.price);
-        totalAmount += unitPrice * item.quantity;
-        itemDetails.push({ menuItemId: item.menuItemId, itemName: mi.name ?? item.name, quantity: item.quantity, unitPrice });
-      }
+    const discountDollars = (quote.discountCents / 100).toFixed(2);
+    const tipDollars = (quote.tipCents / 100).toFixed(2);
 
-      const finalTotal = Math.max(0, totalAmount - (input.discountAmount ?? 0)) + (input.tipAmount ?? 0);
-
+    // ── No card payment needed: Stripe isn't configured (dev), or discounts
+    // cover the whole order. Create the order straight away.
+    if (!env.stripeSecretKey || quote.totalCents === 0) {
+      const orderNumber = newOrderNumber();
+      const paidInFull = quote.totalCents === 0;
       const [orderRow] = await db.insert(orders).values({
-        venueId: input.venueId,
+        venueId: venue.id,
         orderNumber,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         customerEmail: input.customerEmail ?? null,
         pickupTime: input.pickupTime,
-        orderNote: input.orderNote ?? null,
-        paymentMethod: "pickup" as any,
-        totalAmount: finalTotal.toFixed(2),
+        orderNote: orderNote || null,
+        paymentMethod: paidInFull ? "online" : "pickup",
+        totalAmount: (quote.totalCents / 100).toFixed(2),
         locationId: input.locationId ?? null,
-        tipAmount: (input.tipAmount ?? 0).toFixed(2),
-        discountCode: input.discountCode ?? null,
-        discountAmount: (input.discountAmount ?? 0).toFixed(2),
-        status: "confirmed" as any,
+        tipAmount: tipDollars,
+        discountCode: quote.promo?.code ?? null,
+        discountAmount: discountDollars,
+        status: "confirmed",
       }).returning({ id: orders.id });
-
-      for (const item of itemDetails) {
+      for (const l of quote.lines) {
         await db.insert(orderItems).values({
-          orderId: orderRow.id,
-          menuItemId: item.menuItemId,
-          itemName: item.itemName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice.toFixed(2),
+          orderId: orderRow.id, menuItemId: l.menuItemId, itemName: l.name.slice(0, 128),
+          quantity: l.quantity, unitPrice: (l.unitCents / 100).toFixed(2), note: l.note,
         });
       }
-
-      const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
-      const appUrl = domain ? `https://${domain}` : (env.appUrl || "http://localhost:3000");
-      return { sessionId: null as string | null, url: `${appUrl}/order/${orderNumber}` };
+      await applyRedemptions(db, {
+        venueId: venue.id, orderId: orderRow.id, orderNumber,
+        discountCode: quote.promo?.code ?? null,
+        giftCardId: quote.giftCard?.id ?? null,
+        giftCardCents: quote.giftCard?.cents ?? null,
+        loyaltyPhone: quote.loyalty?.phone ?? null,
+        loyaltyPoints: quote.loyalty?.points ?? null,
+        passId: quote.pass?.id ?? null,
+      });
+      broadcastToVenue(venue.id, "order_new", { orderId: orderRow.id, status: "confirmed", orderNumber });
+      return { sessionId: null as string | null, url: `${env.appUrl}/order/${orderNumber}` };
     }
-    // ── End fallback ──────────────────────────────────────────────────────────
+
+    if (quote.totalCents < 50) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Card payments must be at least $0.50 — try removing a discount." });
+    }
 
     const stripe = getStripe();
-
-    // Look up franchisee account for connected Stripe account + fee config
-    const franchiseeRows = await db
-      .select({
-        stripeConnectAccountId: franchiseeAccounts.stripeConnectAccountId,
-        platformFeePercent: franchiseeAccounts.platformFeePercent,
-      })
-      .from(franchiseeAccounts)
-      .where(eq(franchiseeAccounts.venueId, input.venueId))
-      .limit(1);
-    const franchisee = franchiseeRows[0];
-
-    // Build line items — authoritative prices come from the client but are
-    // the same amounts Stripe will charge (display + charge aligned, T-08-01).
-    const lineItems = input.items.map(item => ({
+    const lineItems: NonNullable<Stripe.Checkout.SessionCreateParams["line_items"]> = quote.lines.map(l => ({
       price_data: {
         currency: "aud",
-        product_data: { name: item.name },
-        unit_amount: Math.round(item.unitPrice * 100), // convert to cents
-      },
-      quantity: item.quantity,
-    }));
-
-    // Compute subtotal in cents for application fee calculation
-    const subtotalCents = input.items.reduce(
-      (sum, item) => sum + Math.round(item.unitPrice * 100) * item.quantity,
-      0
-    );
-
-    // Add tip as a separate line item if present
-    if (input.tipAmount > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "aud",
-          product_data: { name: "Tip — thank you!" },
-          unit_amount: Math.round(input.tipAmount * 100),
+        // The webhook rebuilds the kitchen order from these, so a big cart no
+        // longer has to fit in Stripe's 500-character metadata values.
+        product_data: {
+          name: l.name.slice(0, 250),
+          metadata: { menuItemId: String(l.menuItemId), ...(l.note ? { note: l.note.slice(0, 450) } : {}) },
         },
+        unit_amount: l.unitCents,
+      },
+      quantity: l.quantity,
+    }));
+    if (quote.surcharge) {
+      lineItems.push({
+        price_data: { currency: "aud", product_data: { name: quote.surcharge.label }, unit_amount: quote.surcharge.cents },
+        quantity: 1,
+      });
+    }
+    if (quote.tipCents > 0) {
+      lineItems.push({
+        price_data: { currency: "aud", product_data: { name: "Tip — thank you!" }, unit_amount: quote.tipCents },
         quantity: 1,
       });
     }
 
-    // Total cents including tip (before discount coupon — Stripe applies coupon server-side)
-    const totalBeforeDiscountCents = subtotalCents + Math.round(input.tipAmount * 100);
-
-    // Compute platform application fee
-    const feePercent = franchisee?.platformFeePercent
-      ? Number(franchisee.platformFeePercent)
-      : Number(env.stripePlatformFeePercent);
-    const applicationFeeCents = Math.round(totalBeforeDiscountCents * feePercent / 100);
-
-    // Handle discount via coupon if discountAmount > 0
     let discounts: Stripe.Checkout.SessionCreateParams["discounts"];
-    if (input.discountAmount > 0) {
+    if (quote.discountCents > 0) {
+      const labels = [
+        quote.pass && "Pass credit",
+        quote.promo?.code ? `Code ${quote.promo.code}` : quote.promo?.label,
+        quote.giftCard && "Gift card",
+        quote.loyalty && `${quote.loyalty.points} pts`,
+      ].filter(Boolean).join(" + ");
       const coupon = await stripe.coupons.create({
-        amount_off: Math.round(input.discountAmount * 100),
+        amount_off: quote.discountCents,
         currency: "aud",
-        name: input.discountCode ? `Code: ${input.discountCode}` : "Discount",
+        name: labels.slice(0, 40),
         duration: "once",
+        max_redemptions: 1,
       });
       discounts = [{ coupon: coupon.id }];
     }
 
-    const successUrl = `${env.appUrl}/v/${venue.slug}?order=success&session={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${env.appUrl}/v/${venue.slug}`;
+    // The platform fee is charged on what the customer actually pays.
+    const paymentIntentData = await buildPaymentIntentData(venue.id, quote.totalCents);
+    paymentIntentData!.metadata = { venueId: String(venue.id), customerPhone: input.customerPhone };
 
-    // Serialize cart items for webhook order reconstruction
-    const itemsForWebhook = input.items.map(item => ({
-      menuItemId: item.menuItemId,
-      itemName: item.itemName ?? item.name,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    }));
-
-    // Build payment_intent_data — add Connect fee + transfer only when connected account exists
-    const paymentIntentData: Stripe.Checkout.SessionCreateParams["payment_intent_data"] = {
-      metadata: {
-        venueId: String(input.venueId),
-        customerPhone: input.customerPhone,
-      },
-    };
-
-    const stripeConnectAccountId = franchisee?.stripeConnectAccountId ?? null;
-    if (stripeConnectAccountId) {
-      paymentIntentData.application_fee_amount = applicationFeeCents;
-      paymentIntentData.transfer_data = { destination: stripeConnectAccountId };
-    }
-
+    const extras = input.metadata ?? {};
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
       discounts,
       customer_email: input.customerEmail,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: `${env.appUrl}/v/${venue.slug}?order=success&session={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.appUrl}/v/${venue.slug}`,
       metadata: {
-        venueId: String(input.venueId),
+        ...(extras.prefMilk ? { prefMilk: String(extras.prefMilk) } : {}),
+        ...(extras.prefSugar ? { prefSugar: String(extras.prefSugar) } : {}),
+        kind: "order",
+        pricing: "v2",
+        venueId: String(venue.id),
+        venueName: venue.name.slice(0, 100),
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         pickupTime: input.pickupTime,
-        orderNote: input.orderNote ?? "",
+        orderNote,
         locationId: input.locationId ? String(input.locationId) : "",
-        discountCode: input.discountCode ?? "",
-        discountAmount: String(input.discountAmount),
-        tipAmount: String(input.tipAmount),
-        loyaltyPhone: input.loyaltyPhone ?? "",
-        loyaltyPointsRedeemed: String(input.loyaltyPointsRedeemed),
-        itemsJson: JSON.stringify(itemsForWebhook),
-        ...input.metadata,
+        discountCode: quote.promo?.code ?? "",
+        discountAmount: discountDollars,
+        tipAmount: tipDollars,
+        surchargeAmount: ((quote.surcharge?.cents ?? 0) / 100).toFixed(2),
+        loyaltyPhone: quote.loyalty?.phone ?? "",
+        loyaltyPointsRedeemed: String(quote.loyalty?.points ?? 0),
+        giftCardId: quote.giftCard ? String(quote.giftCard.id) : "",
+        giftCardCents: quote.giftCard ? String(quote.giftCard.cents) : "",
+        passId: quote.pass ? String(quote.pass.id) : "",
       },
       payment_intent_data: paymentIntentData,
     });

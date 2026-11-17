@@ -42,6 +42,8 @@ export default function VenuePublic() {
   const [checkoutSugar, setCheckoutSugar] = useState('');
   const [checkoutGiftCode, setCheckoutGiftCode] = useState('');
   const [appliedGiftDiscount, setAppliedGiftDiscount] = useState(0);
+  const [appliedGiftCode, setAppliedGiftCode] = useState<string | null>(null);
+  const [checkingGiftCard, setCheckingGiftCard] = useState(false);
   const [checkoutUsePass, setCheckoutUsePass] = useState(false);
   const [tipOption, setTipOption] = useState<null | 10 | 15 | 20 | 'custom'>(null);
   const [tipCustom, setTipCustom] = useState('');
@@ -187,9 +189,8 @@ export default function VenuePublic() {
   );
 
   // ── Public holiday surcharge ──────────────────────────────────────────────────
-  const todayStr = new Date().toISOString().slice(0, 10);
   const { data: holidayData } = trpc.venue.isPublicHoliday.useQuery(
-    { venueId: venue?.id || 0, date: todayStr },
+    { venueId: venue?.id || 0 },
     { enabled: !!venue?.id }
   );
   const isPublicHoliday = holidayData?.isHoliday ?? false;
@@ -252,10 +253,6 @@ export default function VenuePublic() {
     onError: (err) => setWaitlistError(err.message),
   });
 
-  const redeemGiftCardMutation = trpc.venue.redeemGiftCard.useMutation({
-    onSuccess: (data) => { setAppliedGiftDiscount(data.discount); },
-    onError: (err) => { alert(err.message); },
-  });
 
   const passQuery = trpc.venue.getPassByPhone.useQuery(
     { venueId: venue?.id ?? 0, phone: checkoutPhone },
@@ -485,6 +482,33 @@ export default function VenuePublic() {
     }
   }, [tFont]);
 
+  // ── Server-priced cart quote (must sit above the early returns: it's a hook)
+  const quoteSubtotal = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+  const quoteTip = tipOption === 'custom'
+    ? Math.max(0, Number(tipCustom) || 0)
+    : tipOption === null ? 0 : (quoteSubtotal * tipOption) / 100;
+  const checkoutItems = cart.map(c => c.menuItemId < 0
+    ? { bundleId: -c.menuItemId, quantity: c.quantity }
+    : { menuItemId: c.menuItemId, quantity: c.quantity, modifiers: c.modifiers?.map(m => ({ group: m.group, option: m.option })) });
+  const pricingInput = {
+    venueId: venue?.id ?? 0,
+    items: checkoutItems,
+    tipAmount: Math.round(quoteTip * 100) / 100,
+    discountCode: appliedDiscount?.code,
+    giftCardCode: appliedGiftCode ?? undefined,
+    loyaltyPhone: redeemPoints > 0 ? checkoutPhone : undefined,
+    loyaltyPointsRedeemed: redeemPoints,
+    passId: checkoutUsePass && passInfo?.id ? passInfo.id : undefined,
+    customerPhone: checkoutPhone || undefined,
+  };
+  // The server's quote is what Stripe will charge; show it once it arrives.
+  const quoteQuery = trpc.stripeCheckout.quoteCart.useQuery(pricingInput, {
+    enabled: showCart && cart.length > 0 && !!venue?.id,
+    retry: false,
+    placeholderData: (prev) => prev,
+  });
+  const quote = quoteQuery.data;
+
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#F3F2EE' }}>
@@ -651,7 +675,9 @@ export default function VenuePublic() {
     : 0;
   const surchargeAmount = isPublicHoliday ? (cartSubtotal * surchargePercent / 100) : 0;
 
-  const orderTotal = totalAfterDiscounts + tipAmount + surchargeAmount;
+  const localOrderTotal = totalAfterDiscounts + tipAmount + surchargeAmount;
+
+  const orderTotal = quote?.total ?? localOrderTotal;
 
   async function handleApplyDiscountCode() {
     setDiscountError('');
@@ -674,10 +700,12 @@ export default function VenuePublic() {
 
   const handlePlaceOrder = async () => {
     if (cart.length === 0 || !venue?.id) return;
+    if (!checkoutName.trim() || checkoutPhone.trim().length < 6) {
+      showToast('Please add your name and phone number so we can call you when it\'s ready');
+      return;
+    }
     const notesParts: string[] = [];
-    if (appliedGiftDiscount > 0) notesParts.push(`Gift card: -$${appliedGiftDiscount.toFixed(2)}`);
     if (tableNumber) notesParts.push(`Table: ${tableNumber}`);
-    if (isPublicHoliday && surchargeAmount > 0) notesParts.push(`Public holiday surcharge (${surchargePercent}%): +$${surchargeAmount.toFixed(2)}`);
     const resolvedPickupTime = orderType === 'dine-in'
       ? 'Now'
       : pickupMode === 'asap'
@@ -700,25 +728,18 @@ export default function VenuePublic() {
 
     try {
       const result = await createCheckoutSession.mutateAsync({
+        ...pricingInput,
         venueId: venue.id,
-        items: stripeItems,
-        tipAmount: tipAmount + surchargeAmount,
-        discountAmount: effectivePromo + appliedGiftDiscount + loyaltyDiscount,
-        discountCode: appliedDiscount?.code,
-        customerName: checkoutName || 'Guest',
-        customerPhone: checkoutPhone || '0000000000',
+        customerName: checkoutName.trim(),
+        customerPhone: checkoutPhone.trim(),
         customerEmail: checkoutEmail || undefined,
         pickupTime: resolvedPickupTime,
         orderNote: notesParts.join('; ') || undefined,
         locationId: selectedLocationId ?? undefined,
-        loyaltyPhone: redeemPoints > 0 ? checkoutPhone : undefined,
-        loyaltyPointsRedeemed: redeemPoints,
-        // Post-purchase metadata — consumed by the Stripe webhook (preferences,
-        // pass credit, abandoned-cart recovery). Values must be strings.
+        // Post-purchase preferences saved by the Stripe webhook.
         metadata: {
           ...(checkoutMilk ? { prefMilk: checkoutMilk } : {}),
           ...(checkoutSugar ? { prefSugar: checkoutSugar } : {}),
-          ...(checkoutUsePass && passInfo?.id ? { passId: String(passInfo.id) } : {}),
         },
       });
       if (result.url) {
@@ -1096,6 +1117,7 @@ export default function VenuePublic() {
                     setCheckoutPickupTime('ASAP');
                     setCheckoutGiftCode('');
                     setAppliedGiftDiscount(0);
+                    setAppliedGiftCode(null);
                     setCheckoutUsePass(false);
                     setShowSplit(false);
                     setShowAddMore(false);
@@ -1936,20 +1958,24 @@ export default function VenuePublic() {
                         }}
                       />
                       <button
-                        onClick={() => {
-                          if (checkoutGiftCode && venue?.id) {
-                            redeemGiftCardMutation.mutate({
-                              venueId: venue.id,
-                              code: checkoutGiftCode,
-                              orderTotal: cartTotal,
-                            });
+                        onClick={async () => {
+                          if (!checkoutGiftCode || !venue?.id) return;
+                          setCheckingGiftCard(true);
+                          try {
+                            const { balance } = await trpcUtils.venue.checkGiftCard.fetch({ venueId: venue.id, code: checkoutGiftCode });
+                            setAppliedGiftCode(checkoutGiftCode);
+                            setAppliedGiftDiscount(Math.min(balance, cartTotal));
+                          } catch (err) {
+                            showToast((err as { message?: string }).message ?? 'Gift card not found');
+                          } finally {
+                            setCheckingGiftCard(false);
                           }
                         }}
-                        disabled={redeemGiftCardMutation.isPending || !checkoutGiftCode}
+                        disabled={checkingGiftCard || !checkoutGiftCode}
                         style={{
                           padding: '10px 14px', borderRadius: 8, border: 'none',
                           background: '#181818', color: '#F3F2EE', fontSize: 13, cursor: 'pointer',
-                          opacity: redeemGiftCardMutation.isPending || !checkoutGiftCode ? 0.6 : 1,
+                          opacity: checkingGiftCard || !checkoutGiftCode ? 0.6 : 1,
                         }}
                       >
                         Apply
@@ -1990,35 +2016,72 @@ export default function VenuePublic() {
                     <span style={{ color: '#5E5E5E' }}>Subtotal</span>
                     <span style={{ fontWeight: 600 }}>${cartTotal.toFixed(2)}</span>
                   </div>
-                  {appliedDiscount && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
-                      <span>🏷️ {appliedDiscount.description}</span>
-                      <span>-${appliedDiscount.amount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {!appliedDiscount && happyHourDiscountAmount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
-                      <span>⚡ Happy Hour discount</span>
-                      <span>-${happyHourDiscountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {appliedGiftDiscount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
-                      <span>🎁 Gift card</span>
-                      <span>-${appliedGiftDiscount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {loyaltyDiscount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#d97706', fontSize: 13 }}>
-                      <span>⭐ Loyalty points ({redeemPoints} pts)</span>
-                      <span>-${loyaltyDiscount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {isPublicHoliday && surchargeAmount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#92400e', fontSize: '13px', marginBottom: 6 }}>
-                      <span>🎉 Public Holiday Surcharge ({surchargePercent}%)</span>
-                      <span>+${surchargeAmount.toFixed(2)}</span>
-                    </div>
+                  {quote ? (
+                    <>
+                      {quote.pass > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                          <span>☕ Pass credit</span>
+                          <span>-${quote.pass.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {quote.promo && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                          <span>{quote.promo.kind === 'happy_hour' ? '⚡' : '🏷️'} {quote.promo.label}</span>
+                          <span>-${quote.promo.amount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {quote.giftCard > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                          <span>🎁 Gift card</span>
+                          <span>-${quote.giftCard.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {quote.loyalty && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#d97706', fontSize: 13 }}>
+                          <span>⭐ Loyalty points ({quote.loyalty.points} pts)</span>
+                          <span>-${quote.loyalty.amount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {quote.surcharge && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#92400e', fontSize: '13px', marginBottom: 6 }}>
+                          <span>🎉 {quote.surcharge.label}</span>
+                          <span>+${quote.surcharge.amount.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {appliedDiscount && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                          <span>🏷️ {appliedDiscount.description}</span>
+                          <span>-${appliedDiscount.amount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {!appliedDiscount && happyHourDiscountAmount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                          <span>⚡ Happy Hour discount</span>
+                          <span>-${happyHourDiscountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {appliedGiftDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#16a34a', fontSize: 13 }}>
+                          <span>🎁 Gift card</span>
+                          <span>-${appliedGiftDiscount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {loyaltyDiscount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#d97706', fontSize: 13 }}>
+                          <span>⭐ Loyalty points ({redeemPoints} pts)</span>
+                          <span>-${loyaltyDiscount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {isPublicHoliday && surchargeAmount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#92400e', fontSize: '13px', marginBottom: 6 }}>
+                          <span>🎉 Public Holiday Surcharge ({surchargePercent}%)</span>
+                          <span>+${surchargeAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                   {tipAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: '#5E5E5E', fontSize: 13 }}>
@@ -2043,6 +2106,9 @@ export default function VenuePublic() {
                   >
                     {createCheckoutSession.isPending ? 'Placing Order…' : 'Place Order'}
                   </button>
+                  {quoteQuery.error && (
+                    <p style={{ color: '#DC2626', fontSize: 13, marginTop: 8 }}>{quoteQuery.error.message}</p>
+                  )}
                   {createCheckoutSession.error && (
                     <p style={{ color: '#DC2626', fontSize: 13, marginTop: 8 }}>{createCheckoutSession.error.message}</p>
                   )}

@@ -13,6 +13,8 @@ import { seal, open } from "./lib/crypto";
 import { sendEmail, sendOrderConfirmation, sendNewOrderAlert, sendOrderReady, sendReviewRequest } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import { broadcastToVenue } from "./lib/sse-store";
+import { auPublicHolidays, publicHolidayName, localDateTime, timezoneForState } from "./lib/au-holidays";
+import { newOrderNumber } from "./stripe-checkout-router";
 import { checkRateLimit, tooManyFailures, recordFailure } from "./lib/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
@@ -49,81 +51,6 @@ async function getValidGmbToken(venueId: number): Promise<{ accessToken: string;
   };
   await db.update(venues).set({ settingsJson: newSettings, updatedAt: new Date() }).where(eq(venues.id, venueId));
   return { accessToken: tokens.accessToken, settings: newSettings };
-}
-
-// ─── AU Public Holidays ───────────────────────────────────────────────────────
-// Hardcoded 2025 and 2026 — national + per-state extras (VIC default)
-const AU_HOLIDAY_NAMES: Record<string, string> = {
-  // National
-  "2025-01-01": "New Year's Day",
-  "2025-01-27": "Australia Day (substitute)",
-  "2025-04-18": "Good Friday",
-  "2025-04-19": "Easter Saturday",
-  "2025-04-20": "Easter Sunday",
-  "2025-04-21": "Easter Monday",
-  "2025-04-25": "ANZAC Day",
-  "2025-06-09": "King's Birthday",
-  "2025-12-25": "Christmas Day",
-  "2025-12-26": "Boxing Day",
-  "2026-01-01": "New Year's Day",
-  "2026-01-26": "Australia Day",
-  "2026-04-03": "Good Friday",
-  "2026-04-04": "Easter Saturday",
-  "2026-04-05": "Easter Sunday",
-  "2026-04-06": "Easter Monday",
-  "2026-04-25": "ANZAC Day",
-  "2026-06-08": "King's Birthday",
-  "2026-12-25": "Christmas Day",
-  "2026-12-28": "Boxing Day (substitute)",
-  // VIC
-  "2025-03-10": "Labour Day",
-  "2025-11-04": "Melbourne Cup Day",
-  "2026-03-09": "Labour Day",
-  "2026-11-03": "Melbourne Cup Day",
-  // NSW
-  "2025-08-04": "Bank Holiday",
-  "2026-08-03": "Bank Holiday",
-  // QLD
-  "2025-05-05": "Labour Day (QLD)",
-  "2025-08-13": "Royal Queensland Show",
-  "2026-05-04": "Labour Day (QLD)",
-  "2026-08-12": "Royal Queensland Show",
-  // SA
-  "2025-10-06": "Adelaide Cup Race Day",
-  "2026-10-05": "Adelaide Cup Race Day",
-  // WA
-  "2025-03-03": "Labour Day (WA)",
-  "2025-09-22": "Queen's Birthday (WA)",
-  "2026-03-02": "Labour Day (WA)",
-  "2026-09-28": "Queen's Birthday (WA)",
-  // TAS
-  "2025-02-10": "Royal Hobart Regatta",
-  "2026-02-09": "Royal Hobart Regatta",
-  // ACT
-  "2025-05-26": "Reconciliation Day",
-  "2026-05-25": "Reconciliation Day",
-  // NT
-  // (Bank Holiday shared with NSW entries above)
-};
-
-function getAUPublicHolidays(state: string = "VIC"): Set<string> {
-  const national = [
-    "2025-01-01", "2025-01-27", "2025-04-18", "2025-04-19", "2025-04-20", "2025-04-21",
-    "2025-04-25", "2025-06-09", "2025-12-25", "2025-12-26",
-    "2026-01-01", "2026-01-26", "2026-04-03", "2026-04-04", "2026-04-05", "2026-04-06",
-    "2026-04-25", "2026-06-08", "2026-12-25", "2026-12-28",
-  ];
-  const stateHolidays: Record<string, string[]> = {
-    VIC: ["2025-03-10", "2025-11-04", "2026-03-09", "2026-11-03"],
-    NSW: ["2025-08-04", "2026-08-03"],
-    QLD: ["2025-05-05", "2025-08-13", "2026-05-04", "2026-08-12"],
-    SA:  ["2025-06-09", "2025-10-06", "2026-06-08", "2026-10-05"],
-    WA:  ["2025-03-03", "2025-09-22", "2026-03-02", "2026-09-28"],
-    TAS: ["2025-02-10", "2025-03-10", "2026-02-09", "2026-03-09"],
-    ACT: ["2025-03-10", "2025-05-26", "2026-03-09", "2026-05-25"],
-    NT:  ["2025-08-04", "2026-08-03"],
-  };
-  return new Set([...national, ...(stateHolidays[state.toUpperCase()] ?? [])]);
 }
 
 // Helper: compute next scheduled order date based on scheduleDays (e.g. "1,2,3,4,5") and pickupTime ("HH:MM")
@@ -656,13 +583,21 @@ export const venueRouter = createRouter({
     let totalAmount = 0;
     const itemDetails: { menuItemId: number; itemName: string; quantity: number; unitPrice: number; note?: string }[] = [];
 
+    // Option prices come from the venue's modifier groups, never the client.
+    const modifierGroups = input.items.some(i => i.modifiers?.length)
+      ? await db.select().from(menuItemModifiers).where(eq(menuItemModifiers.venueId, input.venueId))
+      : [];
     for (const item of input.items) {
       const mi = await db.select().from(menuItems).where(eq(menuItems.id, item.menuItemId)).limit(1);
       if (!mi[0] || mi[0].venueId !== input.venueId) {
         throw new TRPCError({ code: "NOT_FOUND", message: `Menu item ${item.menuItemId} not found` });
       }
       const unitPrice = Number(mi[0].price);
-      // Add modifier price adjustments
+      for (const m of item.modifiers ?? []) {
+        const option = modifierGroups.find(g => g.menuItemId === item.menuItemId && g.name === m.group)?.options.find(o => o.name === m.option);
+        if (!option) throw new TRPCError({ code: "BAD_REQUEST", message: `"${m.option}" isn't available for ${mi[0].name}` });
+        m.priceAdj = Number(option.priceAdj) || 0;
+      }
       const modifierAdj = (item.modifiers ?? []).reduce((sum, m) => sum + m.priceAdj, 0);
       const effectivePrice = unitPrice + modifierAdj;
       totalAmount += effectivePrice * item.quantity;
@@ -680,11 +615,25 @@ export const venueRouter = createRouter({
       });
     }
 
-    // Generate order number
-    const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
+    const orderNumber = newOrderNumber();
 
-    // Apply discount
-    const discountedTotal = Math.max(0, totalAmount - (input.discountAmount ?? 0));
+    // Counter/kiosk orders are paid at the till. A discount is only honoured
+    // when it comes from a valid code — never a client-supplied amount.
+    let discountAmount = 0;
+    let discountCode: string | null = null;
+    if (input.discountCode?.trim()) {
+      const code = input.discountCode.trim().toUpperCase();
+      const [dc] = await db.select().from(discountCodes).where(and(
+        eq(discountCodes.venueId, input.venueId), eq(discountCodes.code, code), eq(discountCodes.isActive, true),
+      )).limit(1);
+      const usable = dc && !(dc.expiresAt && dc.expiresAt < new Date()) && !(dc.maxUses !== null && dc.usedCount >= dc.maxUses)
+        && !(dc.minOrderAmount && totalAmount < Number(dc.minOrderAmount));
+      if (usable) {
+        discountCode = code;
+        discountAmount = Math.min(totalAmount, dc.type === "percentage" ? totalAmount * Number(dc.value) / 100 : Number(dc.value));
+      }
+    }
+    const discountedTotal = Math.max(0, totalAmount - discountAmount);
     const finalTotal = discountedTotal + (input.tipAmount ?? 0);
 
     // Create order
@@ -695,14 +644,13 @@ export const venueRouter = createRouter({
       customerPhone: input.customerPhone,
       pickupTime: input.scheduledFor ?? input.pickupTime,
       orderNote: input.orderNote,
-      paymentMethod: input.paymentMethod as any,
+      paymentMethod: "pickup",
       totalAmount: finalTotal.toFixed(2),
       locationId: input.locationId,
       customerEmail: input.customerEmail,
       tipAmount: input.tipAmount ? input.tipAmount.toFixed(2) : "0",
-      discountCode: input.discountCode ?? null,
-      discountAmount: input.discountAmount ? input.discountAmount.toFixed(2) : "0",
-      stripeSessionId: input.stripeSessionId ?? null,
+      discountCode,
+      discountAmount: discountAmount.toFixed(2),
       tableNumber: input.tableNumber ?? null,
       orderType: input.orderType ?? "pickup",
     }).returning({ id: orders.id });
@@ -764,12 +712,12 @@ export const venueRouter = createRouter({
     }
 
     // DISCOUNT CODE: increment usage count
-    if (input.discountCode) {
+    if (discountCode) {
       try {
         await db.update(discountCodes).set({ usedCount: sql`used_count + 1` })
           .where(and(
             eq(discountCodes.venueId, input.venueId),
-            eq(discountCodes.code, input.discountCode.toUpperCase()),
+            eq(discountCodes.code, discountCode),
           ));
       } catch { /* non-blocking */ }
     }
@@ -1444,6 +1392,23 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return db.select().from(giftCards)
       .where(eq(giftCards.venueId, venueId))
       .orderBy(desc(giftCards.createdAt));
+  }),
+
+  // Customer checkout: look up a card's balance without spending it. The
+  // balance is deducted only when the order is paid (see lib/redemptions).
+  checkGiftCard: publicQuery.input(z.object({
+    venueId: z.number().int().positive(),
+    code: z.string().min(1).max(32),
+  })).query(async ({ input }) => {
+    if (!checkRateLimit(`gift-check:${input.venueId}`, 120, 15 * 60 * 1000)) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please try again shortly." });
+    }
+    const db = getDb();
+    const [card] = await db.select({ balance: giftCards.balance }).from(giftCards)
+      .where(and(eq(giftCards.venueId, input.venueId), eq(giftCards.code, input.code.trim().toUpperCase())))
+      .limit(1);
+    if (!card || Number(card.balance) <= 0) throw new TRPCError({ code: "NOT_FOUND", message: "Gift card not found or has no balance" });
+    return { balance: Number(card.balance) };
   }),
 
   redeemGiftCard: publicQuery.input(z.object({
@@ -2715,18 +2680,15 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
 
   isPublicHoliday: publicQuery.input(z.object({
     venueId: z.number().int().positive(),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    // Defaults to today in the venue's own timezone (not the browser's or UTC).
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })).query(async ({ input }) => {
     const db = getDb();
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
-    const state = (venueRows[0]?.settingsJson as any)?.state ?? "VIC";
-    const holidays = getAUPublicHolidays(state);
-    const isHoliday = holidays.has(input.date);
-    return {
-      date: input.date,
-      isHoliday,
-      holidayName: isHoliday ? (AU_HOLIDAY_NAMES[input.date] ?? "Public Holiday") : null,
-    };
+    const state = (venueRows[0]?.settingsJson as any)?.state;
+    const date = input.date ?? localDateTime(new Date(), timezoneForState(state)).date;
+    const holidayName = publicHolidayName(date, state);
+    return { date, isHoliday: holidayName !== null, holidayName };
   }),
 
   getPublicHolidays: publicQuery.input(z.object({
@@ -2734,12 +2696,12 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   })).query(async ({ input }) => {
     const db = getDb();
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, input.venueId)).limit(1);
-    const state = (venueRows[0]?.settingsJson as any)?.state ?? "VIC";
-    const holidays = getAUPublicHolidays(state);
-    return Array.from(holidays).sort().map(date => ({
-      date,
-      name: AU_HOLIDAY_NAMES[date] ?? "Public Holiday",
-    }));
+    const state = (venueRows[0]?.settingsJson as any)?.state;
+    const year = Number(localDateTime(new Date(), timezoneForState(state)).date.slice(0, 4));
+    // This year and next, so the list never looks empty in December.
+    return [year, year + 1].flatMap(y => [...auPublicHolidays(y, state)])
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, name]) => ({ date, name }));
   }),
 
   // ─── Google My Business ────────────────────────────────────────────────────
