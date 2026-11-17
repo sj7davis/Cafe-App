@@ -38,6 +38,10 @@ export const env = {
   platformAdminSecret: signingSecret("PLATFORM_ADMIN_SECRET", "b1-platform-admin-secret-dev-only"),
   port: parseInt(process.env.PORT || "3001"),
   resendApiKey: process.env.RESEND_API_KEY || "",
+  // Sender for all email — must be on a domain verified in Resend.
+  emailFrom: process.env.EMAIL_FROM || "",
+  // Timezone the scheduled jobs (digests, birthdays, reminders) run in.
+  cronTimezone: process.env.CRON_TIMEZONE || "Australia/Melbourne",
   // Prefer explicit APP_URL, then Railway's auto-set public domain, then dev default.
   appUrl: process.env.APP_URL
     || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "")

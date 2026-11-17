@@ -15,7 +15,8 @@ import { addSseClient, removeSseClient, broadcastToVenue } from "./lib/sse-store
 import { getDb } from "./queries/connection";
 import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts, loyaltyTransactions, customerAccounts, customerPreferences, abandonedCarts, xeroConnections, reservations, deliveryOrders, inventory, menuItems, giftCards, subscriptionPasses, pushSubscriptions, recurringOrders } from "@db/schema";
 import { eq, and, gte, isNull, lte, sql } from "drizzle-orm";
-import { sendEmail } from "./lib/email";
+import { sendEmail, escapeHtml, unsubscribeFooter, verifyUnsubscribe } from "./lib/email";
+import { localDateTime, startOfLocalDay, timezoneForState, zonedTimeToUtc } from "./lib/au-holidays";
 import { sendSms } from "./lib/sms";
 import { applyRedemptions } from "./lib/redemptions";
 import { newOrderNumber } from "./stripe-checkout-router";
@@ -393,6 +394,21 @@ app.get("/api/sse/orders/:venueId", async (c) => {
 // Health check
 app.get("/api/health", (c) => c.json({ ok: true, ts: Date.now() }));
 
+// ─── One-click marketing unsubscribe (linked from every marketing email) ──────
+app.get("/api/unsubscribe", async (c) => {
+  const customerId = Number(c.req.query("c"));
+  const sig = c.req.query("s") ?? "";
+  const page = (msg: string, status: 200 | 400) => c.html(
+    `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email preferences</title>
+<div style="font-family:system-ui,sans-serif;max-width:420px;margin:15vh auto;padding:0 16px;text-align:center;color:#181818">
+<h1 style="font-size:1.25rem">${msg}</h1></div>`, status);
+  if (!Number.isInteger(customerId) || customerId <= 0 || !verifyUnsubscribe(customerId, sig)) {
+    return page("This unsubscribe link isn't valid.", 400);
+  }
+  await getDb().update(customerAccounts).set({ marketingOptIn: false }).where(eq(customerAccounts.id, customerId));
+  return page("You're unsubscribed. You won't receive marketing emails from this cafe again.", 200);
+});
+
 // ─── Image upload endpoint ────────────────────────────────────────────────────
 // Accepts multipart/form-data: { token: string, file: File }
 // Validates the owner/staff JWT, saves to ./uploads/, returns { url: string }
@@ -525,8 +541,8 @@ async function handleStripeWebhook(req: IncomingMessage, res: ServerResponse): P
                 subject: `🎁 You've received a $${amountDollars} gift card from ${venueName}!`,
                 html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
 <h2>You've got a gift card! 🎉</h2>
-${meta.senderName ? `<p><strong>${meta.senderName}</strong> sent you a gift card.</p>` : ""}
-${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:1rem;color:#555">${meta.message}</blockquote>` : ""}
+${meta.senderName ? `<p><strong>${escapeHtml(meta.senderName)}</strong> sent you a gift card.</p>` : ""}
+${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:1rem;color:#555">${escapeHtml(meta.message)}</blockquote>` : ""}
 <div style="background:#f9f9f9;border-radius:8px;padding:1.5rem;text-align:center;margin:1.5rem 0">
   <p style="margin:0;color:#666;font-size:0.875rem">Your gift card code</p>
   <p style="font-size:2rem;font-weight:bold;letter-spacing:0.2em;margin:0.5rem 0;color:#181818">${code}</p>
@@ -920,14 +936,26 @@ server.listen(port, () => {
   }
 });
 
+// All scheduled jobs run on Australian wall-clock time. node-cron defaults to
+// the server's zone (UTC on Railway), which sent the "6pm" digest at ~5am.
+function scheduleJob(expr: string, job: () => Promise<void>) {
+  return cron.schedule(expr, job, { timezone: env.cronTimezone, noOverlap: true });
+}
+/** Today's date / MM-DD / weekday in the scheduler's timezone. */
+function cronToday() {
+  const { date } = localDateTime(new Date(), env.cronTimezone);
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+  return { date, mmdd: date.slice(5), weekday };
+}
+
 // ─── Daily digest cron — every day at 6pm ────────────────────────────────────
-cron.schedule("0 18 * * *", async () => {
+scheduleJob("0 18 * * *", async () => {
   try {
     const db = getDb();
     const allVenues = await db.select({ id: venues.id, name: venues.name }).from(venues).where(eq(venues.isActive, true));
 
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    const todayStr = cronToday().date;
+    const dayStart = startOfLocalDay(new Date(), env.cronTimezone);
 
     for (const venue of allVenues) {
       try {
@@ -938,7 +966,7 @@ cron.schedule("0 18 * * *", async () => {
           .where(
             and(
               eq(orders.venueId, venue.id),
-              gte(orders.createdAt, new Date(`${todayStr}T00:00:00.000Z`)),
+              gte(orders.createdAt, dayStart),
             )
           );
 
@@ -979,65 +1007,8 @@ cron.schedule("0 18 * * *", async () => {
   }
 });
 
-// ─── Birthday rewards cron — every day at 9am ────────────────────────────────
-cron.schedule("0 9 * * *", async () => {
-  try {
-    const db = getDb();
-    const today = new Date();
-    const mmdd = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-    // Find all customer accounts with birthday = today and marketingOptIn = true
-    const birthdayCustomers = await db.select()
-      .from(customerAccounts)
-      .where(and(eq(customerAccounts.birthday, mmdd), eq(customerAccounts.marketingOptIn, true)));
-
-    for (const customer of birthdayCustomers) {
-      try {
-        // Award 50 loyalty points
-        if (customer.phone) {
-          const loyaltyAcc = await db.select().from(loyaltyAccounts)
-            .where(and(eq(loyaltyAccounts.venueId, customer.venueId), eq(loyaltyAccounts.phone, customer.phone)))
-            .limit(1);
-
-          if (loyaltyAcc[0]) {
-            await db.update(loyaltyAccounts).set({
-              pointsBalance: loyaltyAcc[0].pointsBalance + 50,
-              totalLifetimePoints: loyaltyAcc[0].totalLifetimePoints + 50,
-            }).where(eq(loyaltyAccounts.id, loyaltyAcc[0].id));
-            await db.insert(loyaltyTransactions).values({
-              venueId: customer.venueId,
-              accountId: loyaltyAcc[0].id,
-              type: "earn",
-              points: 50,
-              description: "Birthday bonus — 50 pts 🎂",
-            });
-          }
-        }
-
-        // Send birthday email if email on file
-        if (customer.email) {
-          const venueRow = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, customer.venueId)).limit(1);
-          const venueName = venueRow[0]?.name ?? "your favourite café";
-          await sendEmail({
-            to: customer.email,
-            subject: `Happy Birthday from ${venueName}! 🎂`,
-            html: `<h2>Happy Birthday, ${customer.name ?? "friend"}! 🎂</h2>
-<p>We've added <strong>50 bonus loyalty points</strong> to your account as a birthday gift.</p>
-<p>Come in and treat yourself — you deserve it!</p>
-<p>With love,<br/>${venueName}</p>`,
-          });
-        }
-      } catch (err) {
-        console.error(`Birthday cron error for customer ${customer.id}:`, err);
-      }
-    }
-  } catch (err) {
-    console.error("Birthday cron error:", err);
-  }
-});
-
 // ─── Reservation SMS reminders — every hour ───────────────────────────────────
-cron.schedule("0 * * * *", async () => {
+scheduleJob("0 * * * *", async () => {
   try {
     const db = getDb();
     const now = new Date();
@@ -1045,19 +1016,27 @@ cron.schedule("0 * * * *", async () => {
     const windowStart = new Date(now.getTime() + 105 * 60000); // +1h45m
     const windowEnd   = new Date(now.getTime() + 135 * 60000); // +2h15m
 
-    // Find reservations that haven't been reminded yet and are still pending/confirmed
-    const candidates = await db.select().from(reservations)
+    // Only today/tomorrow's bookings (local dates are strings). Previously this
+    // took the first 100 un-reminded rows of all time, so old bookings clogged it.
+    const today = localDateTime(now, env.cronTimezone).date;
+    const yesterday = localDateTime(new Date(now.getTime() - 86_400_000), env.cronTimezone).date;
+    const tomorrow = localDateTime(new Date(now.getTime() + 86_400_000), env.cronTimezone).date;
+    const candidates = await db.select({ res: reservations, settingsJson: venues.settingsJson })
+      .from(reservations)
+      .innerJoin(venues, eq(venues.id, reservations.venueId))
       .where(
         and(
           sql`${reservations.status} IN ('pending', 'confirmed')`,
           isNull(reservations.smsReminderSentAt),
+          sql`${reservations.reservationDate} IN (${yesterday}, ${today}, ${tomorrow})`,
         )
-      )
-      .limit(100);
+      );
 
-    for (const res of candidates) {
+    for (const { res, settingsJson } of candidates) {
       try {
-        const resDateTime = new Date(`${res.reservationDate}T${res.reservationTime}:00`);
+        // Booking times are the venue's wall-clock time, not the server's.
+        const venueTz = timezoneForState((settingsJson as { state?: string } | null)?.state);
+        const resDateTime = zonedTimeToUtc(res.reservationDate, res.reservationTime, venueTz);
         if (resDateTime >= windowStart && resDateTime <= windowEnd) {
           await sendSms(
             res.customerPhone,
@@ -1075,7 +1054,7 @@ cron.schedule("0 * * * *", async () => {
 });
 
 // ─── Inventory low-stock alert cron — every day at 8am ───────────────────────
-cron.schedule("0 8 * * *", async () => {
+scheduleJob("0 8 * * *", async () => {
   try {
     const db = getDb();
     const allVenues = await db.select({ id: venues.id, name: venues.name }).from(venues).where(eq(venues.isActive, true));
@@ -1121,12 +1100,11 @@ cron.schedule("0 8 * * *", async () => {
 
 // ─── Loyalty birthday rewards cron — every day at 9am ────────────────────────
 // Checks loyaltyAccounts.birthday (MM-DD) for today's birthdays and awards 100 bonus points.
-cron.schedule("0 9 * * *", async () => {
+scheduleJob("0 9 * * *", async () => {
   try {
     const db = getDb();
-    const today = new Date();
-    const mmdd = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    const currentYear = today.getFullYear();
+    const { mmdd, date } = cronToday();
+    const currentYear = Number(date.slice(0, 4));
 
     // Find loyalty accounts with birthday matching today's MM-DD
     const birthdayAccounts = await db.select().from(loyaltyAccounts)
@@ -1172,7 +1150,7 @@ cron.schedule("0 9 * * *", async () => {
 
 // ─── AUTO-01: Re-engagement cron — every day at 10am ─────────────────────────
 // Finds customers who have not ordered in 30 days and sends a "we miss you" email/SMS
-cron.schedule("0 10 * * *", async () => {
+scheduleJob("0 10 * * *", async () => {
   try {
     const db = getDb();
     const allVenues = await db
@@ -1181,8 +1159,6 @@ cron.schedule("0 10 * * *", async () => {
       .where(eq(venues.isActive, true));
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10);
 
     for (const venue of allVenues) {
       try {
@@ -1214,22 +1190,19 @@ cron.schedule("0 10 * * *", async () => {
 
             if (recentOrders.length > 0) continue; // Active recently — skip
 
-            // Check if we sent a re-engagement email today already (using a simple daily key
-            // stored in settingsJson.reEngagementSentToday — cleared at midnight via the check below)
-            const dedupeKey = `reeng-${todayStr}-${customer.id}`;
-            const sentToday = (venue.settingsJson as any)?.reEngagementSentIds?.[dedupeKey];
-            if (sentToday) continue;
+            // At most one nudge per lapse: skip if we've nudged within the last 30 days.
+            if (customer.reengagementSentAt && customer.reengagementSentAt > thirtyDaysAgo) continue;
 
             if (customer.email) {
               await sendEmail({
                 to: customer.email,
                 subject: `We miss you at ${venue.name}! ☕`,
                 html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
-<h2>We miss you, ${customer.name ?? "friend"}!</h2>
-<p>It's been a while since your last visit to <strong>${venue.name}</strong>.</p>
+<h2>We miss you, ${escapeHtml(customer.name ?? "friend")}!</h2>
+<p>It's been a while since your last visit to <strong>${escapeHtml(venue.name)}</strong>.</p>
 <p>Come back and treat yourself — we'd love to see you again.</p>
 <p><a href="${env.appUrl}/v/${venue.slug}" style="display:inline-block;background:#181818;color:#F3F2EE;text-decoration:none;padding:0.75rem 2rem;border-radius:4px;font-weight:600">Order Online →</a></p>
-<p style="color:#999;font-size:0.75rem">You're receiving this because you opted in to marketing from ${venue.name}. Reply STOP to unsubscribe.</p>
+${unsubscribeFooter(venue.name, customer.id)}
 </div>`,
               });
             } else if (customer.phone) {
@@ -1238,6 +1211,7 @@ cron.schedule("0 10 * * *", async () => {
                 `Hi ${customer.name ?? "there"}! We miss you at ${venue.name}. Come visit us: ${env.appUrl}/v/${venue.slug}`
               );
             }
+            await db.update(customerAccounts).set({ reengagementSentAt: new Date() }).where(eq(customerAccounts.id, customer.id));
           } catch (err) {
             console.error(`Re-engagement error for customer ${customer.id}:`, err);
           }
@@ -1253,7 +1227,7 @@ cron.schedule("0 10 * * *", async () => {
 
 // ─── AUTO-02: Marketing birthday cron — every day at 9:30am ──────────────────
 // Sends birthday greetings to opted-in customers (separate from loyalty birthday points)
-cron.schedule("30 9 * * *", async () => {
+scheduleJob("30 9 * * *", async () => {
   try {
     const db = getDb();
     const allVenues = await db
@@ -1261,8 +1235,7 @@ cron.schedule("30 9 * * *", async () => {
       .from(venues)
       .where(eq(venues.isActive, true));
 
-    const today = new Date();
-    const mmdd = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const { mmdd } = cronToday();
 
     for (const venue of allVenues) {
       try {
@@ -1304,8 +1277,8 @@ cron.schedule("30 9 * * *", async () => {
                 to: customer.email,
                 subject: `Happy Birthday from ${venue.name}! 🎂`,
                 html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto">
-<h2>Happy Birthday, ${customer.name ?? "friend"}! 🎂</h2>
-<p>The whole team at <strong>${venue.name}</strong> wishes you a wonderful birthday.</p>
+<h2>Happy Birthday, ${escapeHtml(customer.name ?? "friend")}! 🎂</h2>
+<p>The whole team at <strong>${escapeHtml(venue.name)}</strong> wishes you a wonderful birthday.</p>
 <p>Come celebrate with us — your favourite coffee is waiting!</p>
 <div style="background:#f9f9f9;border-radius:8px;padding:1.5rem;text-align:center;margin:1.5rem 0">
   <p style="margin:0 0 8px;color:#666;font-size:0.875rem">Your birthday gift</p>
@@ -1314,6 +1287,7 @@ cron.schedule("30 9 * * *", async () => {
   <p style="margin:8px 0 0;color:#999;font-size:0.75rem">Valid for 7 days</p>
 </div>
 <p><a href="${env.appUrl}/v/${venue.slug}" style="display:inline-block;background:#181818;color:#F3F2EE;text-decoration:none;padding:0.75rem 2rem;border-radius:4px;font-weight:600">Order Online →</a></p>
+${unsubscribeFooter(venue.name, customer.id)}
 </div>`,
               });
             } else if (customer.phone) {
@@ -1337,7 +1311,7 @@ cron.schedule("30 9 * * *", async () => {
 
 // ─── AUTO-03: Pass expiry nudge cron — every day at 11am ─────────────────────
 // Finds active subscription passes with exactly 1 remaining credit and sends a nudge
-cron.schedule("0 11 * * *", async () => {
+scheduleJob("0 11 * * *", async () => {
   try {
     const db = getDb();
     const allVenues = await db
@@ -1384,7 +1358,7 @@ cron.schedule("0 11 * * *", async () => {
 });
 
 // ─── Abandoned cart recovery cron — every 30 minutes ─────────────────────────
-cron.schedule("*/30 * * * *", async () => {
+scheduleJob("*/30 * * * *", async () => {
   try {
     const db = getDb();
     const cutoff = new Date(Date.now() - 30 * 60 * 1000); // 30 min ago
@@ -1443,11 +1417,10 @@ cron.schedule("*/30 * * * *", async () => {
 
 // ─── Recurring Orders cron — every day at 6am ─────────────────────────────────
 // Finds all active recurring orders scheduled for today and creates an order for each.
-cron.schedule("0 6 * * *", async () => {
+scheduleJob("0 6 * * *", async () => {
   try {
     const db = getDb();
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const dayOfWeek = cronToday().weekday; // 0=Sun … 6=Sat, local
 
     // Find all active recurring orders where today is in scheduleDays
     const activeSubscriptions = await db.select().from(recurringOrders)
@@ -1457,11 +1430,6 @@ cron.schedule("0 6 * * *", async () => {
       try {
         const scheduledDays = sub.scheduleDays.split(",").map(d => parseInt(d.trim(), 10));
         if (!scheduledDays.includes(dayOfWeek)) continue;
-
-        // Parse pickup time
-        const [hStr, mStr] = sub.pickupTime.split(":");
-        const pickupDate = new Date(today);
-        pickupDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
 
         // Build order
         const venueRow = await db.select({ name: venues.name }).from(venues).where(eq(venues.id, sub.venueId)).limit(1);
@@ -1474,7 +1442,7 @@ cron.schedule("0 6 * * *", async () => {
         if (itemIds.length === 0) continue;
         const menuRows = await db.select({ id: menuItemsTable.id, name: menuItemsTable.name, price: menuItemsTable.price })
           .from(menuItemsTable)
-          .where(inArray(menuItemsTable.id, itemIds));
+          .where(and(eq(menuItemsTable.venueId, sub.venueId), inArray(menuItemsTable.id, itemIds)));
         const menuMap: Record<number, { name: string; price: string }> = {};
         for (const m of menuRows) menuMap[m.id] = { name: m.name, price: m.price };
 
@@ -1486,7 +1454,7 @@ cron.schedule("0 6 * * *", async () => {
         }));
         const total = lineItems.reduce((s: number, i: any) => s + i.unitPrice * i.quantity, 0);
 
-        const orderNumber = `SUB-${Date.now().toString(36).toUpperCase()}`;
+        const orderNumber = newOrderNumber().replace(/^B1-/, "SUB-");
         const [orderResult] = await db.insert(orders).values({
           venueId: sub.venueId,
           orderNumber,
@@ -1513,11 +1481,13 @@ cron.schedule("0 6 * * *", async () => {
 
         // Compute next order date
         let nextAt: Date | null = null;
+        const { date: todayLocal } = cronToday();
         for (let offset = 1; offset <= 8; offset++) {
-          const candidate = new Date(today);
-          candidate.setDate(today.getDate() + offset);
-          candidate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
-          if (scheduledDays.includes(candidate.getDay())) { nextAt = candidate; break; }
+          const day = new Date(Date.parse(`${todayLocal}T12:00:00Z`) + offset * 86_400_000);
+          if (scheduledDays.includes(day.getUTCDay())) {
+            nextAt = zonedTimeToUtc(day.toISOString().slice(0, 10), sub.pickupTime, env.cronTimezone);
+            break;
+          }
         }
 
         await db.update(recurringOrders)

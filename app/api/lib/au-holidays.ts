@@ -124,3 +124,26 @@ export function auPublicHolidays(year: number, stateInput: unknown = "VIC"): Map
 export function publicHolidayName(date: string, state: unknown): string | null {
   return auPublicHolidays(Number(date.slice(0, 4)), state).get(date) ?? null;
 }
+
+/** The UTC instant of a wall-clock time ("YYYY-MM-DD", "HH:MM") in `timeZone`.
+ *  Needed because `new Date("2026-11-17T09:00")` uses the server's zone (UTC
+ *  on Railway), which put reservation reminders ~10 hours out. */
+export function zonedTimeToUtc(date: string, time: string, timeZone: string): Date {
+  const [y, mo, d] = date.split("-").map(Number);
+  const [h, mi] = time.split(":").map(Number);
+  const asUtc = Date.UTC(y, mo - 1, d, h || 0, mi || 0);
+  // Offset of the zone at (approximately) that moment; second pass settles DST edges.
+  let guess = asUtc;
+  for (let i = 0; i < 2; i++) {
+    const local = localDateTime(new Date(guess), timeZone);
+    const [ly, lm, ld] = local.date.split("-").map(Number);
+    const localAsUtc = Date.UTC(ly, lm - 1, ld) + local.minutes * 60_000;
+    guess = asUtc - (localAsUtc - guess);
+  }
+  return new Date(guess);
+}
+
+/** Midnight at the start of `now`'s local day in `timeZone`, as a UTC instant. */
+export function startOfLocalDay(now: Date, timeZone: string): Date {
+  return zonedTimeToUtc(localDateTime(now, timeZone).date, "00:00", timeZone);
+}
