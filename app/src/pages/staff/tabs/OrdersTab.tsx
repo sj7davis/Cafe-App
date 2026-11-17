@@ -115,8 +115,7 @@ export function OrdersTab({ venueId, token, venue }: { venueId: number; token: s
     knownIds.current = incoming;
   }, [ordersList]);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const { data: holidayInfo } = trpc.venue.isPublicHoliday.useQuery({ venueId, date: todayStr });
+  const { data: holidayInfo } = trpc.venue.isPublicHoliday.useQuery({ venueId });
 
   return (
     <div>

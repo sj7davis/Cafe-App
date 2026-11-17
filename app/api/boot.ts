@@ -17,6 +17,8 @@ import { venues, venueOwners, orders, orderItems, discountCodes, loyaltyAccounts
 import { eq, and, gte, isNull, lte, sql } from "drizzle-orm";
 import { sendEmail } from "./lib/email";
 import { sendSms } from "./lib/sms";
+import { applyRedemptions } from "./lib/redemptions";
+import { newOrderNumber } from "./stripe-checkout-router";
 import cron from "node-cron";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join, extname } from "path";
@@ -562,10 +564,28 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
 
         // ── Order fulfillment (default, from 08-01) ───────────────────────────
         else {
-          // Parse cart items stored in session metadata by createCheckoutSession (Task 2)
-          type CartItem = { menuItemId: number; itemName: string; quantity: number; unitPrice: number };
+          type CartItem = { menuItemId: number; itemName: string; quantity: number; unitPrice: number; note?: string | null };
           let parsedItems: CartItem[] = [];
-          if (meta.itemsJson) {
+          if (meta.pricing === "v2") {
+            // Server-priced checkout: the cart lives on the session's own line
+            // items (product metadata carries the menu item id + kitchen note).
+            try {
+              const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100, expand: ["data.price.product"] });
+              for (const li of lineItems.data) {
+                const product = li.price?.product as { name?: string; metadata?: Record<string, string> } | undefined;
+                const menuItemId = Number(product?.metadata?.menuItemId);
+                if (!menuItemId) continue; // tip / surcharge lines
+                parsedItems.push({
+                  menuItemId,
+                  itemName: product?.name ?? li.description ?? "Item",
+                  quantity: li.quantity ?? 1,
+                  unitPrice: (li.price?.unit_amount ?? 0) / 100,
+                  note: product?.metadata?.note ?? null,
+                });
+              }
+            } catch (err) { console.error("[stripe-webhook] could not load line items for", session.id, err); }
+          } else if (meta.itemsJson) {
+            // Sessions created before server-side pricing shipped.
             try { parsedItems = JSON.parse(meta.itemsJson) as CartItem[]; } catch { /* malformed — skip items */ }
           }
 
@@ -576,7 +596,7 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
             .limit(1);
 
           if (!existing[0]) {
-            const orderNumber = `B1-${Date.now().toString(36).toUpperCase()}`;
+            const orderNumber = newOrderNumber();
             const totalCents = session.amount_total ?? 0;
 
             // PAY-01 / PAY-02: order is confirmed only after webhook fires with payment_status === "paid"
@@ -609,6 +629,7 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
                   itemName: String(item.itemName),
                   quantity: Number(item.quantity),
                   unitPrice: Number(item.unitPrice).toFixed(2),
+                  note: item.note ?? null,
                 });
               } catch { /* non-blocking per item — order already committed */ }
             }
@@ -635,20 +656,22 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
               }
             } catch { /* push is non-blocking */ }
 
-            // Discount code: increment usedCount (non-blocking)
-            if (meta.discountCode) {
-              try {
-                await db.update(discountCodes)
-                  .set({ usedCount: sql`used_count + 1` })
-                  .where(and(
-                    eq(discountCodes.venueId, venueId),
-                    eq(discountCodes.code, meta.discountCode.toUpperCase()),
-                  ));
-              } catch { /* non-blocking */ }
-            }
+            // Spend gift card / points / pass / code use now that payment succeeded.
+            // v2 metadata is server-set; older in-flight sessions carried client-
+            // chosen pass ids, so those only get the code + points they priced in.
+            const isV2 = meta.pricing === "v2";
+            await applyRedemptions(db, {
+              venueId, orderId, orderNumber,
+              discountCode: meta.discountCode || null,
+              giftCardId: isV2 && meta.giftCardId ? Number(meta.giftCardId) : null,
+              giftCardCents: isV2 && meta.giftCardCents ? Number(meta.giftCardCents) : null,
+              loyaltyPhone: meta.loyaltyPhone || meta.customerPhone || null,
+              loyaltyPoints: Number(meta.loyaltyPointsRedeemed ?? 0),
+              passId: isV2 && meta.passId ? Number(meta.passId) : null,
+            });
 
-            // Earn loyalty points with tier multiplier (excluding tip)
-            const subtotal = Math.max(0, (totalCents / 100) - Number(meta.tipAmount ?? 0));
+            // Earn loyalty points with tier multiplier (excluding tip and surcharge)
+            const subtotal = Math.max(0, (totalCents / 100) - Number(meta.tipAmount ?? 0) - Number(meta.surchargeAmount ?? 0));
             const loyaltyPhone = meta.loyaltyPhone || meta.customerPhone;
             if (loyaltyPhone && subtotal >= 1) {
               try {
@@ -692,32 +715,6 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
               } catch { /* non-blocking */ }
             }
 
-            // ── CHK-02: Loyalty redemption — decrement balance on paid order ───
-            const loyaltyRedemptionPhone = meta.loyaltyPhone || meta.customerPhone;
-            const pointsRedeemed = Number(meta.loyaltyPointsRedeemed ?? 0);
-            if (loyaltyRedemptionPhone && pointsRedeemed > 0) {
-              try {
-                const redeemAcc = await db.select().from(loyaltyAccounts)
-                  .where(and(eq(loyaltyAccounts.venueId, venueId), eq(loyaltyAccounts.phone, loyaltyRedemptionPhone)))
-                  .limit(1);
-                const acc = redeemAcc[0];
-                if (acc) {
-                  const newBalance = Math.max(0, acc.pointsBalance - pointsRedeemed);
-                  await db.update(loyaltyAccounts)
-                    .set({ pointsBalance: newBalance })
-                    .where(eq(loyaltyAccounts.id, acc.id));
-                  await db.insert(loyaltyTransactions).values({
-                    venueId,
-                    accountId: acc.id,
-                    type: "redeem",
-                    points: pointsRedeemed,
-                    description: `Redeemed ${pointsRedeemed} pts at checkout`,
-                    orderId,
-                  });
-                }
-              } catch { /* non-blocking — loyalty failure must not abort order confirmation */ }
-            }
-
             // ── Post-purchase touches (restored from the pre-Stripe order flow).
             // All driven by checkout-session metadata; each is non-blocking.
 
@@ -735,28 +732,6 @@ ${meta.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left:
                   await db.update(customerPreferences).set(prefs).where(eq(customerPreferences.id, existing[0].id));
                 } else {
                   await db.insert(customerPreferences).values({ venueId, phone: meta.customerPhone, ...prefs });
-                }
-              } catch { /* non-blocking */ }
-            }
-
-            // Deduct a subscription-pass credit if the customer paid with a pass
-            if (meta.passId) {
-              try {
-                const passRows = await db.select().from(subscriptionPasses)
-                  .where(and(
-                    eq(subscriptionPasses.id, Number(meta.passId)),
-                    eq(subscriptionPasses.venueId, venueId),
-                    eq(subscriptionPasses.isActive, true),
-                  ))
-                  .limit(1);
-                const pass = passRows[0];
-                if (pass && pass.remainingCredits > 0) {
-                  await db.update(subscriptionPasses)
-                    .set({
-                      remainingCredits: sql`remaining_credits - 1`,
-                      isActive: pass.remainingCredits - 1 > 0,
-                    })
-                    .where(eq(subscriptionPasses.id, pass.id));
                 }
               } catch { /* non-blocking */ }
             }
