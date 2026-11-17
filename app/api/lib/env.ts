@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomBytes } from "crypto";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -6,6 +7,19 @@ function required(name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value ?? "";
+}
+
+/** Token-signing secret. The dev fallback is public (it's in this repo), so in
+ *  production a missing value gets a random per-process secret instead — every
+ *  session is invalidated on restart, but nobody can forge tokens. */
+function signingSecret(name: string, devFallback: string): string {
+  const value = process.env[name];
+  if (value) return value;
+  if (process.env.NODE_ENV === "production") {
+    console.error(`[env] ${name} is not set — using a random secret; sessions won't survive a restart. Set it in Railway.`);
+    return randomBytes(32).toString("hex");
+  }
+  return devFallback;
 }
 
 export const env = {
@@ -16,12 +30,12 @@ export const env = {
   // DATABASE_URL when unset (RLS present but not yet enforced); set this to the
   // b1_app role's URL in production to turn enforcement on.
   appDatabaseUrl: process.env.APP_DATABASE_URL || "",
-  jwtSecret: process.env.JWT_SECRET || "b1-platform-jwt-secret-dev-only",
+  jwtSecret: signingSecret("JWT_SECRET", "b1-platform-jwt-secret-dev-only"),
   // 32-byte key (base64) for encrypting stored third-party secrets at rest
   // (OAuth tokens, POS API keys). Required in production; in dev a stable key is
   // derived from JWT_SECRET so local connect/refresh round-trips work.
   encryptionKey: process.env.ENCRYPTION_KEY || "",
-  platformAdminSecret: process.env.PLATFORM_ADMIN_SECRET || "b1-platform-admin-secret-dev-only",
+  platformAdminSecret: signingSecret("PLATFORM_ADMIN_SECRET", "b1-platform-admin-secret-dev-only"),
   port: parseInt(process.env.PORT || "3001"),
   resendApiKey: process.env.RESEND_API_KEY || "",
   // Prefer explicit APP_URL, then Railway's auto-set public domain, then dev default.

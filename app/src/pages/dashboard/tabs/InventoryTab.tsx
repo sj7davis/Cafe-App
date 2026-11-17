@@ -154,7 +154,7 @@ export function InventoryTab() {
                             <Edit2 size={11} /> Edit
                           </button>
                           <button
-                            onClick={() => toggle.mutate({ token, venueId: 0, menuItemId: item.id, isAvailable: item.isAvailable === false })}
+                            onClick={() => toggle.mutate({ token, menuItemId: item.id, isAvailable: item.isAvailable === false })}
                             style={{
                               padding: '4px 10px', borderRadius: 'var(--op-radius)', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer',
                               background: item.isAvailable === false ? '#D1FAE5' : '#FEF2F2',

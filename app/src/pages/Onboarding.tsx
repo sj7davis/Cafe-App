@@ -543,7 +543,7 @@ function Step1({
 
 // ─── Step 2: Menu ─────────────────────────────────────────────────────────────
 function Step2({
-  ownerToken: _ownerToken, venueId, createMenuItemMutation, addedItems, setAddedItems, onNext, onBack, cardStyle, nextBtnStyle, backBtnStyle, skipStyle,
+  ownerToken, venueId, createMenuItemMutation, addedItems, setAddedItems, onNext, onBack, cardStyle, nextBtnStyle, backBtnStyle, skipStyle,
 }: {
   ownerToken: string;
   venueId: number;
@@ -590,6 +590,7 @@ function Step2({
     for (const item of pending) {
       try {
         await createMenuItemMutation.mutateAsync({
+          token: ownerToken,
           venueId,
           slug: slugify(item.name),
           name: item.name,

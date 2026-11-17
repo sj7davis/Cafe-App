@@ -6,16 +6,21 @@ import { venues, venueOwners, customerAccounts, orders, orderItems, menuItems, i
 import { eq, and, desc, asc, sql, gte, sum, inArray, notInArray, count, not, max, type SQL } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
-import { randomBytes } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { env } from "./lib/env";
 import { buildAuthUrl, refreshAccessToken, expiryDate, needsRefresh } from "./lib/oauth";
 import { seal, open } from "./lib/crypto";
 import { sendEmail, sendOrderConfirmation, sendNewOrderAlert, sendOrderReady, sendReviewRequest } from "./lib/email";
 import { sendSms } from "./lib/sms";
 import { broadcastToVenue } from "./lib/sse-store";
-import { checkRateLimit } from "./lib/rate-limit";
+import { checkRateLimit, tooManyFailures, recordFailure } from "./lib/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
+
+function safeEqual(a: string, b: string): boolean {
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
 function generateGiftCardCode(): string {
   return randomBytes(8).toString('base64url').toUpperCase().slice(0, 12);
@@ -143,6 +148,22 @@ function computeNextOrderAt(scheduleDays: string, pickupTime: string): Date | nu
   }
 }
 
+// Settings keys that hold credentials or owner-only business data. The public
+// venue page reads the rest (hours, surcharge, pass/happy-hour config, …).
+const PRIVATE_SETTING_KEY = /token|secret|password|apikey|api_key|webhook|revenue|automation|gmb|xero|lightspeed|impos|deputy|square|stripe/i;
+
+/** The venue row as the public site may see it: no PIN, integration
+ *  credentials, billing ids or private settings. */
+function toPublicVenue(venue: typeof venues.$inferSelect) {
+  const {
+    tabletPin, squareAccessToken, squareRefreshToken, squareMerchantId, squareLocationId,
+    stripeCustomerId, stripeSubscriptionId, settingsJson, ...rest
+  } = venue;
+  const settings = (settingsJson && typeof settingsJson === "object" ? settingsJson : {}) as Record<string, unknown>;
+  const publicSettings = Object.fromEntries(Object.entries(settings).filter(([k]) => !PRIVATE_SETTING_KEY.test(k)));
+  return { ...rest, settingsJson: publicSettings, hasTabletPin: !!tabletPin };
+}
+
 export const venueRouter = createRouter({
   // Public: Get venue by slug (for customer-facing site)
   getBySlug: publicQuery.input(z.object({ slug: z.string() })).query(async ({ input }) => {
@@ -150,8 +171,7 @@ export const venueRouter = createRouter({
     const results = await db.select().from(venues).where(eq(venues.slug, input.slug)).limit(1);
     const venue = results[0];
     if (!venue || venue.isPublic === false) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
-    const { squareAccessToken, squareRefreshToken, stripeCustomerId, stripeSubscriptionId, ...safe } = venue;
-    return safe;
+    return toPublicVenue(venue);
   }),
 
   // Public: minimal venue lookup by id (used by the customer portal)
@@ -163,15 +183,6 @@ export const venueRouter = createRouter({
     return results[0];
   }),
 
-  // Public: List all public venues (for platform directory)
-  listPublic: publicQuery.query(async () => {
-    const db = getDb();
-    const all = await db.select().from(venues).where(eq(venues.isPublic, true));
-    return all.map(v => {
-      const { squareAccessToken, squareRefreshToken, stripeCustomerId, stripeSubscriptionId, ...safe } = v;
-      return safe;
-    });
-  }),
 
   // ─── Owner Auth ───
   register: publicQuery.input(z.object({
@@ -303,13 +314,15 @@ export const venueRouter = createRouter({
   }),
 
   // ─── Orders ───
-  listOrders: publicQuery.input(z.object({
+  listOrders: protectedProcedure.input(z.object({
+    token: z.string(),
     venueId: z.number().int().positive(),
     status: z.string().optional(),
     statuses: z.array(z.string()).optional(), // multi-status filter (e.g. for KDS)
     limit: z.number().int().min(1).max(200).default(50),
     locationId: z.number().int().positive().optional(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
+    if (ctx.auth.venueId !== input.venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Venue mismatch" });
     const db = getDb();
     const conditions = [eq(orders.venueId, input.venueId)];
     if (input.statuses && input.statuses.length > 0) {
@@ -329,10 +342,15 @@ export const venueRouter = createRouter({
     return results;
   }),
 
-  getOrderItems: publicQuery.input(z.object({
+  getOrderItems: protectedProcedure.input(z.object({
+    token: z.string(),
     orderId: z.number().int().positive(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
+    // order_items has no venue column, so scope through the parent order.
+    const [order] = await db.select({ id: orders.id }).from(orders)
+      .where(and(eq(orders.id, input.orderId), eq(orders.venueId, ctx.auth.venueId))).limit(1);
+    if (!order) return [];
     return db.select().from(orderItems).where(eq(orderItems.orderId, input.orderId));
   }),
 
@@ -866,11 +884,20 @@ export const venueRouter = createRouter({
     slug: z.string(),
     pin: z.string(),
   })).mutation(async ({ input }) => {
+    // A 4–6 digit PIN only resists guessing if attempts are capped per venue
+    // (not per IP — the attacker can rotate those).
+    const throttleKey = `tablet-pin:${input.slug}`;
+    if (tooManyFailures(throttleKey, 10)) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many PIN attempts. Try again in 15 minutes." });
+    }
     const db = getDb();
     const result = await db.select({ id: venues.id, tabletPin: venues.tabletPin }).from(venues).where(eq(venues.slug, input.slug)).limit(1);
     if (!result[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Venue not found" });
     if (!result[0].tabletPin) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No tablet PIN set for this venue" });
-    if (result[0].tabletPin !== input.pin) throw new TRPCError({ code: "UNAUTHORIZED", message: "Incorrect PIN" });
+    if (!safeEqual(result[0].tabletPin, input.pin)) {
+      recordFailure(throttleKey);
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Incorrect PIN" });
+    }
     // Return a long-lived tablet JWT so it can call order procedures
     const token = await new SignJWT({ venueId: result[0].id, role: "tablet" })
       .setProtectedHeader({ alg: "HS256" })
@@ -879,7 +906,8 @@ export const venueRouter = createRouter({
     return { success: true, venueId: result[0].id, token };
   }),
 
-  createMenuItem: publicQuery.input(z.object({
+  createMenuItem: protectedProcedure.input(z.object({
+    token: z.string(),
     venueId: z.number().int().positive(),
     slug: z.string(),
     name: z.string().min(1),
@@ -897,9 +925,10 @@ export const venueRouter = createRouter({
     originStory: z.string().optional(),
     allergens: z.array(z.string()).optional(),
     dietaryTags: z.array(z.string()).optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const { venueId: vid, cost, ...data } = input;
+    const { venueId: _vid, token: _token, cost, ...data } = input;
+    const vid = ctx.auth.venueId;
     const price = typeof data.price === 'number' ? data.price.toFixed(2) : data.price;
     await db.insert(menuItems).values({
       venueId: vid,
@@ -982,14 +1011,18 @@ export const venueRouter = createRouter({
     return items;
   }),
 
-  toggleInventoryItem: publicQuery.input(z.object({
+  toggleInventoryItem: protectedProcedure.input(z.object({
     token: z.string(),
-    venueId: z.number().int().positive(),
+    venueId: z.number().int().positive().optional(), // ignored — taken from the session
     menuItemId: z.number().int().positive(),
     isAvailable: z.boolean(),
     staffNote: z.string().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input: rawInput, ctx }) => {
+    const input = { ...rawInput, venueId: ctx.auth.venueId };
     const db = getDb();
+    const [item] = await db.select({ id: menuItems.id }).from(menuItems)
+      .where(and(eq(menuItems.id, input.menuItemId), eq(menuItems.venueId, input.venueId))).limit(1);
+    if (!item) throw new TRPCError({ code: "NOT_FOUND", message: "Menu item not found" });
     const existing = await db
       .select()
       .from(inventory)
@@ -1125,28 +1158,6 @@ export const venueRouter = createRouter({
     return { success: true };
   }),
 
-  addLoyaltyPoints: publicQuery.input(z.object({
-    venueId: z.number().int().positive(),
-    accountId: z.number().int().positive(),
-    points: z.number().int().positive(),
-    description: z.string(),
-  })).mutation(async ({ input }) => {
-    const db = getDb();
-    await db.insert(loyaltyTransactions).values({
-      venueId: input.venueId,
-      accountId: input.accountId,
-      type: 'earn',
-      points: input.points,
-      description: input.description,
-    });
-    await db.update(loyaltyAccounts)
-      .set({
-        pointsBalance: sql`points_balance + ${input.points}`,
-        totalLifetimePoints: sql`total_lifetime_points + ${input.points}`,
-      })
-      .where(eq(loyaltyAccounts.id, input.accountId));
-    return { success: true };
-  }),
 
   listLoyaltyAccounts: protectedProcedure.input(z.object({
     venueId: z.number().int().positive(),
@@ -1535,32 +1546,6 @@ ${input.message ? `<blockquote style="border-left:3px solid #5E8B8B;padding-left
     return results[0] ?? null;
   }),
 
-  usePassCredit: publicQuery.input(z.object({
-    passId: z.number().int().positive(),
-    venueId: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
-    const db = getDb();
-    const results = await db.select().from(subscriptionPasses)
-      .where(and(
-        eq(subscriptionPasses.id, input.passId),
-        eq(subscriptionPasses.venueId, input.venueId),
-        eq(subscriptionPasses.isActive, true),
-      ))
-      .limit(1);
-    const pass = results[0];
-    if (!pass) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pass not found' });
-    if (pass.remainingCredits <= 0) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No remaining credits' });
-
-    const newCredits = pass.remainingCredits - 1;
-    await db.update(subscriptionPasses)
-      .set({
-        remainingCredits: sql`remaining_credits - 1`,
-        isActive: newCredits > 0,
-      })
-      .where(eq(subscriptionPasses.id, pass.id));
-
-    return { remainingCredits: newCredits };
-  }),
 
   // ─── Catering Requests ───
   submitCateringRequest: publicQuery.input(z.object({

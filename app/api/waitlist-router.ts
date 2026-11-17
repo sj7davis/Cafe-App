@@ -129,17 +129,4 @@ export const waitlistRouter = createRouter({
       return updated;
     }),
 
-  // Public: customer self-removal
-  removeFromQueue: publicQuery
-    .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const db = getDb();
-      const [updated] = await db
-        .update(waitlistEntries)
-        .set({ status: "left" })
-        .where(eq(waitlistEntries.id, input.id))
-        .returning();
-      if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Waitlist entry not found" });
-      return updated;
-    }),
 });

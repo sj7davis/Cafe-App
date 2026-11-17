@@ -22,7 +22,7 @@ export function OrdersTab({ venueId, token, venue }: { venueId: number; token: s
   const [printerSize, setPrinterSize] = useState<'80mm' | '58mm' | 'a4'>('80mm');
   const utils = trpc.useUtils();
   const { data: ordersList } = trpc.venue.listOrders.useQuery(
-    { venueId, status: statusFilter === 'all' ? undefined : statusFilter, locationId: locationFilter ?? undefined, limit: 50 },
+    { token, venueId, status: statusFilter === 'all' ? undefined : statusFilter, locationId: locationFilter ?? undefined, limit: 50 },
     { refetchInterval: false }
   );
 
@@ -55,7 +55,7 @@ export function OrdersTab({ venueId, token, venue }: { venueId: number; token: s
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
   const { data: selectedOrderItems } = trpc.venue.getOrderItems.useQuery(
-    { orderId: selectedOrderId ?? 0 },
+    { token, orderId: selectedOrderId ?? 0 },
     { enabled: !!selectedOrderId }
   );
 
