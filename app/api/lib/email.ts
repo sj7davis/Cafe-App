@@ -7,11 +7,41 @@
  */
 
 import { Resend } from "resend";
+import { createHmac, timingSafeEqual } from "crypto";
 import { env } from "./env";
 
-// Update this once you verify a domain in your Resend account.
-// Until then, onboarding@resend.dev only delivers to your Resend account email (sandbox).
-const FROM_ADDRESS = "B1 Platform <onboarding@resend.dev>";
+// Set EMAIL_FROM to an address on a domain verified in Resend, e.g.
+// "B1 Platform <orders@mail.example.com>". The fallback is Resend's sandbox
+// sender, which only delivers to the Resend account's own address — so in
+// production every customer/owner email silently fails without it.
+const FROM_ADDRESS = env.emailFrom || "B1 Platform <onboarding@resend.dev>";
+if (env.isProduction && !env.emailFrom) {
+  console.error("[email] EMAIL_FROM is not set — emails will only reach the Resend account owner. Set it in Railway.");
+}
+
+/** Escape user-supplied text (names, gift messages) before putting it in email HTML. */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
+}
+
+// ─── Marketing unsubscribe links (Spam Act: every marketing email needs one) ──
+function unsubscribeSig(customerId: number): string {
+  return createHmac("sha256", env.jwtSecret).update(`unsubscribe:${customerId}`).digest("base64url").slice(0, 32);
+}
+
+export function unsubscribeUrl(customerId: number): string {
+  return `${env.appUrl}/api/unsubscribe?c=${customerId}&s=${unsubscribeSig(customerId)}`;
+}
+
+export function verifyUnsubscribe(customerId: number, sig: string): boolean {
+  const expected = Buffer.from(unsubscribeSig(customerId));
+  const given = Buffer.from(sig);
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
+
+export function unsubscribeFooter(venueName: string, customerId: number): string {
+  return `<p style="color:#999;font-size:0.75rem">You're receiving this because you opted in to marketing from ${escapeHtml(venueName)}. <a href="${unsubscribeUrl(customerId)}" style="color:#999">Unsubscribe</a></p>`;
+}
 
 let _resend: Resend | null = null;
 function getResend(): Resend | null {

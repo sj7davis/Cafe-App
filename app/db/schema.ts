@@ -429,6 +429,9 @@ export const customerAccounts = pgTable("customer_accounts", {
   birthday: varchar("birthday", { length: 5 }),
   allergies: text("allergies"),
   marketingOptIn: boolean("marketing_opt_in").default(false),
+  // Last "we miss you" send — the re-engagement job used to email every
+  // lapsed customer daily because nothing recorded that it had already sent.
+  reengagementSentAt: timestamp("reengagement_sent_at"),
 });
 
 // ─── Abandoned Carts (per-venue) ───

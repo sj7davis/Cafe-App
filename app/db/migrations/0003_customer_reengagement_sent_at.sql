@@ -1,0 +1,1 @@
+ALTER TABLE "customer_accounts" ADD COLUMN "reengagement_sent_at" timestamp;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { auPublicHolidays, publicHolidayName, localDateTime, timezoneForState } from "./au-holidays";
+import { auPublicHolidays, publicHolidayName, localDateTime, timezoneForState, zonedTimeToUtc, startOfLocalDay } from "./au-holidays";
 
 describe("auPublicHolidays", () => {
   it("matches the published 2026 VIC dates", () => {
@@ -36,5 +36,18 @@ describe("localDateTime", () => {
     // 2026-11-16 14:30 UTC is already 01:30 on the 17th in Melbourne (AEDT)
     const t = localDateTime(new Date("2026-11-16T14:30:00Z"), timezoneForState("VIC"));
     expect(t).toEqual({ date: "2026-11-17", minutes: 90 });
+  });
+});
+
+describe("zonedTimeToUtc", () => {
+  it("converts Melbourne wall-clock time (AEDT, UTC+11)", () => {
+    expect(zonedTimeToUtc("2026-11-17", "09:00", "Australia/Melbourne").toISOString()).toBe("2026-11-16T22:00:00.000Z");
+  });
+  it("handles standard time (AEST, UTC+10) and Perth", () => {
+    expect(zonedTimeToUtc("2026-07-01", "12:30", "Australia/Melbourne").toISOString()).toBe("2026-07-01T02:30:00.000Z");
+    expect(zonedTimeToUtc("2026-07-01", "12:30", "Australia/Perth").toISOString()).toBe("2026-07-01T04:30:00.000Z");
+  });
+  it("finds local midnight", () => {
+    expect(startOfLocalDay(new Date("2026-11-17T03:00:00Z"), "Australia/Melbourne").toISOString()).toBe("2026-11-16T13:00:00.000Z");
   });
 });

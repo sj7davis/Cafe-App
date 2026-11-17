@@ -4,7 +4,7 @@ import { createRouter, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
 import { campaignMessages, loyaltyAccounts, customerAccounts, venues } from "@db/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
-import { sendEmail } from "./lib/email";
+import { sendEmail, unsubscribeFooter } from "./lib/email";
 import { sendSms } from "./lib/sms";
 
 export const campaignsRouter = createRouter({
@@ -112,13 +112,14 @@ export const campaignsRouter = createRouter({
             .from(customerAccounts)
             .where(and(eq(customerAccounts.venueId, venueId), eq(customerAccounts.phone, account.phone)))
             .limit(1);
-          const email = custResults[0]?.email;
-          if (!email) continue;
+          const customer = custResults[0];
+          // Marketing email needs consent and a working unsubscribe (Spam Act).
+          if (!customer?.email || !customer.marketingOptIn) continue;
           try {
             await sendEmail({
-              to: email,
+              to: customer.email,
               subject: campaign.subject ?? `Message from ${venueName}`,
-              html: campaign.body,
+              html: `${campaign.body}\n${unsubscribeFooter(venueName, customer.id)}`,
             });
             sentCount++;
           } catch {
