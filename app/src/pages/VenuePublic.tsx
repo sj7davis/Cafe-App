@@ -7,7 +7,21 @@ import {
   Coffee, MapPin, Phone, Clock, Globe, Loader2,
   ShoppingBag, Plus, Minus, X, Star,
   Package, CheckCircle, QrCode, Download, Gift, AlertTriangle, Bell, Users, Search, History, ChevronDown,
+  UtensilsCrossed, CupSoda, Cookie, Sparkles, type LucideIcon,
 } from 'lucide-react';
+
+// Every menu_category the schema allows, in display order. The page used to
+// render only coffee, pastries and bread, so anything else was unorderable.
+const MENU_SECTIONS: { category: string; label: string; icon: LucideIcon }[] = [
+  { category: 'coffee', label: 'Coffee', icon: Coffee },
+  { category: 'drinks', label: 'Drinks', icon: CupSoda },
+  { category: 'food', label: 'Food', icon: UtensilsCrossed },
+  { category: 'pastries', label: 'Pastries', icon: Star },
+  { category: 'bread', label: 'Bread', icon: Package },
+  { category: 'snacks', label: 'Snacks', icon: Cookie },
+  { category: 'seasonal', label: 'Seasonal', icon: Sparkles },
+  { category: 'merchandise', label: 'Merchandise', icon: ShoppingBag },
+];
 
 // ─── Hours parsing helpers ───────────────────────────────────────────────────
 import { getOpenStatus, cartKey, isWithinHappyHour, renderWebsiteBlocks, type CartItem } from './venue-public/helpers';
@@ -534,6 +548,9 @@ export default function VenuePublic() {
 
   const allMenuItems = menuItems || [];
   const filteredMenu = allMenuItems.filter(i => {
+    // Limited-time items outside their window can't be ordered, so don't show them.
+    if (i.activeFrom && new Date(i.activeFrom).getTime() > now) return false;
+    if (i.activeTo && new Date(i.activeTo).getTime() < now) return false;
     if (dietaryFilter) {
       const inTags = Array.isArray((i as any).dietaryTags) && (i as any).dietaryTags.includes(dietaryFilter);
       const inDietary = i.dietary?.split(',').map((d: string) => d.trim()).includes(dietaryFilter);
@@ -550,9 +567,9 @@ export default function VenuePublic() {
   // Show filter bar only if at least one item has dietary tags or dietary text
   const hasAnyDietary = allMenuItems.some(i => (Array.isArray((i as any).dietaryTags) && (i as any).dietaryTags.length > 0) || !!i.dietary);
 
-  const coffeeItems = filteredMenu.filter(i => i.category === 'coffee');
-  const pastryItems = filteredMenu.filter(i => i.category === 'pastries');
-  const breadItems = filteredMenu.filter(i => i.category === 'bread');
+  const menuSections = MENU_SECTIONS
+    .map(sec => ({ ...sec, items: filteredMenu.filter(i => i.category === sec.category) }))
+    .filter(sec => sec.items.length > 0);
 
   type MenuItem = NonNullable<typeof menuItems>[number];
 
@@ -2429,16 +2446,12 @@ export default function VenuePublic() {
         )}
 
         {/* Category Jump Nav */}
-        {allMenuItems.length > 0 && (coffeeItems.length > 0 || pastryItems.length > 0 || breadItems.length > 0) && (
+        {allMenuItems.length > 0 && menuSections.length > 1 && (
           <div style={{
             display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4,
             marginBottom: 16, WebkitOverflowScrolling: 'touch',
           }}>
-            {[
-              { label: 'Coffee', show: coffeeItems.length > 0, anchor: 'menu-coffee' },
-              { label: 'Pastries', show: pastryItems.length > 0, anchor: 'menu-pastries' },
-              { label: 'Bread', show: breadItems.length > 0, anchor: 'menu-bread' },
-            ].filter(c => c.show).map(cat => (
+            {menuSections.map(sec => ({ label: sec.label, anchor: `menu-${sec.category}` })).map(cat => (
               <button
                 key={cat.anchor}
                 onClick={() => document.getElementById(cat.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
@@ -2494,18 +2507,17 @@ export default function VenuePublic() {
           </div>
         )}
 
-        {/* Coffee */}
-        {coffeeItems.length > 0 && (
-          <div className="mb-10" id="menu-coffee" style={{ scrollMarginTop: 80 }}>
+        {menuSections.map(({ category, label, icon: Icon, items }) => (
+          <div key={category} className="mb-10" id={`menu-${category}`} style={{ scrollMarginTop: 80 }}>
             <div className="flex items-center gap-3 mb-6">
-              <Coffee size={20} style={{ color: accentColor }} />
+              <Icon size={20} style={{ color: accentColor }} />
               <h3 className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: primaryColor }}>
-                Coffee
+                {label}
               </h3>
               <div className="flex-1 h-px" style={{ background: `${primaryColor}10` }} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {coffeeItems.map(item => (
+              {items.map(item => (
                 <MenuCard
                   key={item.id}
                   item={item}
@@ -2519,64 +2531,10 @@ export default function VenuePublic() {
               ))}
             </div>
           </div>
-        )}
-
-        {/* Pastries */}
-        {pastryItems.length > 0 && (
-          <div className="mb-10" id="menu-pastries" style={{ scrollMarginTop: 80 }}>
-            <div className="flex items-center gap-3 mb-6">
-              <Star size={20} style={{ color: accentColor }} />
-              <h3 className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: primaryColor }}>
-                Pastries
-              </h3>
-              <div className="flex-1 h-px" style={{ background: `${primaryColor}10` }} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pastryItems.map(item => (
-                <MenuCard
-                  key={item.id}
-                  item={item}
-                  accentColor={accentColor}
-                  onAdd={() => handleAddItem(item)}
-                  cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
-                  onRemove={() => removeFromCart(cartKey(item.id))}
-                  nowMs={now}
-                  isAvailable={invAvailMap[item.id] !== undefined ? invAvailMap[item.id] : true}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Bread */}
-        {breadItems.length > 0 && (
-          <div className="mb-10" id="menu-bread" style={{ scrollMarginTop: 80 }}>
-            <div className="flex items-center gap-3 mb-6">
-              <Package size={20} style={{ color: accentColor }} />
-              <h3 className="font-data" style={{ fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: primaryColor }}>
-                Bread
-              </h3>
-              <div className="flex-1 h-px" style={{ background: `${primaryColor}10` }} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {breadItems.map(item => (
-                <MenuCard
-                  key={item.id}
-                  item={item}
-                  accentColor={accentColor}
-                  onAdd={() => handleAddItem(item)}
-                  cartQty={cart.filter(c => c.menuItemId === item.id).reduce((s, c) => s + c.quantity, 0)}
-                  onRemove={() => removeFromCart(cartKey(item.id))}
-                  nowMs={now}
-                  isAvailable={invAvailMap[item.id] !== undefined ? invAvailMap[item.id] : true}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        ))}
 
         {/* No search results */}
-        {menuSearch.trim() && coffeeItems.length === 0 && pastryItems.length === 0 && breadItems.length === 0 && (
+        {menuSearch.trim() && menuSections.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 0', color: '#9CA3AF' }}>
             <Search size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
             <p style={{ fontSize: 14, fontWeight: 500 }}>No items match "{menuSearch}"</p>
