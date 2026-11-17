@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { IncomingMessage } from "http";
-import { checkRateLimit, getClientIp } from "./rate-limit";
+import { checkRateLimit, getClientIp, tooManyFailures, recordFailure } from "./rate-limit";
 
 describe("checkRateLimit", () => {
   it("allows requests under the limit", () => {
@@ -44,8 +44,13 @@ function mockReq(headers: Record<string, string | string[] | undefined>, remoteA
 }
 
 describe("getClientIp", () => {
-  it("prefers X-Forwarded-For, taking the first hop", () => {
-    const req = mockReq({ "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
+  it("prefers X-Real-IP, which Railway's edge sets", () => {
+    const req = mockReq({ "x-real-ip": "203.0.113.5", "x-forwarded-for": "6.6.6.6, 203.0.113.5" });
+    expect(getClientIp(req)).toBe("203.0.113.5");
+  });
+
+  it("ignores a client-forged leftmost X-Forwarded-For entry", () => {
+    const req = mockReq({ "x-forwarded-for": "6.6.6.6, 203.0.113.5" });
     expect(getClientIp(req)).toBe("203.0.113.5");
   });
 
@@ -55,7 +60,7 @@ describe("getClientIp", () => {
   });
 
   it("handles X-Forwarded-For arriving as an array", () => {
-    const req = mockReq({ "x-forwarded-for": ["203.0.113.5", "198.51.100.9"] });
+    const req = mockReq({ "x-forwarded-for": ["6.6.6.6", "203.0.113.5"] });
     expect(getClientIp(req)).toBe("203.0.113.5");
   });
 
@@ -67,5 +72,16 @@ describe("getClientIp", () => {
   it("falls back to \"unknown\" when nothing is available", () => {
     const req = mockReq({});
     expect(getClientIp(req)).toBe("unknown");
+  });
+});
+
+describe("failure-only throttle", () => {
+  it("only counts recorded failures", () => {
+    const key = "pin-test:" + Math.random();
+    for (let i = 0; i < 50; i++) expect(tooManyFailures(key, 3)).toBe(false); // successes never count
+    recordFailure(key); recordFailure(key);
+    expect(tooManyFailures(key, 3)).toBe(false);
+    recordFailure(key);
+    expect(tooManyFailures(key, 3)).toBe(true);
   });
 });

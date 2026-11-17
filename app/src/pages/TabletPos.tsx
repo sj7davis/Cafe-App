@@ -126,11 +126,11 @@ function TabletMain({ venueId, accentColor, tabletToken }: { venueId: number; ac
 
   const { data: menuItems } = trpc.venue.listMenu.useQuery({ venueId }, { refetchInterval: 60_000 });
   const { data: orders, refetch: refetchOrders } = trpc.venue.listOrders.useQuery(
-    { venueId, status: 'pending', limit: 30 },
+    { token: tabletToken, venueId, status: 'pending', limit: 30 },
     { refetchInterval: 8_000 }
   );
   const { data: confirmedOrders } = trpc.venue.listOrders.useQuery(
-    { venueId, status: 'confirmed', limit: 20 },
+    { token: tabletToken, venueId, status: 'confirmed', limit: 20 },
     { refetchInterval: 8_000 }
   );
 

@@ -11,6 +11,7 @@ import { staffClockEvents, staffAccounts, venues } from "@db/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
 import { SignJWT } from "jose";
 import { env } from "./lib/env";
+import { tooManyFailures, recordFailure } from "./lib/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(env.jwtSecret);
 
@@ -135,6 +136,11 @@ export const clockRouter = createRouter({
     slug: z.string(),
     pin: z.string().regex(/^\d{4,8}$/),
   })).mutation(async ({ input }) => {
+    // Any active staff PIN at the venue matches, so cap guesses per venue.
+    const throttleKey = `clock-pin:${input.slug}`;
+    if (tooManyFailures(throttleKey, 10)) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many PIN attempts. Try again in 15 minutes." });
+    }
     const db = getSystemDb();
     const venueRows = await db.select({ id: venues.id, name: venues.name })
       .from(venues).where(eq(venues.slug, input.slug)).limit(1);
@@ -148,7 +154,10 @@ export const clockRouter = createRouter({
         eq(staffAccounts.clockPin, input.pin),
         eq(staffAccounts.isActive, true),
       )).limit(1);
-    if (!staffRows[0]) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid PIN" });
+    if (!staffRows[0]) {
+      recordFailure(throttleKey);
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid PIN" });
+    }
     const staff = staffRows[0];
 
     const token = await new SignJWT({ staffId: staff.id, venueId: venue.id, role: staff.role, name: staff.name })

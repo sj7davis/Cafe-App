@@ -106,8 +106,8 @@ export default function StaffDashboard() {
   const isClockedIn = clockStatus.data?.isClockedIn ?? false;
 
   const { data: pendingOrdersData } = trpc.venue.listOrders.useQuery(
-    { venueId: venue?.id ?? 0, status: 'pending', limit: 99 },
-    { enabled: !!venue, refetchInterval: 15_000 }
+    { token, venueId: venue?.id ?? 0, status: 'pending', limit: 99 },
+    { enabled: !!venue && !!token, refetchInterval: 15_000 }
   );
   const pendingCount = pendingOrdersData?.length ?? 0;
 

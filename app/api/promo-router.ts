@@ -2,8 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
-import { discountCodes, referralCodes, loyaltyAccounts } from "@db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { discountCodes, referralCodes } from "@db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
 
 function generateReferralCode(): string {
@@ -67,20 +67,6 @@ export const promoRouter = createRouter({
     };
   }),
 
-  // Internal: increment usedCount after order placed (called server-side)
-  markDiscountUsed: publicQuery.input(z.object({
-    venueId: z.number().int().positive(),
-    code: z.string().min(1),
-  })).mutation(async ({ input }) => {
-    const db = getDb();
-    await db.update(discountCodes)
-      .set({ usedCount: sql`used_count + 1` })
-      .where(and(
-        eq(discountCodes.venueId, input.venueId),
-        eq(discountCodes.code, input.code.toUpperCase()),
-      ));
-    return { success: true };
-  }),
 
   // Owner: list all discount codes
   listDiscountCodes: protectedProcedure.input(z.object({
@@ -209,45 +195,6 @@ export const promoRouter = createRouter({
     return { valid: true, referrerName: ref.referrerName, code: ref.code };
   }),
 
-  // Internal: record referral use and award bonus points to both parties
-  useReferralCode: publicQuery.input(z.object({
-    venueId: z.number().int().positive(),
-    code: z.string().min(1),
-    newUserPhone: z.string().min(1),
-  })).mutation(async ({ input }) => {
-    const db = getDb();
-    const ref = await db.select().from(referralCodes)
-      .where(and(
-        eq(referralCodes.venueId, input.venueId),
-        eq(referralCodes.code, input.code.toUpperCase()),
-      ))
-      .limit(1);
-    if (!ref[0]) return { success: false };
-
-    // Increment use count
-    await db.update(referralCodes)
-      .set({ uses: sql`uses + 1` })
-      .where(eq(referralCodes.id, ref[0].id));
-
-    // Award 100 bonus points to referrer
-    const referrerAcc = await db.select().from(loyaltyAccounts)
-      .where(and(
-        eq(loyaltyAccounts.venueId, input.venueId),
-        eq(loyaltyAccounts.phone, ref[0].referrerPhone),
-      ))
-      .limit(1);
-
-    if (referrerAcc[0]) {
-      await db.update(loyaltyAccounts)
-        .set({
-          pointsBalance: referrerAcc[0].pointsBalance + 100,
-          totalLifetimePoints: referrerAcc[0].totalLifetimePoints + 100,
-        })
-        .where(eq(loyaltyAccounts.id, referrerAcc[0].id));
-    }
-
-    return { success: true, bonusPointsForNewUser: 50 };
-  }),
 
   // Owner: list referral codes
   listReferralCodes: protectedProcedure.input(z.object({

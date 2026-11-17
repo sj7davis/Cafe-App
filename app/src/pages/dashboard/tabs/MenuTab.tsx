@@ -154,6 +154,7 @@ export function MenuTab({ venue }: { venue: any }) {
     if (!form.name.trim() || !form.price.trim()) return;
     if (mode === 'create') {
       createMutation.mutate({
+        token,
         venueId: venue.id,
         slug: slugify(form.name),
         name: form.name.trim(),
