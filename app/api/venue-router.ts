@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery, protectedProcedure } from "./middleware";
 import { getDb } from "./queries/connection";
-import { venues, venueOwners, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries, recurringOrders } from "@db/schema";
+import { venues, venueOwners, customerAccounts, orders, orderItems, menuItems, inventory, locations, loyaltyAccounts, loyaltyTransactions, customerPreferences, reviews, giftCards, subscriptionPasses, cateringRequests, menuItemModifiers, discountCodes, bundles, abandonedCarts, corporateAccounts, pushSubscriptions, favouriteOrders, groupOrders, groupOrderParticipants, reservations, venueTables, npsResponses, waitlistEntries, recurringOrders } from "@db/schema";
 import { eq, and, desc, asc, sql, gte, sum, inArray, notInArray, count, not, max, type SQL } from "drizzle-orm";
 import { hash, compare } from "bcrypt-ts";
 import { SignJWT, jwtVerify } from "jose";
@@ -246,7 +246,8 @@ export const venueRouter = createRouter({
     try {
       const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
       const db = getDb();
-      const ownerResults = await db.select().from(venueOwners).where(eq(venueOwners.id, payload.payload.ownerId as number)).limit(1);
+      if (typeof payload.payload.ownerId !== "number") return null;
+      const ownerResults = await db.select().from(venueOwners).where(eq(venueOwners.id, payload.payload.ownerId)).limit(1);
       const owner = ownerResults[0];
       if (!owner || !owner.isActive) return null;
       const venueResults = await db.select().from(venues).where(eq(venues.id, owner.venueId)).limit(1);
@@ -336,22 +337,14 @@ export const venueRouter = createRouter({
   }),
 
   // ─── KDS N+1 fix: fetch orders with embedded items in a single LEFT JOIN query ───
-  listOrdersWithItems: publicQuery.input(z.object({
+  listOrdersWithItems: protectedProcedure.input(z.object({
     venueId: z.number().int().positive(),
     statuses: z.array(z.string()).optional(),
     limit: z.number().int().min(1).max(200).default(100),
     locationId: z.number().int().positive().optional(),
     token: z.string(),
-  })).query(async ({ input }) => {
-    // Verify staff JWT
-    let jwtPayload: { venueId: unknown };
-    try {
-      const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-      jwtPayload = payload as { venueId: unknown };
-    } catch {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid token" });
-    }
-    if ((jwtPayload.venueId as number) !== input.venueId) {
+  })).query(async ({ input, ctx }) => {
+    if (ctx.auth.venueId !== input.venueId) {
       throw new TRPCError({ code: "FORBIDDEN", message: "Token venueId does not match requested venueId" });
     }
 
@@ -465,25 +458,22 @@ export const venueRouter = createRouter({
     return { order: publicOrder, venue, items };
   }),
 
-  updateOrderStatus: publicQuery.input(z.object({
+  updateOrderStatus: protectedProcedure.input(z.object({
     token: z.string(),
     orderId: z.number().int().positive(),
     status: z.enum(["pending", "confirmed", "ready", "completed", "cancelled"]),
     staffNote: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    // SECURITY FIX: previous version accepted any token without verifying. Verify staff JWT.
-    try {
-      await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    } catch {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid staff token" });
-    }
-
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
     const updateData: Record<string, unknown> = { status: input.status };
     if (input.staffNote !== undefined) {
       updateData.staffNote = input.staffNote;
     }
-    await db.update(orders).set(updateData).where(eq(orders.id, input.orderId));
+    // Scope to the caller's venue — the order id alone comes from the client.
+    const updated = await db.update(orders).set(updateData)
+      .where(and(eq(orders.id, input.orderId), eq(orders.venueId, ctx.auth.venueId)))
+      .returning({ id: orders.id });
+    if (!updated[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
 
     // SSE: broadcast status update to KDS listeners
     {
@@ -1158,21 +1148,12 @@ export const venueRouter = createRouter({
     return { success: true };
   }),
 
-  listLoyaltyAccounts: publicQuery.input(z.object({
+  listLoyaltyAccounts: protectedProcedure.input(z.object({
     venueId: z.number().int().positive(),
-    token: z.string().optional(),
-  })).query(async ({ input }) => {
+    token: z.string(),
+  })).query(async ({ input, ctx }) => {
+    if (ctx.auth.venueId !== input.venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Venue mismatch" });
     const db = getDb();
-    // Optional token verification for stricter auth
-    if (input.token) {
-      try {
-        const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-        const jwtVenueId = payload.payload.venueId as number;
-        if (jwtVenueId !== input.venueId) throw new TRPCError({ code: "FORBIDDEN", message: "Venue mismatch" });
-      } catch {
-        // Token invalid but we'll still allow if venueId matches — owner dashboard only
-      }
-    }
     const accounts = await db.select().from(loyaltyAccounts)
       .where(eq(loyaltyAccounts.venueId, input.venueId))
       .orderBy(desc(loyaltyAccounts.totalLifetimePoints))
@@ -2960,15 +2941,21 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     token: z.string(),
     limit: z.number().default(20),
   })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    // Customer token has customerId + phone
-    const phone = payload.payload.phone as string | undefined;
-    const venueId = payload.payload.venueId as number | undefined;
+    let claims: Record<string, unknown>;
+    try {
+      ({ payload: claims } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 }));
+    } catch {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid session" });
+    }
+    // Customer sessions only, and only the customer's own orders (matched on
+    // the phone saved on their account — the token itself carries no phone).
+    if (typeof claims.customerId !== "number" || typeof claims.venueId !== "number") return [];
     const db = getDb();
-    const conditions: SQL[] = [];
-    if (phone) conditions.push(eq(orders.customerPhone, phone));
-    if (venueId) conditions.push(eq(orders.venueId, venueId));
-    if (conditions.length === 0) return [];
+    const [account] = await db.select({ phone: customerAccounts.phone }).from(customerAccounts)
+      .where(and(eq(customerAccounts.id, claims.customerId), eq(customerAccounts.venueId, claims.venueId)))
+      .limit(1);
+    if (!account?.phone) return [];
+    const conditions: SQL[] = [eq(orders.customerPhone, account.phone), eq(orders.venueId, claims.venueId)];
     return db.select({
       id: orders.id,
       orderNumber: orders.orderNumber,
@@ -3116,11 +3103,10 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // Owner: list active waitlist entries (waiting + notified)
-  listWaitlist: publicQuery.input(z.object({
+  listWaitlist: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+  })).query(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
 
     const db = getDb();
     return db
@@ -3136,12 +3122,11 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // Owner: notify a customer their table is ready (sends SMS)
-  notifyWaitlistEntry: publicQuery.input(z.object({
+  notifyWaitlistEntry: protectedProcedure.input(z.object({
     token: z.string(),
     entryId: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
 
     const db = getDb();
     const rows = await db.select().from(waitlistEntries)
@@ -3165,13 +3150,12 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // Owner: mark a waitlist entry as seated or left
-  updateWaitlistStatus: publicQuery.input(z.object({
+  updateWaitlistStatus: protectedProcedure.input(z.object({
     token: z.string(),
     entryId: z.number().int().positive(),
     status: z.enum(["seated", "left"]),
-  })).mutation(async ({ input }) => {
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = ctx.auth.venueId;
 
     const db = getDb();
     const rows = await db.select({ id: waitlistEntries.id, venueId: waitlistEntries.venueId })
@@ -3188,11 +3172,10 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // Owner: clear seated/left entries from today's queue
-  clearWaitlist: publicQuery.input(z.object({
+  clearWaitlist: protectedProcedure.input(z.object({
     token: z.string(),
-  })).mutation(async ({ input }) => {
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+  })).mutation(async ({ ctx }) => {
+    const venueId = ctx.auth.venueId;
 
     const db = getDb();
     const startOfDay = new Date();
@@ -3211,13 +3194,12 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Birthday Vouchers ────────────────────────────────────────────────────
-  getBirthdayVouchers: publicQuery.input(z.object({
+  getBirthdayVouchers: protectedProcedure.input(z.object({
     token: z.string(),
     limit: z.number().int().min(1).max(100).default(50),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // Birthday vouchers have codes starting with "BDAY-"
     const rows = await db.select().from(discountCodes)
@@ -3232,14 +3214,13 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // ─── Booking Deposit Config ───────────────────────────────────────────────
-  setBookingDepositConfig: publicQuery.input(z.object({
+  setBookingDepositConfig: protectedProcedure.input(z.object({
     token: z.string(),
     requireDeposit: z.boolean(),
     depositAmount: z.number().min(0),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     const venueRows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const existing = (venueRows[0]?.settingsJson as Record<string, unknown> | null) ?? {};
@@ -3278,52 +3259,48 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return row;
   }),
 
-  listRecurringOrders: publicQuery.input(z.object({
+  listRecurringOrders: protectedProcedure.input(z.object({
     token: z.string(),
-  })).query(async ({ input }) => {
+  })).query(async ({ ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     return db.select().from(recurringOrders)
       .where(eq(recurringOrders.venueId, venueId))
       .orderBy(desc(recurringOrders.createdAt));
   }),
 
-  toggleRecurringOrder: publicQuery.input(z.object({
+  toggleRecurringOrder: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive(),
     isActive: z.boolean(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     await db.update(recurringOrders)
       .set({ isActive: input.isActive })
       .where(and(eq(recurringOrders.id, input.id), eq(recurringOrders.venueId, venueId)));
     return { ok: true };
   }),
 
-  deleteRecurringOrder: publicQuery.input(z.object({
+  deleteRecurringOrder: protectedProcedure.input(z.object({
     token: z.string(),
     id: z.number().int().positive(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     await db.delete(recurringOrders)
       .where(and(eq(recurringOrders.id, input.id), eq(recurringOrders.venueId, venueId)));
     return { ok: true };
   }),
 
   // ─── Customer CRM ─────────────────────────────────────────────────────────
-  getCustomerList: publicQuery.input(z.object({
+  getCustomerList: protectedProcedure.input(z.object({
     token: z.string(),
     limit: z.number().int().min(1).max(200).default(50),
     search: z.string().optional(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     // Aggregate distinct customers from orders
     const customerRows = await db
@@ -3380,14 +3357,13 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
     return results;
   }),
 
-  getCustomerOrderHistory: publicQuery.input(z.object({
+  getCustomerOrderHistory: protectedProcedure.input(z.object({
     token: z.string(),
     customerPhone: z.string().min(1),
     limit: z.number().int().min(1).max(20).default(5),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
 
     return db.select({
       id: orders.id,
@@ -3402,22 +3378,20 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // Revenue goal — stored in venues.settingsJson.revenueGoal
-  getRevenueGoal: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+  getRevenueGoal: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const rows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const settings = (rows[0]?.settingsJson as Record<string, any>) ?? {};
     return { monthlyTarget: settings.revenueGoal?.monthlyTarget ?? null as number | null };
   }),
 
-  setRevenueGoal: publicQuery.input(z.object({
+  setRevenueGoal: protectedProcedure.input(z.object({
     token: z.string(),
     monthlyTarget: z.number().min(0).max(10_000_000),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const rows = await db.select({ settingsJson: venues.settingsJson }).from(venues).where(eq(venues.id, venueId)).limit(1);
     const existing = (rows[0]?.settingsJson as Record<string, unknown>) ?? {};
     await db.update(venues).set({
@@ -3428,10 +3402,9 @@ ${venue?.address ? `<p>Address: ${venue.address}</p>` : ""}
   }),
 
   // Month-to-date revenue (current calendar month)
-  getMonthRevenue: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
+  getMonthRevenue: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
     const db = getDb();
-    const { payload } = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.venueId as number;
+    const venueId = ctx.auth.venueId;
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [result] = await db

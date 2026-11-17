@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, protectedProcedure, type AuthContext } from "./middleware";
 // Auth/identity router: uses the system (RLS-bypassing) connection via
 // getSystemDb. These procedures verify their own token and filter explicitly by
 // id/venueId, and several run before a venue scope exists (login, password
@@ -27,6 +27,24 @@ function generateToken(length = 32): string {
   let result = "";
   for (let i = 0; i < length; i++) result += chars[Math.floor(Math.random() * chars.length)];
   return result;
+}
+
+/** Self-service staff endpoints (2FA, profile, PIN) need a staff login, not an
+ *  owner or tablet session. */
+function requireStaffId(auth: AuthContext): number {
+  if (auth.staffId === undefined) throw new TRPCError({ code: "FORBIDDEN", message: "Staff login required" });
+  return auth.staffId;
+}
+
+/** Staff management: owners and admin staff may edit; managers may also view.
+ *  Every lookup is then scoped to the returned venueId — this router uses the
+ *  RLS-bypassing system connection, so the scoping must be explicit. */
+function assertCanManageStaff(auth: AuthContext, access: "view" | "edit"): number {
+  const isOwner = auth.ownerId !== undefined;
+  const role = auth.staffId !== undefined ? auth.role : undefined;
+  const allowed = isOwner || role === "admin" || (access === "view" && role === "manager");
+  if (!allowed) throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to manage staff" });
+  return auth.venueId;
 }
 
 export const staffAuthRouter = createRouter({
@@ -138,9 +156,8 @@ export const staffAuthRouter = createRouter({
   }),
 
   // ─── Enable / Disable 2FA ───
-  enable2FA: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
+  enable2FA: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const staffId = requireStaffId(ctx.auth);
     const db = getSystemDb();
     const [staff] = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
     if (!staff?.email) throw new TRPCError({ code: "BAD_REQUEST", message: "Add an email address before enabling 2FA" });
@@ -148,9 +165,8 @@ export const staffAuthRouter = createRouter({
     return { ok: true };
   }),
 
-  disable2FA: publicQuery.input(z.object({ token: z.string() })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
+  disable2FA: protectedProcedure.input(z.object({ token: z.string() })).mutation(async ({ ctx }) => {
+    const staffId = requireStaffId(ctx.auth);
     const db = getSystemDb();
     await db.update(staffAccounts).set({ twoFaEnabled: false }).where(eq(staffAccounts.id, staffId));
     return { ok: true };
@@ -243,16 +259,15 @@ export const staffAuthRouter = createRouter({
   }),
 
   // ─── Update my profile ───
-  updateMyProfile: publicQuery.input(z.object({
+  updateMyProfile: protectedProcedure.input(z.object({
     token: z.string(),
     name: z.string().optional(),
     email: z.string().email().optional(),
     phone: z.string().optional(),
     emergencyContact: z.string().optional(),
     emergencyPhone: z.string().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const staffId = requireStaffId(ctx.auth);
     const db = getSystemDb();
     const [staff] = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
     if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Staff not found" });
@@ -284,13 +299,12 @@ export const staffAuthRouter = createRouter({
   }),
 
   // ─── Change my password ───
-  changePassword: publicQuery.input(z.object({
+  changePassword: protectedProcedure.input(z.object({
     token: z.string(),
     currentPassword: z.string(),
     newPassword: z.string().min(6),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
+  })).mutation(async ({ input, ctx }) => {
+    const staffId = requireStaffId(ctx.auth);
     const allowed = checkRateLimit(`change-password:${staffId}`, 5, 15 * 60 * 1000);
     if (!allowed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please try again in 15 minutes." });
     const db = getSystemDb();
@@ -304,12 +318,9 @@ export const staffAuthRouter = createRouter({
   }),
 
   // ─── List staff (admin/manager) ───
-  list: publicQuery.input(z.object({ token: z.string() })).query(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
+  list: protectedProcedure.input(z.object({ token: z.string() })).query(async ({ ctx }) => {
+    const venueId = assertCanManageStaff(ctx.auth, "view");
     const db = getSystemDb();
-    const callerRole = payload.payload.role as string;
-    if (callerRole === "staff") throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
     const allStaff = await db.select().from(staffAccounts).where(eq(staffAccounts.venueId, venueId));
     return allStaff.map(s => ({
       id: s.id, name: s.name, username: s.username, role: s.role, isActive: s.isActive,
@@ -320,7 +331,7 @@ export const staffAuthRouter = createRouter({
   }),
 
   // ─── Create staff (admin only) ───
-  create: publicQuery.input(z.object({
+  create: protectedProcedure.input(z.object({
     token: z.string(),
     name: z.string().min(1),
     username: z.string().min(1),
@@ -330,11 +341,8 @@ export const staffAuthRouter = createRouter({
     phone: z.string().optional(),
     employmentType: z.enum(["full_time", "part_time", "casual"]).default("casual"),
     hourlyRate: z.number().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const venueId = payload.payload.venueId as number;
-    const callerRole = payload.payload.role as string;
-    if (callerRole !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = assertCanManageStaff(ctx.auth, "edit");
     const db = getSystemDb();
 
     const existing = await db.select().from(staffAccounts)
@@ -381,7 +389,7 @@ export const staffAuthRouter = createRouter({
   }),
 
   // ─── Update staff (admin only) ───
-  update: publicQuery.input(z.object({
+  update: protectedProcedure.input(z.object({
     token: z.string(),
     staffId: z.number().int().positive(),
     name: z.string().optional(),
@@ -391,10 +399,8 @@ export const staffAuthRouter = createRouter({
     phone: z.string().optional(),
     employmentType: z.enum(["full_time", "part_time", "casual"]).optional(),
     hourlyRate: z.number().optional(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const callerRole = payload.payload.role as string;
-    if (callerRole !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = assertCanManageStaff(ctx.auth, "edit");
     const db = getSystemDb();
     const updates: Record<string, any> = {};
     if (input.name !== undefined) updates.name = input.name;
@@ -405,48 +411,46 @@ export const staffAuthRouter = createRouter({
     if (input.employmentType !== undefined) updates.employmentType = input.employmentType;
     if (input.hourlyRate !== undefined) updates.hourlyRate = String(input.hourlyRate);
     if (Object.keys(updates).length > 0) {
-      await db.update(staffAccounts).set(updates).where(eq(staffAccounts.id, input.staffId));
+      await db.update(staffAccounts).set(updates)
+        .where(and(eq(staffAccounts.id, input.staffId), eq(staffAccounts.venueId, venueId)));
     }
     return { success: true };
   }),
 
   // ─── Set clock PIN ───
-  setClockPin: publicQuery.input(z.object({
+  setClockPin: protectedProcedure.input(z.object({
     token: z.string(),
     pin: z.string().regex(/^\d{4,8}$/, "PIN must be 4–8 digits"),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
+  })).mutation(async ({ input, ctx }) => {
+    const staffId = requireStaffId(ctx.auth);
     const db = getSystemDb();
     await db.update(staffAccounts).set({ clockPin: input.pin }).where(eq(staffAccounts.id, staffId));
     return { ok: true };
   }),
 
   // ─── Clear clock PIN ───
-  clearClockPin: publicQuery.input(z.object({
+  clearClockPin: protectedProcedure.input(z.object({
     token: z.string(),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const staffId = payload.payload.staffId as number;
-    if (!staffId) throw new TRPCError({ code: "UNAUTHORIZED" });
+  })).mutation(async ({ ctx }) => {
+    const staffId = requireStaffId(ctx.auth);
     const db = getSystemDb();
     await db.update(staffAccounts).set({ clockPin: null }).where(eq(staffAccounts.id, staffId));
     return { ok: true };
   }),
 
   // ─── Reset staff password (admin only) ───
-  resetPassword: publicQuery.input(z.object({
+  resetPassword: protectedProcedure.input(z.object({
     token: z.string(),
     staffId: z.number().int().positive(),
     newPassword: z.string().min(6),
-  })).mutation(async ({ input }) => {
-    const payload = await jwtVerify(input.token, JWT_SECRET, { clockTolerance: 60 });
-    const callerRole = payload.payload.role as string;
-    if (callerRole !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+  })).mutation(async ({ input, ctx }) => {
+    const venueId = assertCanManageStaff(ctx.auth, "edit");
     const db = getSystemDb();
     const passwordHash = await hash(input.newPassword, 10);
-    await db.update(staffAccounts).set({ passwordHash }).where(eq(staffAccounts.id, input.staffId));
+    const updated = await db.update(staffAccounts).set({ passwordHash })
+      .where(and(eq(staffAccounts.id, input.staffId), eq(staffAccounts.venueId, venueId)))
+      .returning({ id: staffAccounts.id });
+    if (!updated[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Staff member not found" });
     return { success: true };
   }),
 });
