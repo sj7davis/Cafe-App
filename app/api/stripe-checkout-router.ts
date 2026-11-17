@@ -423,6 +423,7 @@ export const stripeCheckoutRouter = createRouter({
         customerName: orders.customerName,
         customerPhone: orders.customerPhone,
         totalAmount: orders.totalAmount,
+        refundAmount: orders.refundAmount,
         stripeSessionId: orders.stripeSessionId,
         createdAt: orders.createdAt,
       })
@@ -469,29 +470,43 @@ export const stripeCheckoutRouter = createRouter({
       ? session.payment_intent
       : session.payment_intent.id;
 
-    // 4. Create refund via Stripe
-    const amountCents = input.amount !== undefined ? Math.round(input.amount * 100) : undefined;
+    // 4. Partial refunds accumulate; the order is "refunded" once fully paid back.
+    const totalCents = Math.round(Number(order.totalAmount) * 100);
+    const alreadyCents = Math.round(Number(order.refundAmount ?? 0) * 100);
+    const remainingCents = totalCents - alreadyCents;
+    const amountCents = input.amount !== undefined ? Math.round(input.amount * 100) : remainingCents;
+    if (amountCents <= 0 || amountCents > remainingCents) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: `You can refund up to $${(remainingCents / 100).toFixed(2)} on this order` });
+    }
+
+    // 5. On a Connect destination charge the money sits with the cafe, so pull
+    // the refund back from them (reverse_transfer) and return B1's fee on the
+    // refunded share. Without this every refund came out of B1's balance.
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const isDestinationCharge = !!paymentIntent.transfer_data?.destination;
     const refund = await stripe.refunds.create({
       payment_intent: paymentIntentId,
-      ...(amountCents !== undefined ? { amount: amountCents } : {}),
+      amount: amountCents,
       reason: input.reason,
+      ...(isDestinationCharge ? { reverse_transfer: true, refund_application_fee: true } : {}),
+    }, {
+      // A double-click can't refund twice.
+      idempotencyKey: `refund-${order.id}-${alreadyCents}-${amountCents}`,
     });
 
-    const refundedDollars = refund.amount / 100;
-
-    // 5. Update order with refund timestamp and amount
+    const newRefundedCents = alreadyCents + refund.amount;
     await db.update(orders)
       .set({
-        refundedAt: new Date(),
-        refundAmount: refundedDollars.toFixed(2),
+        refundAmount: (newRefundedCents / 100).toFixed(2),
+        ...(newRefundedCents >= totalCents ? { refundedAt: new Date() } : {}),
       })
-      .where(eq(orders.id, input.orderId));
+      .where(and(eq(orders.id, input.orderId), eq(orders.venueId, venueId)));
 
-    // 6. Return result
     return {
       success: true,
       refundId: refund.id,
-      amount: refundedDollars,
+      amount: refund.amount / 100,
+      remaining: (totalCents - newRefundedCents) / 100,
     };
   }),
 });
