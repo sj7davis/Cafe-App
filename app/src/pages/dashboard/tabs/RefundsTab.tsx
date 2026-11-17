@@ -33,9 +33,12 @@ export function RefundsTab() {
 
   const orderList = (orders ?? []) as any[];
 
+  // Partial refunds accumulate, so offer what's left rather than the full total.
+  const remainingOf = (order: any) => Math.max(0, parseFloat(order.totalAmount || 0) - parseFloat(order.refundAmount || 0));
+
   function openRefundForm(order: any) {
     setRefundingId(order.id);
-    setRefundAmount(order.totalAmount ? String(parseFloat(order.totalAmount).toFixed(2)) : '');
+    setRefundAmount(remainingOf(order).toFixed(2));
     setRefundMsg(null);
   }
 
@@ -105,6 +108,11 @@ export function RefundsTab() {
                       </td>
                       <td style={{ padding: '10px 10px', fontWeight: 600, color: 'var(--op-text)' }}>
                         ${parseFloat(order.totalAmount || 0).toFixed(2)}
+                        {parseFloat(order.refundAmount || 0) > 0 && (
+                          <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--op-text-secondary)' }}>
+                            ${parseFloat(order.refundAmount).toFixed(2)} refunded · ${remainingOf(order).toFixed(2)} left
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '10px 10px', color: 'var(--op-text-secondary)', fontFamily: 'Geist Mono', fontSize: 11 }}>
                         {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}
